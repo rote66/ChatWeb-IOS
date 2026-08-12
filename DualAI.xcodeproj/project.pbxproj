@@ -1,0 +1,372 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AB0000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000001 /* AppDelegate.swift */; };
+		AB0000000000000000000002 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000002 /* AppCoordinator.swift */; };
+		AB0000000000000000000003 /* RootViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000003 /* RootViewController.swift */; };
+		AB0000000000000000000004 /* ChatGPTWebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000004 /* ChatGPTWebViewController.swift */; };
+		AB0000000000000000000005 /* GeminiWebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000005 /* GeminiWebViewController.swift */; };
+		AB0000000000000000000006 /* NavigationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000006 /* NavigationPolicy.swift */; };
+		AB0000000000000000000007 /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000007 /* DownloadManager.swift */; };
+		AB0000000000000000000008 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000008 /* PermissionManager.swift */; };
+		AB0000000000000000000009 /* WebErrorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000009 /* WebErrorViewController.swift */; };
+		AB0000000000000000000010 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000010 /* NetworkMonitor.swift */; };
+		AB0000000000000000000011 /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000011 /* AppPreferences.swift */; };
+		AB0000000000000000000012 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000012 /* Assets.xcassets */; };
+		AB0000000000000000000014 /* NavigationPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000014 /* NavigationPolicyTests.swift */; };
+		AB0000000000000000000017 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000017 /* XCTest.framework */; };
+		AB0000000000000000000018 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000018 /* LaunchScreen.storyboard */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AC0000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 111111111111111111111111 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DD0000000000000000000001;
+			remoteInfo = DualAI;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		AA0000000000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		AA0000000000000000000002 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCoordinator.swift; sourceTree = "<group>"; };
+		AA0000000000000000000003 /* RootViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewController.swift; sourceTree = "<group>"; };
+		AA0000000000000000000004 /* ChatGPTWebViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTWebViewController.swift; sourceTree = "<group>"; };
+		AA0000000000000000000005 /* GeminiWebViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiWebViewController.swift; sourceTree = "<group>"; };
+		AA0000000000000000000006 /* NavigationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationPolicy.swift; sourceTree = "<group>"; };
+		AA0000000000000000000007 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
+		AA0000000000000000000008 /* PermissionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionManager.swift; sourceTree = "<group>"; };
+		AA0000000000000000000009 /* WebErrorViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebErrorViewController.swift; sourceTree = "<group>"; };
+		AA0000000000000000000010 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		AA0000000000000000000011 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
+		AA0000000000000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA0000000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA0000000000000000000014 /* NavigationPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationPolicyTests.swift; sourceTree = "<group>"; };
+		AA0000000000000000000015 /* DualAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000016 /* DualAITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualAITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000017 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
+		AA0000000000000000000018 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CC0000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC0000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (AB0000000000000000000017 /* XCTest.framework in Frameworks */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A00000000000000000000000 = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000000 /* DualAI */,
+				A20000000000000000000000 /* DualAITests */,
+				A40000000000000000000000 /* Frameworks */,
+				A30000000000000000000000 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000000 /* DualAI */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000001 /* AppDelegate.swift */,
+				AA0000000000000000000002 /* AppCoordinator.swift */,
+				AA0000000000000000000003 /* RootViewController.swift */,
+				AA0000000000000000000004 /* ChatGPTWebViewController.swift */,
+				AA0000000000000000000005 /* GeminiWebViewController.swift */,
+				AA0000000000000000000006 /* NavigationPolicy.swift */,
+				AA0000000000000000000007 /* DownloadManager.swift */,
+				AA0000000000000000000008 /* PermissionManager.swift */,
+				AA0000000000000000000009 /* WebErrorViewController.swift */,
+				AA0000000000000000000010 /* NetworkMonitor.swift */,
+				AA0000000000000000000011 /* AppPreferences.swift */,
+				AA0000000000000000000012 /* Assets.xcassets */,
+				AA0000000000000000000013 /* Info.plist */,
+				AA0000000000000000000018 /* LaunchScreen.storyboard */,
+			);
+			path = DualAI;
+			sourceTree = "<group>";
+		};
+		A20000000000000000000000 /* DualAITests */ = {
+			isa = PBXGroup;
+			children = (AA0000000000000000000014 /* NavigationPolicyTests.swift */,);
+			path = DualAITests;
+			sourceTree = "<group>";
+		};
+		A30000000000000000000000 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000015 /* DualAI.app */,
+				AA0000000000000000000016 /* DualAITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000000 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (AA0000000000000000000017 /* XCTest.framework */,);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		DD0000000000000000000001 /* DualAI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EE0000000000000000000002 /* Build configuration list for PBXNativeTarget "DualAI" */;
+			buildPhases = (
+				CC0000000000000000000001 /* Sources */,
+				CC0000000000000000000003 /* Frameworks */,
+				CC0000000000000000000002 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = DualAI;
+			productName = DualAI;
+			productReference = AA0000000000000000000015 /* DualAI.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DD0000000000000000000002 /* DualAITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EE0000000000000000000003 /* Build configuration list for PBXNativeTarget "DualAITests" */;
+			buildPhases = (
+				CC0000000000000000000004 /* Sources */,
+				CC0000000000000000000005 /* Frameworks */,
+			);
+			buildRules = ();
+			dependencies = (AD0000000000000000000001 /* PBXTargetDependency */,);
+			name = DualAITests;
+			productName = DualAITests;
+			productReference = AA0000000000000000000016 /* DualAITests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		111111111111111111111111 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					DD0000000000000000000001 = {CreatedOnToolsVersion = 26.6; };
+					DD0000000000000000000002 = {CreatedOnToolsVersion = 26.6; TestTargetID = DD0000000000000000000001; };
+				};
+			};
+			buildConfigurationList = EE0000000000000000000001 /* Build configuration list for PBXProject "DualAI" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = zh_CN;
+			hasScannedForEncodings = 0;
+			knownRegions = (Base, en, zh_CN,);
+			mainGroup = A00000000000000000000000;
+			productRefGroup = A30000000000000000000000 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DD0000000000000000000001 /* DualAI */,
+				DD0000000000000000000002 /* DualAITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CC0000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB0000000000000000000012 /* Assets.xcassets in Resources */,
+				AB0000000000000000000018 /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CC0000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AB0000000000000000000001 /* AppDelegate.swift in Sources */,
+				AB0000000000000000000002 /* AppCoordinator.swift in Sources */,
+				AB0000000000000000000003 /* RootViewController.swift in Sources */,
+				AB0000000000000000000004 /* ChatGPTWebViewController.swift in Sources */,
+				AB0000000000000000000005 /* GeminiWebViewController.swift in Sources */,
+				AB0000000000000000000006 /* NavigationPolicy.swift in Sources */,
+				AB0000000000000000000007 /* DownloadManager.swift in Sources */,
+				AB0000000000000000000008 /* PermissionManager.swift in Sources */,
+				AB0000000000000000000009 /* WebErrorViewController.swift in Sources */,
+				AB0000000000000000000010 /* NetworkMonitor.swift in Sources */,
+				AB0000000000000000000011 /* AppPreferences.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC0000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (AB0000000000000000000014 /* NavigationPolicyTests.swift in Sources */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AD0000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DD0000000000000000000001 /* DualAI */;
+			targetProxy = AC0000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FF0000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		FF0000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		FF0000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 16;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DualAI/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0.15;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.DualAI;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FF0000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 16;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DualAI/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0.15;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.DualAI;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FF0000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.DualAITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DualAI.app/DualAI";
+			};
+			name = Debug;
+		};
+		FF0000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.DualAITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DualAI.app/DualAI";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		EE0000000000000000000001 /* Build configuration list for PBXProject "DualAI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (FF0000000000000000000001 /* Debug */, FF0000000000000000000002 /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EE0000000000000000000002 /* Build configuration list for PBXNativeTarget "DualAI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (FF0000000000000000000003 /* Debug */, FF0000000000000000000004 /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EE0000000000000000000003 /* Build configuration list for PBXNativeTarget "DualAITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (FF0000000000000000000005 /* Debug */, FF0000000000000000000006 /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 111111111111111111111111 /* Project object */;
+}
