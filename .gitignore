@@ -6,3 +6,8 @@ xcuserdata/
 dist/
 /docs/
 *.log
+GeckoPrebuilt/Runtime/
+GeckoPrebuilt/include/
+GeckoPrebuilt/.extract.*/
+GeckoPrebuilt/.export.*/
+GeckoPrebuilt/*.tmp

@@ -17,9 +17,9 @@ for key in NSCameraUsageDescription NSMicrophoneUsageDescription NSPhotoLibraryU
     /usr/libexec/PlistBuddy -c "Print :$key" "$INFO_PLIST" >/dev/null 2>&1 || fail "Info.plist missing $key"
 done
 
-/usr/bin/grep -q 'IPHONEOS_DEPLOYMENT_TARGET = 14.0;' "$PROJECT_FILE" || fail "deployment target is not 14.0"
+/usr/bin/grep -q 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;' "$PROJECT_FILE" || fail "deployment target is not 13.0"
 
-SOURCE_MATCHES="$(/usr/bin/grep -R -n -E 'WKHTTPCookieStore|HTTPCookieStorage|customUserAgent|User-Agent|allowsAnyHTTPSCertificate|SecTrustEvaluate|setAllowsAnyHTTPSCertificate|dlopen\(|dlsym\(|platform-application|com\.apple\.private' "$PROJECT_ROOT/DualAI" --include='*.swift' --include='*.plist' || true)"
+SOURCE_MATCHES="$(/usr/bin/grep -R -n -E 'WKHTTPCookieStore|HTTPCookieStorage|customUserAgent|User-Agent|allowsAnyHTTPSCertificate|SecTrustEvaluate|setAllowsAnyHTTPSCertificate|dlopen\(|dlsym\(|ptrace\(|task_for_pid\(|platform-application|com\.apple\.private' "$PROJECT_ROOT/DualAI" "$PROJECT_ROOT/GeckoPrototype" --include='*.swift' --include='*.m' --include='*.mm' --include='*.h' --include='*.plist' || true)"
 [ -z "$SOURCE_MATCHES" ] || fail "forbidden API or entitlement marker found:\n$SOURCE_MATCHES"
 
 if /usr/bin/find "$PROJECT_ROOT" -path "$PROJECT_ROOT/build" -prune -o -name '*.entitlements' -print | /usr/bin/grep -q .; then
@@ -35,4 +35,4 @@ if [ "${1:-}" != "" ]; then
     fi
 fi
 
-echo "Static checks passed: permissions, iOS 14 target, cookie/security/private API markers, entitlements"
+echo "Static checks passed: permissions, iOS 13 target, cookie/security/private API markers, entitlements"

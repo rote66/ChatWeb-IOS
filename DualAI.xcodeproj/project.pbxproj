@@ -21,6 +21,14 @@
 		AB0000000000000000000014 /* NavigationPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000014 /* NavigationPolicyTests.swift */; };
 		AB0000000000000000000017 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000017 /* XCTest.framework */; };
 		AB0000000000000000000018 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000018 /* LaunchScreen.storyboard */; };
+		AB0000000000000000000019 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000019 /* SceneDelegate.swift */; };
+		AB0000000000000000000020 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000020 /* main.mm */; };
+		AB0000000000000000000021 /* GeminiGeckoCAPI.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000021 /* GeminiGeckoCAPI.mm */; };
+		AB0000000000000000000022 /* XUL in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* XUL */; };
+		AB0000000000000000000023 /* GeminiGeckoBridge.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000023 /* GeminiGeckoBridge.mm */; };
+		AB0000000000000000000024 /* WebEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000024 /* WebEngine.swift */; };
+		AB0000000000000000000025 /* GeckoEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000025 /* GeckoEngine.swift */; };
+		AB0000000000000000000026 /* GeminiGeckoEmbedding.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000026 /* GeminiGeckoEmbedding.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -52,13 +60,21 @@
 		AA0000000000000000000016 /* DualAITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualAITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000017 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		AA0000000000000000000018 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		AA0000000000000000000019 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		AA0000000000000000000020 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		AA0000000000000000000021 /* GeminiGeckoCAPI.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = GeckoPrototype/Bridge/GeminiGeckoCAPI.mm; sourceTree = SOURCE_ROOT; };
+		AA0000000000000000000022 /* XUL */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = GeckoPrebuilt/Runtime/XUL; sourceTree = SOURCE_ROOT; };
+		AA0000000000000000000023 /* GeminiGeckoBridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = GeckoPrototype/Bridge/GeminiGeckoBridge.mm; sourceTree = SOURCE_ROOT; };
+		AA0000000000000000000024 /* WebEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeckoPrototype/WebEngine.swift; sourceTree = SOURCE_ROOT; };
+		AA0000000000000000000025 /* GeckoEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeckoPrototype/GeckoEngine.swift; sourceTree = SOURCE_ROOT; };
+		AA0000000000000000000026 /* GeminiGeckoEmbedding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeckoPrototype/GeminiGeckoEmbedding.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		CC0000000000000000000003 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
-			files = ();
+			files = (AB0000000000000000000022 /* XUL in Frameworks */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		CC0000000000000000000005 /* Frameworks */ = {
@@ -97,6 +113,8 @@
 				AA0000000000000000000012 /* Assets.xcassets */,
 				AA0000000000000000000013 /* Info.plist */,
 				AA0000000000000000000018 /* LaunchScreen.storyboard */,
+				AA0000000000000000000019 /* SceneDelegate.swift */,
+				AA0000000000000000000020 /* main.mm */,
 			);
 			path = DualAI;
 			sourceTree = "<group>";
@@ -118,7 +136,15 @@
 		};
 		A40000000000000000000000 /* Frameworks */ = {
 			isa = PBXGroup;
-			children = (AA0000000000000000000017 /* XCTest.framework */,);
+			children = (
+				AA0000000000000000000017 /* XCTest.framework */,
+				AA0000000000000000000022 /* XUL */,
+				AA0000000000000000000021 /* GeminiGeckoCAPI.mm */,
+				AA0000000000000000000023 /* GeminiGeckoBridge.mm */,
+				AA0000000000000000000024 /* WebEngine.swift */,
+				AA0000000000000000000025 /* GeckoEngine.swift */,
+				AA0000000000000000000026 /* GeminiGeckoEmbedding.swift */,
+			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
@@ -129,6 +155,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = EE0000000000000000000002 /* Build configuration list for PBXNativeTarget "DualAI" */;
 			buildPhases = (
+				CC0000000000000000000006 /* Copy Gecko Runtime */,
 				CC0000000000000000000001 /* Sources */,
 				CC0000000000000000000003 /* Frameworks */,
 				CC0000000000000000000002 /* Resources */,
@@ -196,6 +223,20 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		CC0000000000000000000006 /* Copy Gecko Runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Copy Gecko Runtime";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nSTAGE=\"${PROJECT_DIR}/GeckoPrebuilt/Runtime\"\nFRAMEWORKS_DEST=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nRESOURCE_DEST=\"${FRAMEWORKS_DEST}/GeckoRuntime\"\nif [ ! -f \"${STAGE}/XUL\" ]; then\n  echo \"error: prebuilt Gecko runtime is missing; run scripts/prepare_gecko_prebuilt.sh first\" >&2\n  exit 1\nfi\nmkdir -p \"${FRAMEWORKS_DEST}\"\nrm -rf \"${RESOURCE_DEST}\"\nmkdir -p \"${RESOURCE_DEST}\"\nfor file in \"${STAGE}/XUL\" \"${STAGE}\"/*.dylib; do\n  [ -f \"${file}\" ] || continue\n  cp -f \"${file}\" \"${FRAMEWORKS_DEST}/\"\ndone\nrsync -a --delete --exclude 'XUL' --exclude '*.dylib' \"${STAGE}/\" \"${RESOURCE_DEST}/\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		CC0000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -212,6 +253,13 @@
 				AB0000000000000000000009 /* WebErrorViewController.swift in Sources */,
 				AB0000000000000000000010 /* NetworkMonitor.swift in Sources */,
 				AB0000000000000000000011 /* AppPreferences.swift in Sources */,
+				AB0000000000000000000019 /* SceneDelegate.swift in Sources */,
+				AB0000000000000000000020 /* main.mm in Sources */,
+				AB0000000000000000000021 /* GeminiGeckoCAPI.mm in Sources */,
+				AB0000000000000000000023 /* GeminiGeckoBridge.mm in Sources */,
+				AB0000000000000000000024 /* WebEngine.swift in Sources */,
+				AB0000000000000000000025 /* GeckoEngine.swift in Sources */,
+				AB0000000000000000000026 /* GeminiGeckoEmbedding.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -243,7 +291,7 @@
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -263,11 +311,12 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_OPTIMIZATION_LEVEL = "-Osize";
+				SWIFT_REFLECTION_METADATA_LEVEL = none;
 				SWIFT_VERSION = 5.0;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -280,9 +329,15 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/GeckoPrebuilt/include",
+					"$(PROJECT_DIR)/GeckoPrototype/Bridge",
+				);
 				INFOPLIST_FILE = DualAI/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0.15;
@@ -290,6 +345,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "DualAI/DualAI-Bridging-Header.h";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -302,9 +358,15 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/GeckoPrebuilt/include",
+					"$(PROJECT_DIR)/GeckoPrototype/Bridge",
+				);
 				INFOPLIST_FILE = DualAI/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0.15;
@@ -312,6 +374,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "DualAI/DualAI-Bridging-Header.h";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

@@ -1,0 +1,11 @@
+# GeminiGecko source lock
+
+FIREFOX_TAG=FIREFOX_153_0_4_RELEASE
+FIREFOX_COMMIT=c178247e1dfea52241a6b18b18cf3a00f8da935c
+REFERENCE_PATCHSET_COMMIT=a0794ff252c5c52040bb4f7419dba110233d4102
+CANONICAL_PATCH=DualAI-Gecko.patch
+CANONICAL_PATCH_SHA256=5dcd63e0d9731b2d38d1dae1265245f1c0d26da075142eb630097e7fe5602d43
+
+# The reference repository is an audit/input source only. The shipping project
+# does not embed its browser shell. DualAI-Gecko.patch is the single canonical
+# Firefox-source delta used for reproducible builds from FIREFOX_COMMIT.

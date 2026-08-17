@@ -1,0 +1,33 @@
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-gemini-gecko-ios-arm64
+
+ac_add_options --enable-application=mobile/ios
+ac_add_options --target=aarch64-apple-ios
+ac_add_options --enable-ios-target=13.0
+ac_add_options --disable-webrtc
+ac_add_options --disable-crashreporter
+ac_add_options --disable-printing
+ac_add_options --disable-backgroundtasks
+ac_add_options --disable-accessibility
+ac_add_options --disable-ffmpeg
+ac_add_options --disable-jxl
+# Optimize the Gecko/native side for binary size. SpiderMonkey is kept at -O3
+# by the iOS-specific js/moz.configure override in the project patchset.
+ac_add_options --enable-optimize=-Oz
+ac_add_options --enable-release
+ac_add_options --enable-rust-simd
+ac_add_options --enable-lto
+ac_add_options --disable-debug
+ac_add_options --disable-tests
+
+# Let the Mach-O linker discard unreferenced sections after LTO. This is
+# especially useful for the dedicated UIKit runtime because Firefox product
+# surfaces are intentionally omitted while the core Gecko libraries remain
+# large archives.
+export LDFLAGS="-Wl,-dead_strip -Wl,-no_function_starts"
+
+# SpiderMonkey JIT is intentionally not disabled. Production readiness requires
+# the iOS child process to report a working executable-memory/JIT path.
+
+# Phase-1 Gemini does not require camera/microphone/WebRTC. The pinned Firefox
+# 153 tree defines this switch in toolkit/moz.configure. The full WebRTC-enabled
+# baseline was built and measured before changing this option.
