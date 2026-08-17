@@ -1,6 +1,5 @@
 import UIKit
 
-@main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
     private var coordinator: AppCoordinator?
     var window: UIWindow?

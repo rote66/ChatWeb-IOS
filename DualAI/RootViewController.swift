@@ -107,27 +107,28 @@ final class RootViewController: UIViewController {
                          loginItem, flexible, share, flexible, safari, flexible, more]
     }
 
-    private func mount(_ controller: EmbeddedWebViewController) {
-        let needsParentAttachment = controller.parent == nil
+    private func mount(_ controller: WebContentController) {
+        let viewController = controller.viewController
+        let needsParentAttachment = viewController.parent == nil
         if needsParentAttachment {
-            addChild(controller)
+            addChild(viewController)
         }
-        guard controller.view.superview == nil else { return }
-        contentView.addSubview(controller.view)
-        controller.view.translatesAutoresizingMaskIntoConstraints = false
+        guard viewController.view.superview == nil else { return }
+        contentView.addSubview(viewController.view)
+        viewController.view.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            controller.view.topAnchor.constraint(equalTo: contentView.topAnchor),
-            controller.view.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            controller.view.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            controller.view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+            viewController.view.topAnchor.constraint(equalTo: contentView.topAnchor),
+            viewController.view.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            viewController.view.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            viewController.view.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
         ])
         if needsParentAttachment {
-            controller.didMove(toParent: self)
+            viewController.didMove(toParent: self)
         }
     }
 
-    private func unmount(_ controller: EmbeddedWebViewController) {
-        guard let controllerView = controller.viewIfLoaded,
+    private func unmount(_ controller: WebContentController) {
+        guard let controllerView = controller.viewController.viewIfLoaded,
               controllerView.superview === contentView else { return }
         controllerView.removeFromSuperview()
     }
@@ -148,7 +149,7 @@ final class RootViewController: UIViewController {
         WebService(rawValue: serviceControl.selectedSegmentIndex) ?? .chatGPT
     }
 
-    private var activeWebViewController: EmbeddedWebViewController {
+    private var activeWebViewController: WebContentController {
         switch selectedService {
         case .chatGPT: return chatGPTViewController
         case .gemini: return geminiViewController
@@ -156,8 +157,8 @@ final class RootViewController: UIViewController {
     }
 
     private func showService(_ service: WebService) {
-        let selectedController: EmbeddedWebViewController
-        let inactiveController: EmbeddedWebViewController
+        let selectedController: WebContentController
+        let inactiveController: WebContentController
         switch service {
         case .chatGPT:
             selectedController = chatGPTViewController
@@ -168,6 +169,8 @@ final class RootViewController: UIViewController {
         }
         unmount(inactiveController)
         mount(selectedController)
+        inactiveController.handleBackground()
+        selectedController.handleForeground()
         serviceControl.selectedSegmentIndex = service.rawValue
         preferences.lastService = service
         loginItem?.accessibilityLabel = service == .chatGPT ? "登录 ChatGPT" : "登录 Gemini"
@@ -215,11 +218,6 @@ final class RootViewController: UIViewController {
         sheet.addAction(UIAlertAction(title: "媒体兼容性", style: .default) { [weak controller] _ in
             controller?.showLegacyMediaCompatibilityNotice()
         })
-        if controller.service == .chatGPT {
-            sheet.addAction(UIAlertAction(title: "清除 ChatGPT 网站数据", style: .destructive) { [weak self] _ in
-                self?.confirmWebsiteDataClearFirstStep()
-            })
-        }
         sheet.addAction(UIAlertAction(title: "打开系统设置", style: .default) { _ in
             guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
             UIApplication.shared.open(url)
@@ -229,68 +227,25 @@ final class RootViewController: UIViewController {
         present(sheet, animated: true)
     }
 
-    private func confirmWebsiteDataClearFirstStep() {
-        let alert = UIAlertController(
-            title: "清除 ChatGPT 网站数据？",
-            message: "这会删除 ChatGPT/OpenAI 在 WebKit 中保存的登录和站点数据，不影响 Safari。",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        alert.addAction(UIAlertAction(title: "继续", style: .destructive) { [weak self] _ in
-            self?.confirmWebsiteDataClearSecondStep()
-        })
-        present(alert, animated: true)
-    }
-
-    private func confirmWebsiteDataClearSecondStep() {
-        let alert = UIAlertController(
-            title: "再次确认",
-            message: "清除后需要重新登录 ChatGPT。此操作无法撤销。",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "保留数据", style: .cancel))
-        alert.addAction(UIAlertAction(title: "确认清除", style: .destructive) { [weak self] _ in
-            guard let self = self else { return }
-            self.chatGPTViewController.clearChatGPTWebsiteData { [weak self] success in
-                guard let self = self else { return }
-                self.preferences.lastSafeChatGPTURL = nil
-                self.chatGPTViewController.loadHome()
-                let done = UIAlertController(
-                    title: success ? "已清除" : "未能清除",
-                    message: success ? "ChatGPT/OpenAI 网站数据已删除。" : "请稍后重试。",
-                    preferredStyle: .alert
-                )
-                done.addAction(UIAlertAction(title: "好", style: .default))
-                self.present(done, animated: true)
-            }
-        })
-        present(alert, animated: true)
-    }
 }
 
-extension RootViewController: EmbeddedWebViewControllerDelegate {
-    func embeddedWebViewController(_ controller: EmbeddedWebViewController,
-                                   didUpdate state: WebNavigationState) {
-        if controller === activeWebViewController {
+extension RootViewController: GeminiWebViewControllerDelegate {
+    func geminiWebViewController(_ controller: GeminiWebViewController,
+                                 didUpdate state: WebNavigationState) {
+        if controller === activeWebViewController.viewController {
             updateToolbar(with: state)
         }
     }
 
-    func embeddedWebViewController(_ controller: EmbeddedWebViewController,
-                                   requestsSafari url: URL) {
-        onSafariRequested?(url)
-    }
-
-    func embeddedWebViewController(_ controller: EmbeddedWebViewController,
-                                   didChangeConnectivity isOnline: Bool) {
+    func geminiWebViewController(_ controller: GeminiWebViewController,
+                                 didChangeConnectivity isOnline: Bool) {
         if controller.service == .chatGPT {
             chatGPTIsOnline = isOnline
         } else {
             geminiIsOnline = isOnline
         }
-        if controller === activeWebViewController {
+        if controller === activeWebViewController.viewController {
             updateConnectivity(isOnline: isOnline)
         }
     }
-
 }
