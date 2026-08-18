@@ -16,12 +16,14 @@ protocol WebContentController: AnyObject {
     func goBack()
     func goForward()
     func reload()
+    func reloadIgnoringCache()
     func loadHome()
-    func startLogin()
-    func showLegacyMediaCompatibilityNotice()
+    func openAccount()
     func handleForeground()
     func handleBackground()
     func releaseWebViewForMemoryPressureIfBackgrounded()
+    func clearCache(completion: @escaping (Bool) -> Void)
+    func clearCookies(completion: @escaping (Bool) -> Void)
 }
 
 /// ChatGPT uses the same Gecko controller implementation as Gemini. Keeping a

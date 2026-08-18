@@ -15,7 +15,7 @@ final class RootViewController: UIViewController {
     private var backItem: UIBarButtonItem!
     private var forwardItem: UIBarButtonItem!
     private var reloadItem: UIBarButtonItem!
-    private var loginItem: UIBarButtonItem!
+    private var accountItem: UIBarButtonItem!
     private var chatGPTIsOnline = true
     private var geminiIsOnline = true
 
@@ -98,13 +98,13 @@ final class RootViewController: UIViewController {
         backItem = makeItem(symbol: "chevron.backward", label: "后退", action: #selector(goBack))
         forwardItem = makeItem(symbol: "chevron.forward", label: "前进", action: #selector(goForward))
         reloadItem = makeItem(symbol: "arrow.clockwise", label: "刷新", action: #selector(reloadPage))
-        loginItem = makeItem(symbol: "person.crop.circle", label: "登录 ChatGPT", action: #selector(loginToCurrentService))
+        accountItem = makeItem(symbol: "person.crop.circle", label: "ChatGPT 账户", action: #selector(openCurrentAccount))
         let share = makeItem(symbol: "square.and.arrow.up", label: "分享当前页面", action: #selector(sharePage))
         let safari = makeItem(symbol: "safari", label: "在 Safari 中打开", action: #selector(openSafari))
         let more = makeItem(symbol: "ellipsis.circle", label: "更多操作", action: #selector(showMore))
         let flexible = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
         toolbar.items = [backItem, flexible, forwardItem, flexible, reloadItem, flexible,
-                         loginItem, flexible, share, flexible, safari, flexible, more]
+                         accountItem, flexible, share, flexible, safari, flexible, more]
     }
 
     private func mount(_ controller: WebContentController) {
@@ -173,7 +173,7 @@ final class RootViewController: UIViewController {
         selectedController.handleForeground()
         serviceControl.selectedSegmentIndex = service.rawValue
         preferences.lastService = service
-        loginItem?.accessibilityLabel = service == .chatGPT ? "登录 ChatGPT" : "登录 Gemini"
+        accountItem?.accessibilityLabel = service == .chatGPT ? "ChatGPT 账户" : "Gemini 账户"
         updateToolbar(with: activeWebViewController.navigationState)
         updateConnectivity(isOnline: service == .chatGPT ? chatGPTIsOnline : geminiIsOnline)
     }
@@ -193,7 +193,7 @@ final class RootViewController: UIViewController {
     @objc private func goForward() { activeWebViewController.goForward() }
     @objc private func reloadPage() { activeWebViewController.reload() }
     @objc private func goHome() { activeWebViewController.loadHome() }
-    @objc private func loginToCurrentService() { activeWebViewController.startLogin() }
+    @objc private func openCurrentAccount() { activeWebViewController.openAccount() }
 
     @objc private func sharePage() {
         let activity = UIActivityViewController(
@@ -215,16 +215,62 @@ final class RootViewController: UIViewController {
         sheet.addAction(UIAlertAction(title: "返回\(serviceName)首页", style: .default) { [weak controller] _ in
             controller?.loadHome()
         })
-        sheet.addAction(UIAlertAction(title: "媒体兼容性", style: .default) { [weak controller] _ in
-            controller?.showLegacyMediaCompatibilityNotice()
+        sheet.addAction(UIAlertAction(title: "清除缓存", style: .default) { [weak self, weak controller] _ in
+            controller?.clearCache { success in
+                guard let self, let controller else { return }
+                if success {
+                    NSLog("[GeminiGecko][Storage] cache clear accepted; bypass-cache reload")
+                    controller.reloadIgnoringCache()
+                } else {
+                    self.showStorageResult(title: "清除缓存", success: false)
+                }
+            }
         })
-        sheet.addAction(UIAlertAction(title: "打开系统设置", style: .default) { _ in
-            guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-            UIApplication.shared.open(url)
+        sheet.addAction(UIAlertAction(title: "清除 Cookie", style: .destructive) { [weak self, weak controller] _ in
+            guard let self, let controller else { return }
+            let confirm = UIAlertController(
+                title: "清除\(serviceName) Cookie？",
+                message: controller.service == .chatGPT
+                    ? "仅清除 ChatGPT（chatgpt.com）的 Cookie，不会清除 Gemini。"
+                    : "仅清除 Gemini/Google（google.com）的 Cookie，不会清除 ChatGPT；同一 Gecko 配置中的 Google 登录状态也会受到影响。",
+                preferredStyle: .alert
+            )
+            confirm.addAction(UIAlertAction(title: "取消", style: .cancel))
+            confirm.addAction(UIAlertAction(title: "清除", style: .destructive) { [weak self, weak controller] _ in
+                controller?.clearCookies { success in
+                    guard let self, let controller else { return }
+                    if success {
+                        NSLog("[GeminiGecko][Storage] scoped cookie clear accepted service=%@",
+                              controller.service == .chatGPT ? "ChatGPT" : "Gemini")
+                        // deleteDataFromSite is asynchronous inside Gecko. Its
+                        // callback is not reliable on the current UIKit bridge,
+                        // so give it a short head start before reloading. The
+                        // request itself is already dispatched synchronously.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak controller] in
+                            NSLog("[GeminiGecko][Storage] scoped cookie reload service=%@",
+                                  controller?.service == .chatGPT ? "ChatGPT" : "Gemini")
+                            controller?.reloadIgnoringCache()
+                        }
+                    } else {
+                        self.showStorageResult(title: "清除 Cookie", success: false)
+                    }
+                }
+            })
+            self.present(confirm, animated: true)
         })
         sheet.addAction(UIAlertAction(title: "取消", style: .cancel))
         sheet.popoverPresentationController?.barButtonItem = toolbar.items?.last
         present(sheet, animated: true)
+    }
+
+    private func showStorageResult(title: String, success: Bool) {
+        let alert = UIAlertController(
+            title: success ? "已完成" : "操作失败",
+            message: success ? "\(title)完成。" : "\(title)未完成，请稍后重试。",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "好", style: .default))
+        present(alert, animated: true)
     }
 
 }

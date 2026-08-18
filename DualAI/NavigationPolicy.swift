@@ -14,6 +14,7 @@ struct NavigationPolicy {
     static let chatGPTLoginURL = URL(string: "https://chatgpt.com/auth/login")!
     static let geminiHomeURL = URL(string: "https://gemini.google.com/app")!
     static let geminiLoginURL = URL(string: "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fgemini.google.com%2Fapp")!
+    static let geminiAccountURL = URL(string: "https://myaccount.google.com/")!
 
     let service: WebService
 
@@ -37,6 +38,13 @@ struct NavigationPolicy {
 
     init(service: WebService = .chatGPT) {
         self.service = service
+    }
+
+    var accountURL: URL {
+        switch service {
+        case .chatGPT: return Self.chatGPTLoginURL
+        case .gemini: return Self.geminiAccountURL
+        }
     }
 
     var homeURL: URL {
@@ -154,7 +162,7 @@ struct NavigationPolicy {
             return authenticationHosts.contains(host) ||
                 authenticationBaseDomains.contains { host == $0 || host.hasSuffix("." + $0) }
         case .gemini:
-            return host == "accounts.google.com"
+            return host == "accounts.google.com" || host == "myaccount.google.com"
         }
     }
 

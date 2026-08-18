@@ -25,6 +25,8 @@ class GeminiWebViewController: UIViewController, WebContentController {
     private let progressView = UIProgressView(progressViewStyle: .bar)
     private let containerView = UIView()
     private let statusLabel = UILabel()
+    private var containerBottomConstraint: NSLayoutConstraint?
+    private var keyboardObserverTokens: [NSObjectProtocol] = []
     private var didStart = false
     private var pendingInitialURL: URL?
     private var isLoading = false
@@ -42,6 +44,12 @@ class GeminiWebViewController: UIViewController, WebContentController {
         fatalError("init(coder:) has not been implemented")
     }
 
+    deinit {
+        for token in keyboardObserverTokens {
+            NotificationCenter.default.removeObserver(token)
+        }
+    }
+
     var viewController: UIViewController { self }
     var navigationState: WebNavigationState {
         WebNavigationState(canGoBack: engine.canGoBack,
@@ -55,6 +63,7 @@ class GeminiWebViewController: UIViewController, WebContentController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         configureViews()
+        configureKeyboardAvoidance()
         configureGeckoProgress()
         configureNetworkMonitor()
         startIfNeededAndLoad(policy.homeURL)
@@ -86,6 +95,8 @@ class GeminiWebViewController: UIViewController, WebContentController {
         view.addSubview(progressView)
         view.addSubview(containerView)
         view.addSubview(statusLabel)
+        let bottomConstraint = containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        containerBottomConstraint = bottomConstraint
         NSLayoutConstraint.activate([
             progressView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             progressView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -93,12 +104,71 @@ class GeminiWebViewController: UIViewController, WebContentController {
             containerView.topAnchor.constraint(equalTo: progressView.bottomAnchor),
             containerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             containerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            containerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            bottomConstraint,
             statusLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             statusLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             statusLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
             statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24),
         ])
+    }
+
+    private func configureKeyboardAvoidance() {
+        let center = NotificationCenter.default
+        keyboardObserverTokens.append(center.addObserver(
+            forName: UIResponder.keyboardWillChangeFrameNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.updateForKeyboard(notification, hiding: false)
+        })
+        keyboardObserverTokens.append(center.addObserver(
+            forName: UIResponder.keyboardWillHideNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.updateForKeyboard(notification, hiding: true)
+        })
+    }
+
+    private func updateForKeyboard(_ notification: Notification, hiding: Bool) {
+        guard isViewLoaded,
+              let bottomConstraint = containerBottomConstraint,
+              let window = view.window else { return }
+
+        let userInfo = notification.userInfo ?? [:]
+        let screenEndFrame = (userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue ?? .zero
+        let windowEndFrame = window.convert(screenEndFrame, from: window.screen.coordinateSpace)
+        let localEndFrame = view.convert(windowEndFrame, from: window)
+        let intersection = view.bounds.intersection(localEndFrame)
+        let overlap = hiding || intersection.isNull ? 0 : max(0, intersection.height)
+
+        bottomConstraint.constant = -overlap
+
+        let duration = (userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
+        let rawCurve = (userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.uintValue ?? 7
+        let options = UIView.AnimationOptions(rawValue: rawCurve << 16)
+
+        NSLog("[GeminiGecko][Keyboard] hiding=%d screen=%@ local=%@ overlap=%.1f view=%@",
+              hiding ? 1 : 0,
+              NSCoder.string(for: screenEndFrame),
+              NSCoder.string(for: localEndFrame),
+              overlap,
+              NSCoder.string(for: view.bounds))
+
+        UIView.animate(withDuration: duration,
+                       delay: 0,
+                       options: [options, .beginFromCurrentState, .allowUserInteraction],
+                       animations: {
+                           self.view.layoutIfNeeded()
+                           self.engine.view.setNeedsLayout()
+                           self.engine.view.layoutIfNeeded()
+                       },
+                       completion: { _ in
+                           NSLog("[GeminiGecko][Keyboard] applied overlap=%.1f container=%@ gecko=%@",
+                                 overlap,
+                                 NSCoder.string(for: self.containerView.bounds),
+                                 NSCoder.string(for: self.engine.view.bounds))
+                       })
     }
 
     private func configureGeckoProgress() {
@@ -224,8 +294,17 @@ class GeminiWebViewController: UIViewController, WebContentController {
         beginLoadingUI()
         engine.reload()
     }
+
+    func reloadIgnoringCache() {
+        if pendingInitialURL != nil {
+            loadPendingInitialURLIfReady()
+            return
+        }
+        beginLoadingUI()
+        engine.reloadIgnoringCache()
+    }
     func loadHome() { startIfNeededAndLoad(policy.homeURL) }
-    func startLogin() { startIfNeededAndLoad(policy.loginURL) }
+    func openAccount() { startIfNeededAndLoad(policy.accountURL) }
 
     func handleForeground() {
         isBackgrounded = false
@@ -246,13 +325,15 @@ class GeminiWebViewController: UIViewController, WebContentController {
         // recreated like WKWebView. Keep the session alive to preserve login.
     }
 
-    func showLegacyMediaCompatibilityNotice() {
-        let alert = UIAlertController(
-            title: "Gecko 媒体兼容性",
-            message: "文件上传使用 iOS 文件选择器；麦克风和摄像头继续经过 iOS 系统权限。实时通话类 WebRTC 功能仍可能受当前精简构建限制。",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "好", style: .default))
-        present(alert, animated: true)
+    func clearCache(completion: @escaping (Bool) -> Void) {
+        engine.clearCache(completion: completion)
     }
+
+    func clearCookies(completion: @escaping (Bool) -> Void) {
+        let baseDomain = service == .chatGPT ? "chatgpt.com" : "google.com"
+        NSLog("[GeminiGecko][Storage] service=%@ cookie-base-domain=%@",
+              service == .chatGPT ? "ChatGPT" : "Gemini", baseDomain)
+        engine.clearCookies(baseDomain: baseDomain, completion: completion)
+    }
+
 }
