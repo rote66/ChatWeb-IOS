@@ -31,6 +31,14 @@ typedef enum GGGeckoJITState {
     GGGeckoJITStateFailed = 3,
 } GGGeckoJITState;
 
+typedef enum GGGeckoClearDataFlags {
+    GGGeckoClearDataCookies = 1u << 0,
+    GGGeckoClearDataNetworkCache = 1u << 1,
+    GGGeckoClearDataImageCache = 1u << 2,
+} GGGeckoClearDataFlags;
+
+typedef void (*GGGeckoOperationCallback)(void *context, bool success);
+
 typedef struct GGGeckoRuntimeOptions {
     const char *profile_path_utf8;
     GGGeckoJITMode jit_mode;
@@ -81,6 +89,7 @@ void *GGGeckoSessionGetNativeView(GGGeckoSession *session);
 GGGeckoResult GGGeckoSessionLoadURL(GGGeckoSession *session,
                                     const char *url_utf8);
 void GGGeckoSessionReload(GGGeckoSession *session);
+void GGGeckoSessionReloadIgnoringCache(GGGeckoSession *session);
 void GGGeckoSessionStop(GGGeckoSession *session);
 void GGGeckoSessionGoBack(GGGeckoSession *session);
 void GGGeckoSessionGoForward(GGGeckoSession *session);
@@ -88,8 +97,17 @@ bool GGGeckoSessionCanGoBack(GGGeckoSession *session);
 bool GGGeckoSessionCanGoForward(GGGeckoSession *session);
 void GGGeckoSessionSetActive(GGGeckoSession *session, bool active);
 void GGGeckoSessionSetFocused(GGGeckoSession *session, bool focused);
+void GGGeckoRuntimeSetLocales(GGGeckoRuntime *runtime,
+                              const char *locales_csv_utf8);
 void GGGeckoRuntimeEnterBackground(GGGeckoRuntime *runtime);
 void GGGeckoRuntimeEnterForeground(GGGeckoRuntime *runtime);
+GGGeckoResult GGGeckoRuntimeClearData(GGGeckoRuntime *runtime,
+                                      uint32_t flags,
+                                      void *context,
+                                      GGGeckoOperationCallback callback);
+GGGeckoResult GGGeckoRuntimeClearBaseDomainData(GGGeckoRuntime *runtime,
+                                                const char *base_domain_utf8,
+                                                uint32_t flags);
 
 #ifdef __cplusplus
 }

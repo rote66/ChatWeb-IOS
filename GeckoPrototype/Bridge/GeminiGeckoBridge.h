@@ -34,13 +34,18 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
           error:(NSError * _Nullable * _Nullable)error
     NS_SWIFT_NAME(load(url:));
 - (void)reload;
+- (void)reloadIgnoringCache;
 - (void)stopLoading;
 - (void)goBack;
 - (void)goForward;
 - (void)setActive:(BOOL)active;
 - (void)setFocused:(BOOL)focused;
+- (void)setRequestedLocales:(NSArray<NSString *> *)locales;
 - (void)enterBackground;
 - (void)enterForeground;
+- (void)clearCacheWithCompletion:(void (^)(BOOL success))completion;
+- (void)clearCookiesForBaseDomain:(NSString *)baseDomain
+                       completion:(void (^)(BOOL success))completion;
 - (void)close;
 
 @end

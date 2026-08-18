@@ -28,6 +28,33 @@ struct GGGeckoSession;
                                                           NSDictionary * _Nullable message,
                                                           id<EventCallback> _Nullable callback);
 - (void)sendToGecko:(NSString *)type message:(NSDictionary * _Nullable)message;
+- (void)sendToGecko:(NSString *)type
+             message:(NSDictionary * _Nullable)message
+            callback:(id<EventCallback> _Nullable)callback;
+@end
+
+@interface GGBlockEventCallback : NSObject <EventCallback>
+@property(nonatomic, copy, nullable) void (^completion)(BOOL success);
+@end
+
+@implementation GGBlockEventCallback
+- (void)sendSuccess:(id)response {
+    (void)response;
+    if (self.completion) {
+        NSLog(@"[GeminiGecko][Storage] clear-data callback success");
+        self.completion(YES);
+        self.completion = nil;
+    }
+}
+- (void)sendError:(id)response {
+    (void)response;
+    if (self.completion) {
+        NSLog(@"[GeminiGecko][Storage] clear-data callback error=%@",
+              response ?: @"(none)");
+        self.completion(NO);
+        self.completion = nil;
+    }
+}
 @end
 
 @interface GGDocumentPickerCallbackDelegate
@@ -241,6 +268,8 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
             NSString *type = entry[@"type"];
             id value = entry[@"message"];
             NSDictionary *message = value == NSNull.null ? nil : value;
+            id callbackValue = entry[@"callback"];
+            id<EventCallback> callback = callbackValue == NSNull.null ? nil : callbackValue;
             BOOL hasListener = [self.gecko hasListener:type];
 
             if (hasListener) {
@@ -249,7 +278,7 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
                     NSLog(@"[GeminiGecko][Nav] drain %@ listener=1 uri=%@",
                           type, message[@"uri"] ?: @"(none)");
                 }
-                [self.gecko dispatchToGecko:type message:message callback:nil];
+                [self.gecko dispatchToGecko:type message:message callback:callback];
             } else {
                 [self->_pending addObject:entry];
             }
@@ -327,6 +356,35 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
                   dictionary[@"hidden"] ?: @"(none)",
                   dictionary[@"error"] ?: @"(none)");
         }
+        if ([dictionary[@"stage"] hasPrefix:@"picker-"]) {
+            NSLog(@"[GeminiGecko][PickerDiag] stage=%@ ready=%@ title=%@ bodyChildren=%@ bodyText=%@ html=%@x%@ display=%@ visibility=%@ opacity=%@ scripts=%@ styles=%@ resources=%@ urls=%@ error=%@",
+                  dictionary[@"stage"] ?: @"(none)",
+                  dictionary[@"readyState"] ?: @"(none)",
+                  dictionary[@"title"] ?: @"(none)",
+                  dictionary[@"bodyChildren"] ?: @"(none)",
+                  dictionary[@"bodyTextLength"] ?: @"(none)",
+                  dictionary[@"htmlWidth"] ?: @"(none)",
+                  dictionary[@"htmlHeight"] ?: @"(none)",
+                  dictionary[@"display"] ?: @"(none)",
+                  dictionary[@"visibility"] ?: @"(none)",
+                  dictionary[@"opacity"] ?: @"(none)",
+                  dictionary[@"scriptCount"] ?: @"(none)",
+                  dictionary[@"styleSheetCount"] ?: @"(none)",
+                  dictionary[@"resourceCount"] ?: @"(none)",
+                  dictionary[@"resources"] ?: @"(none)",
+                  dictionary[@"error"] ?: @"(none)");
+            NSLog(@"[GeminiGecko][PickerDiag] structure stage=%@ children=%@ frames=%@ scripts=%@ styles=%@ windowName=%@ parentIsSelf=%@ topIsSelf=%@ frameElement=%@ bodyHTML=%@",
+                  dictionary[@"stage"] ?: @"(none)",
+                  dictionary[@"childSummary"] ?: @"(none)",
+                  dictionary[@"frameSummary"] ?: @"(none)",
+                  dictionary[@"scriptSummary"] ?: @"(none)",
+                  dictionary[@"styleSummary"] ?: @"(none)",
+                  dictionary[@"windowName"] ?: @"(none)",
+                  dictionary[@"parentIsSelf"] ?: @"(none)",
+                  dictionary[@"topIsSelf"] ?: @"(none)",
+                  dictionary[@"frameElementTag"] ?: @"(none)",
+                  dictionary[@"bodyHTMLSample"] ?: @"(none)");
+        }
     }
     id result = self.messageHandler ? self.messageHandler(type, dictionary, callback) : nil;
     if (callback) {
@@ -335,6 +393,12 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
 }
 
 - (void)sendToGecko:(NSString *)type message:(NSDictionary *)message {
+    [self sendToGecko:type message:message callback:nil];
+}
+
+- (void)sendToGecko:(NSString *)type
+             message:(NSDictionary *)message
+            callback:(id<EventCallback>)callback {
     if (!type.length) { return; }
     BOOL hasListener = self.gecko ? [self.gecko hasListener:type] : NO;
     if ([type isEqualToString:@"GeckoView:LoadUri"] ||
@@ -344,12 +408,14 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
               message[@"uri"] ?: @"(none)");
     }
     if (self.active && self.gecko && hasListener) {
-        [self.gecko dispatchToGecko:type message:message callback:nil];
+        [self.gecko dispatchToGecko:type message:message callback:callback];
         return;
     }
+    id callbackEntry = callback ? (id)callback : (id)NSNull.null;
     [_pending addObject:@{
         @"type": type,
         @"message": message ?: NSNull.null,
+        @"callback": callbackEntry,
     }];
     if (self.active) {
         [self schedulePendingDrain];
@@ -640,6 +706,31 @@ GGGeckoResult GGGeckoRuntimeCreate(const GGGeckoRuntimeOptions *options,
     return GGGeckoResultOK;
 }
 
+GGGeckoResult GGGeckoRuntimeClearBaseDomainData(GGGeckoRuntime *runtime,
+                                                const char *base_domain_utf8,
+                                                uint32_t flags) {
+    if (!runtime || !runtime->adapter || !base_domain_utf8 || flags == 0) {
+        return GGGeckoResultInvalidArgument;
+    }
+    NSString *baseDomain = [NSString stringWithUTF8String:base_domain_utf8];
+    if (!baseDomain.length) {
+        return GGGeckoResultInvalidArgument;
+    }
+
+    // GeckoViewStorageController currently expects a non-null callback even
+    // though UIKit's async callback bridge is not yet reliable for these
+    // Promise-backed clear-data operations. Keep a no-op callback attached so
+    // the Gecko handler can safely call onSuccess after deletion finishes.
+    GGBlockEventCallback *eventCallback = [[GGBlockEventCallback alloc] init];
+    NSLog(@"[GeminiGecko][Storage] clear-base-domain base=%@ flags=0x%x",
+          baseDomain, flags);
+    [runtime->adapter.runtimeDispatcherImpl
+        sendToGecko:@"GeckoView:ClearBaseDomainData"
+             message:@{ @"baseDomain": baseDomain, @"flags": @(flags) }
+            callback:eventCallback];
+    return GGGeckoResultOK;
+}
+
 void GGGeckoRuntimeDestroy(GGGeckoRuntime *runtime) {
     delete runtime;
 }
@@ -879,6 +970,12 @@ void GGGeckoSessionReload(GGGeckoSession *session) {
     [session->dispatcher sendToGecko:@"GeckoView:Reload" message:@{ @"flags": @0 }];
 }
 
+void GGGeckoSessionReloadIgnoringCache(GGGeckoSession *session) {
+    if (!session) { return; }
+    NSLog(@"[GeminiGecko][Nav] reload bypass-cache=1");
+    [session->dispatcher sendToGecko:@"GeckoView:Reload" message:@{ @"flags": @1 }];
+}
+
 void GGGeckoSessionStop(GGGeckoSession *session) {
     [session->dispatcher sendToGecko:@"GeckoView:Stop" message:nil];
 }
@@ -913,6 +1010,32 @@ void GGGeckoSessionSetFocused(GGGeckoSession *session, bool focused) {
                              message:@{ @"focused": @(focused) }];
 }
 
+void GGGeckoRuntimeSetLocales(GGGeckoRuntime *runtime,
+                              const char *locales_csv_utf8) {
+    if (!runtime || !runtime->adapter || !locales_csv_utf8) { return; }
+    NSString *csv = [NSString stringWithUTF8String:locales_csv_utf8];
+    if (!csv.length) { return; }
+
+    NSMutableArray<NSString *> *locales = [NSMutableArray array];
+    for (NSString *candidate in [csv componentsSeparatedByString:@","]) {
+        NSString *locale = [candidate stringByTrimmingCharactersInSet:
+            NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        if (locale.length && ![locales containsObject:locale]) {
+            [locales addObject:locale];
+        }
+    }
+    if (!locales.count) { return; }
+
+    NSString *acceptLanguages = [locales componentsJoinedByString:@","];
+    NSLog(@"[GeminiGecko][Locale] requested=%@ accept=%@", locales, acceptLanguages);
+    [runtime->adapter.runtimeDispatcherImpl
+        sendToGecko:@"GeckoView:SetLocale"
+             message:@{
+        @"requestedLocales": locales,
+        @"acceptLanguages": acceptLanguages,
+    }];
+}
+
 void GGGeckoRuntimeEnterBackground(GGGeckoRuntime *runtime) {
     (void)runtime;
     // Gecko's AppShellDelegate owns process-wide UIKit lifecycle forwarding.
@@ -921,4 +1044,27 @@ void GGGeckoRuntimeEnterBackground(GGGeckoRuntime *runtime) {
 void GGGeckoRuntimeEnterForeground(GGGeckoRuntime *runtime) {
     (void)runtime;
     // Gecko's AppShellDelegate owns process-wide UIKit lifecycle forwarding.
+}
+
+GGGeckoResult GGGeckoRuntimeClearData(GGGeckoRuntime *runtime,
+                                      uint32_t flags,
+                                      void *context,
+                                      GGGeckoOperationCallback callback) {
+    if (!runtime || !runtime->adapter || flags == 0) {
+        return GGGeckoResultInvalidArgument;
+    }
+
+    GGBlockEventCallback *eventCallback = [[GGBlockEventCallback alloc] init];
+    if (callback) {
+        eventCallback.completion = ^(BOOL success) {
+            callback(context, success);
+        };
+    }
+
+    NSLog(@"[GeminiGecko][Storage] clear-data flags=0x%x", flags);
+    [runtime->adapter.runtimeDispatcherImpl
+        sendToGecko:@"GeckoView:ClearData"
+             message:@{ @"flags": @(flags) }
+            callback:eventCallback];
+    return GGGeckoResultOK;
 }

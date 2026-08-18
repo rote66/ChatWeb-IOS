@@ -36,6 +36,12 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
             rawValue: jitPolicy == .required ? 1 : 0
         )!
         try bridge.start(profileDirectory: profileDirectory, jitPolicy: objcPolicy)
+        let preferredLanguages = Locale.preferredLanguages
+        let rawLocales = preferredLanguages.isEmpty
+            ? [Locale.current.identifier.replacingOccurrences(of: "_", with: "-")]
+            : preferredLanguages
+        let requestedLocales = Self.normalizedRequestedLocales(rawLocales)
+        bridge.setRequestedLocales(requestedLocales)
         // Required means this state is a production acceptance gate, not that
         // diagnostic startup must abort. The Gecko-side fallback deliberately
         // keeps the browser usable without JIT so we can report/measure the
@@ -47,12 +53,39 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
     }
 
     func reload() { bridge.reload() }
+    func reloadIgnoringCache() { bridge.reloadIgnoringCache() }
     func stopLoading() { bridge.stopLoading() }
     func goBack() { bridge.goBack() }
     func goForward() { bridge.goForward() }
     func setActive(_ active: Bool) { bridge.setActive(active) }
     func setFocused(_ focused: Bool) { bridge.setFocused(focused) }
+    func setRequestedLocales(_ locales: [String]) { bridge.setRequestedLocales(locales) }
+
+    private static func normalizedRequestedLocales(_ locales: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for identifier in locales {
+            let locale = Locale(identifier: identifier.replacingOccurrences(of: "-", with: "_"))
+            guard let language = locale.languageCode, !language.isEmpty else { continue }
+            let normalized: String
+            if let region = locale.regionCode, !region.isEmpty {
+                normalized = "\(language)-\(region)"
+            } else {
+                normalized = language
+            }
+            let key = normalized.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            result.append(normalized)
+        }
+        return result.isEmpty ? ["en-US"] : result
+    }
     func enterBackground() { bridge.enterBackground() }
     func enterForeground() { bridge.enterForeground() }
+    func clearCache(completion: @escaping (Bool) -> Void) {
+        bridge.clearCache(completion: completion)
+    }
+    func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void) {
+        bridge.clearCookies(forBaseDomain: baseDomain, completion: completion)
+    }
     func close() { bridge.close() }
 }

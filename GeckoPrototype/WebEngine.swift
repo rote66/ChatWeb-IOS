@@ -8,6 +8,7 @@ protocol WebEngine: AnyObject {
 
     func load(_ url: URL)
     func reload()
+    func reloadIgnoringCache()
     func stopLoading()
     func goBack()
     func goForward()

@@ -13,13 +13,17 @@ protocol GeckoEmbedding: AnyObject {
     func start(profileDirectory: URL, jitPolicy: GeckoJITPolicy) throws
     func load(_ url: URL) throws
     func reload()
+    func reloadIgnoringCache()
     func stopLoading()
     func goBack()
     func goForward()
     func setActive(_ active: Bool)
     func setFocused(_ focused: Bool)
+    func setRequestedLocales(_ locales: [String])
     func enterBackground()
     func enterForeground()
+    func clearCache(completion: @escaping (Bool) -> Void)
+    func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void)
     func close()
 }
 
@@ -85,13 +89,21 @@ final class GeckoEngine: WebEngine {
     }
 
     func reload() { embedding.reload() }
+    func reloadIgnoringCache() { embedding.reloadIgnoringCache() }
     func stopLoading() { embedding.stopLoading() }
     func goBack() { embedding.goBack() }
     func goForward() { embedding.goForward() }
     func setActive(_ active: Bool) { embedding.setActive(active) }
     func setFocused(_ focused: Bool) { embedding.setFocused(focused) }
+    func setRequestedLocales(_ locales: [String]) { embedding.setRequestedLocales(locales) }
     func applicationDidEnterBackground() { embedding.enterBackground() }
     func applicationWillEnterForeground() { embedding.enterForeground() }
+    func clearCache(completion: @escaping (Bool) -> Void) {
+        embedding.clearCache(completion: completion)
+    }
+    func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void) {
+        embedding.clearCookies(baseDomain: baseDomain, completion: completion)
+    }
 
     func close() {
         guard !isClosed else { return }

@@ -60,6 +60,24 @@ static void GGDidChangeJITState(void *context,
     [bridge handleJITState:(GeminiGeckoJITState)state reason:(NSInteger)reason];
 }
 
+@interface GGClearDataCompletionBox : NSObject
+@property(nonatomic, copy) void (^completion)(BOOL success);
+@end
+
+
+@implementation GGClearDataCompletionBox
+@end
+
+
+static void GGClearDataDidFinish(void *context, bool success) {
+    GGClearDataCompletionBox *box = (__bridge_transfer GGClearDataCompletionBox *)context;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (box.completion) {
+            box.completion(success);
+        }
+    });
+}
+
 @implementation GeminiGeckoBridge
 
 - (void)handleCommittedURLString:(NSString *)value {
@@ -168,13 +186,49 @@ static void GGDidChangeJITState(void *context,
 }
 
 - (void)reload { if (_session) GGGeckoSessionReload(_session); }
+- (void)reloadIgnoringCache { if (_session) GGGeckoSessionReloadIgnoringCache(_session); }
 - (void)stopLoading { if (_session) GGGeckoSessionStop(_session); }
 - (void)goBack { if (_session) GGGeckoSessionGoBack(_session); }
 - (void)goForward { if (_session) GGGeckoSessionGoForward(_session); }
 - (void)setActive:(BOOL)active { if (_session) GGGeckoSessionSetActive(_session, active); }
 - (void)setFocused:(BOOL)focused { if (_session) GGGeckoSessionSetFocused(_session, focused); }
+- (void)setRequestedLocales:(NSArray<NSString *> *)locales {
+    if (!_runtime || locales.count == 0) { return; }
+    NSString *csv = [locales componentsJoinedByString:@","];
+    GGGeckoRuntimeSetLocales(_runtime, csv.UTF8String);
+}
 - (void)enterBackground { if (_runtime) GGGeckoRuntimeEnterBackground(_runtime); }
 - (void)enterForeground { if (_runtime) GGGeckoRuntimeEnterForeground(_runtime); }
+
+- (void)clearCacheWithCompletion:(void (^)(BOOL))completion {
+    if (!_runtime) {
+        if (completion) { completion(NO); }
+        return;
+    }
+    uint32_t flags = GGGeckoClearDataNetworkCache | GGGeckoClearDataImageCache;
+    GGGeckoResult result = GGGeckoRuntimeClearData(_runtime,
+                                                   flags,
+                                                   nullptr,
+                                                   nullptr);
+    // Treat completion here as "request accepted". The UIKit async callback
+    // bridge does not currently propagate Promise-backed ClearData completion
+    // reliably, so callers use a bypass-cache reload as the visible/effective
+    // completion path.
+    if (completion) { completion(result == GGGeckoResultOK); }
+}
+
+- (void)clearCookiesForBaseDomain:(NSString *)baseDomain
+                       completion:(void (^)(BOOL))completion {
+    if (!_runtime) {
+        if (completion) { completion(NO); }
+        return;
+    }
+    GGGeckoResult result = GGGeckoRuntimeClearBaseDomainData(
+        _runtime,
+        baseDomain.UTF8String,
+        GGGeckoClearDataCookies);
+    if (completion) { completion(result == GGGeckoResultOK); }
+}
 
 - (void)close {
     NSAssert(NSThread.isMainThread, @"Gecko bridge must close on the main thread");
