@@ -154,7 +154,550 @@ focus_replacement = '''      case "GeckoView:SetFocused":\n        if (aData.foc
 if focus_block not in content_text:
     fail("unable to locate GeckoViewContent SetFocused block")
 content_text = content_text.replace(focus_block, focus_replacement, 1)
+
+# The Gemini "Google 相册" entry is a cross-origin Google Picker document,
+# not the native nsIFilePicker path.  On UIKit it can currently create its
+# bottom sheet while rendering a blank body.  Observe only that picker document
+# in the staged GeckoView chrome module and report DOM/resource/JS state over
+# the existing host-visible NavTrace bridge.  Keeping this in staged resources
+# avoids baking temporary diagnostics into XUL.
+picker_enable = '''    Services.obs.addObserver(this, "oop-frameloader-crashed");\n    Services.obs.addObserver(this, "ipc:content-shutdown");\n'''
+picker_enable_replacement = '''    Services.obs.addObserver(this, "oop-frameloader-crashed");\n    Services.obs.addObserver(this, "ipc:content-shutdown");\n    Services.obs.addObserver(this, "document-element-inserted");\n'''
+if picker_enable not in content_text:
+    fail("unable to locate GeckoViewContent observer enable block")
+content_text = content_text.replace(
+    picker_enable, picker_enable_replacement, 1
+)
+
+picker_disable = '''    Services.obs.removeObserver(this, "oop-frameloader-crashed");\n    Services.obs.removeObserver(this, "ipc:content-shutdown");\n'''
+picker_disable_replacement = '''    Services.obs.removeObserver(this, "oop-frameloader-crashed");\n    Services.obs.removeObserver(this, "ipc:content-shutdown");\n    Services.obs.removeObserver(this, "document-element-inserted");\n'''
+if picker_disable not in content_text:
+    fail("unable to locate GeckoViewContent observer disable block")
+content_text = content_text.replace(
+    picker_disable, picker_disable_replacement, 1
+)
+
+observer_header = '''  observe(aSubject, aTopic) {\n    debug`observe: ${aTopic}`;\n    this._contentCrashed = false;\n    const browser = aSubject.ownerElement;\n\n    switch (aTopic) {\n'''
+observer_replacement = '''  observe(aSubject, aTopic) {\n    debug`observe: ${aTopic}`;\n    this._contentCrashed = false;\n\n    if (aTopic === "document-element-inserted") {\n      const doc = aSubject;\n      const href = doc?.documentURI ?? null;\n      if (href?.startsWith("https://docs.google.com/picker/v2/home")) {\n        const win = doc.defaultView;\n        const report = stage => {\n          try {\n            const body = doc.body;\n            const html = doc.documentElement;\n            const style = body && win ? win.getComputedStyle(body) : null;\n            const resources = win?.performance\n              ?.getEntriesByType("resource")\n              ?.slice(0, 20)\n              ?.map(entry => entry.name) ?? [];\n            const childSummary = body\n              ? Array.from(body.children)\n                  .slice(0, 12)\n                  .map(child => ({\n                    tag: child.localName,\n                    id: child.id || null,\n                    className:\n                      typeof child.className === "string"\n                        ? child.className.slice(0, 300)\n                        : null,\n                    textLength: child.innerText?.length ?? null,\n                    htmlLength: child.innerHTML?.length ?? null,\n                  }))\n              : [];\n            const frameSummary = Array.from(doc.querySelectorAll("iframe"))\n              .slice(0, 12)\n              .map(frame => ({\n                src: frame.src || null,\n                id: frame.id || null,\n                name: frame.name || null,\n                width: frame.getBoundingClientRect().width,\n                height: frame.getBoundingClientRect().height,\n              }));\n            const scriptSummary = Array.from(doc.scripts)\n              .slice(0, 12)\n              .map(script => ({\n                src: script.src || null,\n                type: script.type || null,\n                inlineLength: script.src ? 0 : script.textContent?.length ?? 0,\n              }));\n            const styleSummary = Array.from(doc.styleSheets)\n              .slice(0, 12)\n              .map(sheet => ({ href: sheet.href || null }));\n            this.eventDispatcher.sendRequest("GeminiGecko:NavTrace", {\n              stage,\n              uri: href,\n              readyState: doc.readyState,\n              title: doc.title,\n              bodyChildren: body?.childElementCount ?? null,\n              bodyTextLength: body?.innerText?.length ?? null,\n              htmlWidth: html?.scrollWidth ?? null,\n              htmlHeight: html?.scrollHeight ?? null,\n              display: style?.display ?? null,\n              visibility: style?.visibility ?? null,\n              opacity: style?.opacity ?? null,\n              scriptCount: doc.scripts?.length ?? null,\n              styleSheetCount: doc.styleSheets?.length ?? null,\n              resourceCount:\n                win?.performance?.getEntriesByType("resource")?.length ?? null,\n              resources,\n              childSummary,\n              frameSummary,\n              scriptSummary,\n              styleSummary,\n              bodyHTMLSample: body?.innerHTML?.slice(0, 4000) ?? null,\n              windowName: win?.name ?? null,\n              parentIsSelf: win ? win.parent === win : null,\n              topIsSelf: win ? win.top === win : null,\n              frameElementTag: win?.frameElement?.localName ?? null,\n            });\n          } catch (error) {\n            this.eventDispatcher.sendRequest("GeminiGecko:NavTrace", {\n              stage: `${stage}-error`,\n              uri: href,\n              error: String(error),\n              stack: error?.stack ?? null,\n            });\n          }\n        };\n\n        report("picker-dom-inserted");\n        win?.addEventListener("DOMContentLoaded", () =>\n          report("picker-dom-content-loaded")\n        );\n        win?.addEventListener("load", () => report("picker-load"));\n        win?.addEventListener(\n          "error",\n          event => {\n            this.eventDispatcher.sendRequest("GeminiGecko:NavTrace", {\n              stage: "picker-js-error",\n              uri: href,\n              message: event.message ?? null,\n              filename: event.filename ?? null,\n              line: event.lineno ?? null,\n              column: event.colno ?? null,\n              error: event.error ? String(event.error) : null,\n            });\n          },\n          true\n        );\n        win?.addEventListener("unhandledrejection", event => {\n          this.eventDispatcher.sendRequest("GeminiGecko:NavTrace", {\n            stage: "picker-unhandled-rejection",\n            uri: href,\n            error: String(event.reason),\n          });\n        });\n      }\n      return;\n    }\n\n    const browser = aSubject.ownerElement;\n\n    switch (aTopic) {\n'''
+if observer_header not in content_text:
+    fail("unable to locate GeckoViewContent observer handler")
+content_text = content_text.replace(observer_header, observer_replacement, 1)
 content.write_text(content_text)
+
+# Gemini currently renders its microphone affordance on the UIKit runtime but
+# does not enter getUserMedia/SpeechRecognition after the click.  Keep a
+# product-scoped fallback in the staged GeckoView actor: intercept only Gemini
+# controls whose accessible text identifies them as microphone/voice actions,
+# start the standards SpeechRecognition object that is backed by the UIKit
+# Speech.framework service, and place the final transcript into the active
+# Gemini composer.  This remains staged-resource glue so it can be iterated
+# without relinking XUL.
+voice_child = root / "actors/GeckoViewContentChild.sys.mjs"
+voice_child_text = voice_child.read_text()
+actor_created = '''  actorCreated() {\n    this.pageShow = new Promise(resolve => {\n      this.receivedPageShow = resolve;\n    });\n  }\n'''
+actor_created_replacement = '''  actorCreated() {\n    this.pageShow = new Promise(resolve => {\n      this.receivedPageShow = resolve;\n    });\n\n    this._geminiVoiceRecognition = null;\n    this._geminiVoiceTranscript = "";\n    this.contentWindow?.addEventListener("click", this, true);\n    this.contentWindow?.setTimeout(() => this.reportGeminiVoiceCapabilities(), 0);\n  }\n\n  traceGeminiVoice(stage, detail = {}) {\n    try {\n      this.sendAsyncMessage("GeminiGecko:VoiceTrace", {\n        stage,\n        uri: this.contentWindow?.location?.href ?? null,\n        error: JSON.stringify(detail),\n      });\n    } catch {}\n  }\n\n  isGeminiDocument() {\n    try {\n      return this.contentWindow?.location?.hostname === "gemini.google.com";\n    } catch {\n      return false;\n    }\n  }\n\n  reportGeminiVoiceCapabilities() {\n    if (!this.isGeminiDocument()) {\n      return;\n    }\n    const win = this.contentWindow;\n    this.traceGeminiVoice("voice-capabilities", {\n      secureContext: win?.isSecureContext ?? null,\n      speechRecognition: typeof win?.SpeechRecognition,\n      webkitSpeechRecognition: typeof win?.webkitSpeechRecognition,\n      mediaDevices: !!win?.navigator?.mediaDevices,\n      getUserMedia: typeof win?.navigator?.mediaDevices?.getUserMedia,\n      mediaRecorder: typeof win?.MediaRecorder,\n      visibility: win?.document?.visibilityState ?? null,\n      language: win?.document?.documentElement?.lang ?? null,\n      userAgent: win?.navigator?.userAgent ?? null,\n    });\n  }\n\n  describeGeminiAction(aEvent) {\n    const path =\n      typeof aEvent.composedPath === "function"\n        ? aEvent.composedPath()\n        : [aEvent.target];\n    const element = path.find(node =>\n      node?.nodeType === 1 &&\n      (node.matches?.("button,[role='button']") ||\n        node.hasAttribute?.("aria-label") ||\n        node.hasAttribute?.("data-tooltip"))\n    );\n    if (!element) {\n      return null;\n    }\n\n    const values = [\n      element.getAttribute?.("aria-label"),\n      element.getAttribute?.("title"),\n      element.getAttribute?.("data-tooltip"),\n      element.getAttribute?.("data-test-id"),\n      element.getAttribute?.("jsname"),\n      element.innerText,\n      element.textContent,\n      element.className?.baseVal ?? element.className,\n    ]\n      .filter(value => typeof value === "string" && value.trim())\n      .map(value => value.trim());\n+    return { element, label: values.join(" | ").slice(0, 800) };\n+  }\n+\n+  isGeminiMicrophoneAction(label) {\n+    return /microphone|voice input|voice search|speech|dictat|(^|[^a-z])mic([^a-z]|$)|麦克风|話筒|话筒|語音|语音|說話|说话/i.test(\n+      label || ""\n+    );\n+  }\n+\n+  findGeminiComposer() {\n+    const doc = this.contentWindow?.document;\n+    if (!doc) {\n+      return null;\n+    }\n+    const active = doc.activeElement;\n+    if (\n+      active &&\n+      (active.isContentEditable ||\n+        active.localName === "textarea" ||\n+        (active.localName === "input" &&\n+          /^(text|search|url|email)?$/.test(active.type || "")))\n+    ) {\n+      return active;\n+    }\n+\n+    const candidates = Array.from(\n+      doc.querySelectorAll(\n+        "textarea,[contenteditable='true'][role='textbox'],[contenteditable='true'],input[type='text']"\n+      )\n+    ).filter(element => {\n+      const rect = element.getBoundingClientRect();\n+      const style = this.contentWindow.getComputedStyle(element);\n+      return (\n+        rect.width > 80 &&\n+        rect.height > 16 &&\n+        style.display !== "none" &&\n+        style.visibility !== "hidden"\n+      );\n+    });\n+    candidates.sort(\n+      (left, right) =>\n+        right.getBoundingClientRect().bottom - left.getBoundingClientRect().bottom\n+    );\n+    return candidates[0] ?? null;\n+  }\n+\n+  insertGeminiTranscript(text) {\n+    const win = this.contentWindow;\n+    const doc = win?.document;\n+    const editor = this.findGeminiComposer();\n+    if (!win || !doc || !editor || !text) {\n+      this.traceGeminiVoice("voice-insert-missing-editor", { textLength: text?.length ?? 0 });\n+      return false;\n+    }\n+\n+    editor.focus();\n+    if (editor.isContentEditable) {\n+      try {\n+        const selection = win.getSelection();\n+        const range = doc.createRange();\n+        range.selectNodeContents(editor);\n+        range.collapse(false);\n+        selection.removeAllRanges();\n+        selection.addRange(range);\n+        if (doc.execCommand("insertText", false, text)) {\n+          this.traceGeminiVoice("voice-inserted", { kind: "contenteditable", textLength: text.length });\n+          return true;\n+        }\n+      } catch {}\n+      editor.textContent = `${editor.textContent ?? ""}${text}`;\n+    } else {\n+      const oldValue = editor.value ?? "";\n+      editor.value = `${oldValue}${text}`;\n+    }\n+\n+    try {\n+      editor.dispatchEvent(\n+        new win.InputEvent("input", {\n+          bubbles: true,\n+          inputType: "insertText",\n+          data: text,\n+        })\n+      );\n+    } catch {\n+      editor.dispatchEvent(new win.Event("input", { bubbles: true }));\n+    }\n+    this.traceGeminiVoice("voice-inserted", {\n+      kind: editor.isContentEditable ? "contenteditable-fallback" : editor.localName,\n+      textLength: text.length,\n+    });\n+    return true;\n+  }\n+\n+  startGeminiVoiceFallback() {\n+    if (this._geminiVoiceRecognition) {\n+      this.traceGeminiVoice("voice-fallback-stop", {});\n+      try {\n+        this._geminiVoiceRecognition.stop();\n+      } catch {}\n+      return;\n+    }\n+\n+    const win = this.contentWindow;\n+    const Recognition = win?.SpeechRecognition || win?.webkitSpeechRecognition;\n+    if (typeof Recognition !== "function") {\n+      this.traceGeminiVoice("voice-fallback-unavailable", {\n+        speechRecognition: typeof win?.SpeechRecognition,\n+        webkitSpeechRecognition: typeof win?.webkitSpeechRecognition,\n+      });\n+      return;\n+    }\n+\n+    let recognition;\n+    try {\n+      recognition = new Recognition();\n+      recognition.lang =\n+        win.document?.documentElement?.lang || win.navigator?.language || "zh-CN";\n+      recognition.continuous = false;\n+      recognition.interimResults = true;\n+      recognition.maxAlternatives = 1;\n+    } catch (error) {\n+      this.traceGeminiVoice("voice-fallback-constructor-error", { error: String(error) });\n+      return;\n+    }\n+\n+    this._geminiVoiceRecognition = recognition;\n+    this._geminiVoiceTranscript = "";\n+    recognition.addEventListener("start", () =>\n+      this.traceGeminiVoice("voice-fallback-started", {})\n+    );\n+    recognition.addEventListener("audiostart", () =>\n+      this.traceGeminiVoice("voice-fallback-audio-start", {})\n+    );\n+    recognition.addEventListener("speechstart", () =>\n+      this.traceGeminiVoice("voice-fallback-speech-start", {})\n+    );\n+    recognition.addEventListener("result", event => {\n+      const parts = [];\n+      for (let index = event.resultIndex ?? 0; index < event.results.length; index++) {\n+        const transcript = event.results[index]?.[0]?.transcript;\n+        if (transcript) {\n+          parts.push(transcript);\n+        }\n+      }\n+      if (parts.length) {\n+        this._geminiVoiceTranscript = parts.join("");\n+        this.traceGeminiVoice("voice-fallback-result", {\n+          textLength: this._geminiVoiceTranscript.length,\n+        });\n+      }\n+    });\n+    recognition.addEventListener("error", event => {\n+      this.traceGeminiVoice("voice-fallback-error", {\n+        error: event.error ?? null,\n+        message: event.message ?? null,\n+      });\n+    });\n+    recognition.addEventListener("end", () => {\n+      const transcript = this._geminiVoiceTranscript;\n+      this._geminiVoiceRecognition = null;\n+      this._geminiVoiceTranscript = "";\n+      this.traceGeminiVoice("voice-fallback-ended", { textLength: transcript.length });\n+      if (transcript) {\n+        this.insertGeminiTranscript(transcript);\n+      }\n+    });\n+\n+    this.traceGeminiVoice("voice-fallback-start", { lang: recognition.lang });\n+    try {\n+      recognition.start();\n+    } catch (error) {\n+      this._geminiVoiceRecognition = null;\n+      this.traceGeminiVoice("voice-fallback-start-error", { error: String(error) });\n+    }\n+  }\n+'''
+actor_created_replacement = actor_created_replacement.replace("\n+", "\n")
+if actor_created not in voice_child_text:
+    fail("unable to locate GeckoViewContentChild actorCreated")
+voice_child_text = voice_child_text.replace(
+    actor_created, actor_created_replacement, 1
+)
+
+handle_event_switch = '''    switch (aEvent.type) {\n      case "pageshow": {\n'''
+handle_event_replacement = '''    switch (aEvent.type) {\n      case "click": {\n        if (!this.isGeminiDocument()) {\n          break;\n        }\n+        const action = this.describeGeminiAction(aEvent);\n+        if (!action) {\n+          break;\n+        }\n+        this.traceGeminiVoice("voice-click", { label: action.label });\n+        if (!this.isGeminiMicrophoneAction(action.label)) {\n+          break;\n+        }\n+        aEvent.preventDefault();\n+        aEvent.stopImmediatePropagation();\n+        this.traceGeminiVoice("voice-mic-intercepted", { label: action.label });\n+        this.startGeminiVoiceFallback();\n+        break;\n+      }\n+      case "pageshow": {\n'''
+handle_event_replacement = handle_event_replacement.replace("\n+", "\n")
+if handle_event_switch not in voice_child_text:
+    fail("unable to locate GeckoViewContentChild handleEvent switch")
+voice_child_text = voice_child_text.replace(
+    handle_event_switch, handle_event_replacement, 1
+)
+voice_child.write_text(voice_child_text)
+
+# Keep diagnostics for ChatGPT voice controls.  The guest composer also exposes
+# a distinct "Start dictation" action; unlike realtime Voice Mode this is only
+# speech-to-text.  Route that exact action through the already-proven UIKit
+# SpeechRecognition fallback so it does not fall into ChatGPT's getUserMedia
+# path and bounce focus back to the keyboard.  True Voice Mode remains native.
+voice_child_text = voice_child.read_text()
+chatgpt_document_anchor = '''  isGeminiDocument() {
+    try {
+      return this.contentWindow?.location?.hostname === "gemini.google.com";
+    } catch {
+      return false;
+    }
+  }
+'''
+chatgpt_document_replacement = chatgpt_document_anchor + '''
+  isChatGPTDocument() {
+    try {
+      return this.contentWindow?.location?.hostname === "chatgpt.com";
+    } catch {
+      return false;
+    }
+  }
+
+  isChatGPTVoiceAction(label) {
+    return /voice|speech|microphone|headphone|(^|[^a-z])mic([^a-z]|$)|语音|語音|麦克风|麥克風|耳机|耳機/i.test(
+      label || ""
+    );
+  }
+
+  isChatGPTDictationAction(label) {
+    return /start dictation|dictation|听写|聽寫|语音输入|語音輸入/i.test(
+      label || ""
+    );
+  }
+
+  reportChatGPTVoiceState(stage) {
+    if (!this.isChatGPTDocument()) {
+      return;
+    }
+    const win = this.contentWindow;
+    const doc = win?.document;
+    if (!win || !doc) {
+      return;
+    }
+    try {
+      const labels = Array.from(doc.querySelectorAll("button,[role='button']"))
+        .map(element =>
+          [
+            element.getAttribute?.("aria-label"),
+            element.getAttribute?.("title"),
+            element.getAttribute?.("data-testid"),
+            element.innerText,
+          ]
+            .filter(value => typeof value === "string" && value.trim())
+            .join(" | ")
+            .trim()
+        )
+        .filter(Boolean);
+      const interestingLabels = labels
+        .filter(label =>
+          /voice|speech|microphone|headphone|account|profile|settings|log in|sign up|login|语音|語音|麦克风|麥克風|账户|帳戶|个人|個人|设置|設定|登录|登入|注册|註冊/i.test(
+            label
+          )
+        )
+        .slice(0, 30)
+        .map(label => label.slice(0, 240));
+      const dialogs = Array.from(
+        doc.querySelectorAll("[role='dialog'],[aria-modal='true']")
+      )
+        .slice(0, 8)
+        .map(element => (element.innerText || element.textContent || "").trim().slice(0, 800));
+      const busy = Array.from(
+        doc.querySelectorAll("[aria-busy='true'],[role='progressbar']")
+      ).slice(0, 12).length;
+      const bodyText = (doc.body?.innerText || "").slice(0, 16000);
+      const resources = (win.performance?.getEntriesByType("resource") || [])
+        .map(entry => {
+          try {
+            const url = new URL(entry.name);
+            return `${url.origin}${url.pathname}`;
+          } catch {
+            return "";
+          }
+        })
+        .filter(value =>
+          /voice|realtime|webrtc|audio|session|auth/i.test(value)
+        )
+        .slice(-30);
+      this.traceGeminiVoice(stage, {
+        documentLanguage: doc.documentElement?.lang ?? null,
+        navigatorLanguage: win.navigator?.language ?? null,
+        navigatorLanguages: Array.from(win.navigator?.languages || []).slice(0, 8),
+        visibility: doc.visibilityState ?? null,
+        loginGate: /log in|sign up|登录|登入|注册|註冊/i.test(bodyText),
+        accountHint: /account|profile|settings|账户|帳戶|个人|個人|设置|設定/i.test(bodyText),
+        busyCount: busy,
+        interestingLabels,
+        dialogs,
+        resources,
+      });
+    } catch (error) {
+      this.traceGeminiVoice(`${stage}-error`, { error: String(error) });
+    }
+  }
+'''
+if chatgpt_document_anchor not in voice_child_text:
+    fail("unable to locate generated Gemini document helper for ChatGPT diagnostics")
+voice_child_text = voice_child_text.replace(
+    chatgpt_document_anchor, chatgpt_document_replacement, 1
+)
+
+chatgpt_click_anchor = '''      case "click": {
+        if (!this.isGeminiDocument()) {
+          break;
+        }
+        const action = this.describeGeminiAction(aEvent);
+        if (!action) {
+          break;
+        }
+        this.traceGeminiVoice("voice-click", { label: action.label });
+'''
+chatgpt_click_replacement = '''      case "click": {
+        const action = this.describeGeminiAction(aEvent);
+        if (this.isChatGPTDocument()) {
+          if (!action) {
+            break;
+          }
+          this.traceGeminiVoice("chatgpt-click", { label: action.label });
+          if (this.isChatGPTDictationAction(action.label)) {
+            aEvent.preventDefault();
+            aEvent.stopImmediatePropagation();
+            this._geminiVoiceButton = action.element;
+            this.traceGeminiVoice("chatgpt-dictation-intercepted", {
+              label: action.label,
+            });
+            this.startGeminiVoiceFallback();
+            break;
+          }
+          if (this.isChatGPTVoiceAction(action.label)) {
+            this.traceGeminiVoice("chatgpt-voice-click", { label: action.label });
+            for (const delay of [0, 500, 2000, 6000]) {
+              this.contentWindow?.setTimeout(
+                () => this.reportChatGPTVoiceState(`chatgpt-voice-state-${delay}ms`),
+                delay
+              );
+            }
+          }
+          break;
+        }
+        if (!this.isGeminiDocument()) {
+          break;
+        }
+        if (!action) {
+          break;
+        }
+        this.traceGeminiVoice("voice-click", { label: action.label });
+'''
+if chatgpt_click_anchor not in voice_child_text:
+    fail("unable to locate generated click handler for ChatGPT diagnostics")
+voice_child_text = voice_child_text.replace(
+    chatgpt_click_anchor, chatgpt_click_replacement, 1
+)
+
+chatgpt_capability_anchor = '''    this.contentWindow?.setTimeout(() => this.reportGeminiVoiceCapabilities(), 0);
+'''
+chatgpt_capability_replacement = chatgpt_capability_anchor + '''    this.contentWindow?.setTimeout(
+      () => this.reportChatGPTVoiceState("chatgpt-page-state"),
+      1500
+    );
+'''
+if chatgpt_capability_anchor not in voice_child_text:
+    fail("unable to locate generated capability timer for ChatGPT diagnostics")
+voice_child_text = voice_child_text.replace(
+    chatgpt_capability_anchor, chatgpt_capability_replacement, 1
+)
+voice_child.write_text(voice_child_text)
+
+# The Google Photos entry in Gemini opens the cross-origin OnePick iframe.  On
+# the compact UIKit runtime that iframe currently reaches DOMContentLoaded but
+# remains visually empty.  Prefer Gemini's own file-input upload path for this
+# specific photo action so the selected image still enters the site's standard
+# upload/change-event flow.  Temporarily constrain the existing input to
+# image/*; the UIKit file picker recognizes that as a request for the native
+# photo library, while the ordinary "upload file" action keeps its broad
+# document picker behavior.
+voice_child_text = voice_child.read_text()
+voice_debounce_anchor = '''  startGeminiVoiceFallback() {
+    if (this._geminiVoiceRecognition) {
+      this.traceGeminiVoice("voice-fallback-stop", {});
+      try {
+        this._geminiVoiceRecognition.stop();
+      } catch {}
+      return;
+    }
+'''
+voice_debounce_replacement = '''  startGeminiVoiceFallback() {
+    if (this._geminiVoiceRecognition) {
+      const activeMs = Math.max(
+        0,
+        Date.now() - (this._geminiVoiceStartedAt || 0)
+      );
+      this.traceGeminiVoice("voice-fallback-active-click-ignored", {
+        activeMs,
+      });
+      return;
+    }
+'''
+if voice_debounce_anchor not in voice_child_text:
+    fail("unable to locate generated Gemini voice stop branch")
+voice_child_text = voice_child_text.replace(
+    voice_debounce_anchor, voice_debounce_replacement, 1
+)
+
+voice_started_anchor = '''    this._geminiVoiceRecognition = recognition;
+    this._geminiVoiceTranscript = "";
+'''
+voice_started_replacement = voice_started_anchor + '''    this._geminiVoiceStartedAt = Date.now();
+    this.setGeminiVoiceButtonActive(true);
+    this._geminiVoiceStopTimer = win.setTimeout(() => {
+      if (this._geminiVoiceRecognition !== recognition) {
+        return;
+      }
+      this.traceGeminiVoice("voice-fallback-hard-timeout", {
+        activeMs: Math.max(0, Date.now() - (this._geminiVoiceStartedAt || 0)),
+      });
+      try {
+        recognition.stop();
+      } catch {}
+    }, 12000);
+'''
+if voice_started_anchor not in voice_child_text:
+    fail("unable to locate generated Gemini voice start state")
+voice_child_text = voice_child_text.replace(
+    voice_started_anchor, voice_started_replacement, 1
+)
+
+voice_result_anchor = '''        this.traceGeminiVoice("voice-fallback-result", {
+          textLength: this._geminiVoiceTranscript.length,
+        });
+'''
+voice_result_replacement = voice_result_anchor + '''        if (this._geminiVoiceResultTimer) {
+          win.clearTimeout(this._geminiVoiceResultTimer);
+        }
+        this._geminiVoiceResultTimer = win.setTimeout(() => {
+          if (
+            this._geminiVoiceRecognition !== recognition ||
+            !this._geminiVoiceTranscript
+          ) {
+            return;
+          }
+          this.traceGeminiVoice("voice-fallback-result-idle-stop", {
+            textLength: this._geminiVoiceTranscript.length,
+            activeMs: Math.max(
+              0,
+              Date.now() - (this._geminiVoiceStartedAt || 0)
+            ),
+          });
+          try {
+            recognition.stop();
+          } catch {}
+        }, 2500);
+'''
+if voice_result_anchor not in voice_child_text:
+    fail("unable to locate generated Gemini voice result handler")
+voice_child_text = voice_child_text.replace(
+    voice_result_anchor, voice_result_replacement, 1
+)
+
+voice_end_anchor = '''      this._geminiVoiceRecognition = null;
+      this._geminiVoiceTranscript = "";
+      this.traceGeminiVoice("voice-fallback-ended", { textLength: transcript.length });
+'''
+voice_end_replacement = '''      this._geminiVoiceRecognition = null;
+      this._geminiVoiceTranscript = "";
+      this._geminiVoiceStartedAt = 0;
+      if (this._geminiVoiceStopTimer) {
+        this.contentWindow?.clearTimeout(this._geminiVoiceStopTimer);
+        this._geminiVoiceStopTimer = null;
+      }
+      if (this._geminiVoiceResultTimer) {
+        this.contentWindow?.clearTimeout(this._geminiVoiceResultTimer);
+        this._geminiVoiceResultTimer = null;
+      }
+      this.setGeminiVoiceButtonActive(false);
+      this.traceGeminiVoice("voice-fallback-ended", { textLength: transcript.length });
+'''
+if voice_end_anchor not in voice_child_text:
+    fail("unable to locate generated Gemini voice end state")
+voice_child_text = voice_child_text.replace(
+    voice_end_anchor, voice_end_replacement, 1
+)
+
+voice_start_error_anchor = '''    } catch (error) {
+      this._geminiVoiceRecognition = null;
+      this.traceGeminiVoice("voice-fallback-start-error", { error: String(error) });
+'''
+voice_start_error_replacement = '''    } catch (error) {
+      this._geminiVoiceRecognition = null;
+      this._geminiVoiceStartedAt = 0;
+      if (this._geminiVoiceStopTimer) {
+        this.contentWindow?.clearTimeout(this._geminiVoiceStopTimer);
+        this._geminiVoiceStopTimer = null;
+      }
+      if (this._geminiVoiceResultTimer) {
+        this.contentWindow?.clearTimeout(this._geminiVoiceResultTimer);
+        this._geminiVoiceResultTimer = null;
+      }
+      this.setGeminiVoiceButtonActive(false);
+      this.traceGeminiVoice("voice-fallback-start-error", { error: String(error) });
+'''
+if voice_start_error_anchor not in voice_child_text:
+    fail("unable to locate generated Gemini voice start error state")
+voice_child_text = voice_child_text.replace(
+    voice_start_error_anchor, voice_start_error_replacement, 1
+)
+
+photo_method_anchor = '''  isGeminiMicrophoneAction(label) {
+    return /microphone|voice input|voice search|speech|dictat|(^|[^a-z])mic([^a-z]|$)|麦克风|話筒|话筒|語音|语音|說話|说话/i.test(
+      label || ""
+    );
+  }
+'''
+photo_method_replacement = photo_method_anchor + '''
+  setGeminiVoiceButtonActive(active) {
+    const button = this._geminiVoiceButton;
+    if (!button) {
+      return;
+    }
+    if (active) {
+      if (this._geminiVoiceButtonOldStyle === undefined) {
+        this._geminiVoiceButtonOldStyle = button.getAttribute("style");
+        this._geminiVoiceButtonOldPressed = button.getAttribute("aria-pressed");
+      }
+      button.setAttribute("aria-pressed", "true");
+      button.style.setProperty("background-color", "rgba(11, 87, 208, 0.18)", "important");
+      button.style.setProperty("color", "rgb(11, 87, 208)", "important");
+      button.style.setProperty(
+        "box-shadow",
+        "inset 0 0 0 2px rgba(11, 87, 208, 0.32)",
+        "important"
+      );
+      return;
+    }
+
+    if (this._geminiVoiceButtonOldStyle === null) {
+      button.removeAttribute("style");
+    } else if (this._geminiVoiceButtonOldStyle !== undefined) {
+      button.setAttribute("style", this._geminiVoiceButtonOldStyle);
+    }
+    if (this._geminiVoiceButtonOldPressed === null) {
+      button.removeAttribute("aria-pressed");
+    } else if (this._geminiVoiceButtonOldPressed !== undefined) {
+      button.setAttribute("aria-pressed", this._geminiVoiceButtonOldPressed);
+    }
+    this._geminiVoiceButton = null;
+    this._geminiVoiceButtonOldStyle = undefined;
+    this._geminiVoiceButtonOldPressed = undefined;
+  }
+
+  isGeminiPhotoAction(action) {
+    const element = action?.element;
+    if (!element?.matches?.("button")) {
+      return false;
+    }
+    const values = [
+      element.getAttribute?.("aria-label"),
+      element.getAttribute?.("title"),
+      element.innerText,
+      element.textContent,
+    ]
+      .filter(value => typeof value === "string" && value.trim())
+      .map(value => value.trim());
+    return values.some(value =>
+      /^(google\s*photos|google\s*相册|相册|相簿)$/i.test(value)
+    );
+  }
+
+  startGeminiPhotoFallback() {
+    const win = this.contentWindow;
+    const doc = win?.document;
+    if (!win || !doc) {
+      return false;
+    }
+
+    const inputs = Array.from(doc.querySelectorAll("input[type='file']"));
+    const input =
+      inputs.find(candidate => /image\//i.test(candidate.accept || "")) ??
+      inputs[0] ??
+      null;
+    this.traceGeminiVoice("photo-input-probe", {
+      count: inputs.length,
+      inputs: inputs.slice(0, 8).map(candidate => ({
+        accept: candidate.accept || null,
+        multiple: !!candidate.multiple,
+        id: candidate.id || null,
+        name: candidate.name || null,
+      })),
+    });
+    if (!input) {
+      this.traceGeminiVoice("photo-native-picker-missing-input", {});
+      return false;
+    }
+
+    const oldAccept = input.getAttribute("accept");
+    const oldMultiple = input.multiple;
+    input.setAttribute("accept", "image/*");
+    input.multiple = false;
+    let pickerMethod = "click";
+    try {
+      if (typeof input.showPicker === "function") {
+        pickerMethod = "showPicker";
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    } catch (error) {
+      if (oldAccept === null) {
+        input.removeAttribute("accept");
+      } else {
+        input.setAttribute("accept", oldAccept);
+      }
+      input.multiple = oldMultiple;
+      this.traceGeminiVoice("photo-native-picker-error", {
+        method: pickerMethod,
+        error: String(error),
+      });
+      return false;
+    }
+
+    win.setTimeout(() => {
+      if (oldAccept === null) {
+        input.removeAttribute("accept");
+      } else {
+        input.setAttribute("accept", oldAccept);
+      }
+      input.multiple = oldMultiple;
+    }, 1000);
+    this.traceGeminiVoice("photo-native-picker-start", {
+      method: pickerMethod,
+      previousAccept: oldAccept,
+      previousMultiple: oldMultiple,
+    });
+    return true;
+  }
+'''
+if photo_method_anchor not in voice_child_text:
+    fail("unable to locate generated Gemini microphone action helper")
+voice_child_text = voice_child_text.replace(
+    photo_method_anchor, photo_method_replacement, 1
+)
+
+photo_click_anchor = '''        this.traceGeminiVoice("voice-click", { label: action.label });
+        if (!this.isGeminiMicrophoneAction(action.label)) {
+          break;
+        }
+'''
+photo_click_replacement = '''        this.traceGeminiVoice("voice-click", { label: action.label });
+        if (this.isGeminiPhotoAction(action)) {
+          if (this.startGeminiPhotoFallback()) {
+            aEvent.preventDefault();
+            aEvent.stopImmediatePropagation();
+          }
+          break;
+        }
+        if (!this.isGeminiMicrophoneAction(action.label)) {
+          break;
+        }
+        this._geminiVoiceButton = action.element;
+'''
+if photo_click_anchor not in voice_child_text:
+    fail("unable to locate generated Gemini click dispatch")
+voice_child_text = voice_child_text.replace(
+    photo_click_anchor, photo_click_replacement, 1
+)
+voice_child.write_text(voice_child_text)
+
+voice_parent = root / "actors/GeckoViewContentParent.sys.mjs"
+voice_parent_text = voice_parent.read_text()
+parent_switch = '''    switch (aMsg.name) {\n      case "GeckoView:PinOnScreen": {\n'''
+parent_replacement = '''    switch (aMsg.name) {\n      case "GeminiGecko:VoiceTrace": {\n        return this.eventDispatcher.sendRequest("GeminiGecko:NavTrace", aMsg.data);\n      }\n+      case "GeckoView:PinOnScreen": {\n'''
+parent_replacement = parent_replacement.replace("\n+", "\n")
+if parent_switch not in voice_parent_text:
+    fail("unable to locate GeckoViewContentParent receiveMessage switch")
+voice_parent_text = voice_parent_text.replace(parent_switch, parent_replacement, 1)
+voice_parent.write_text(voice_parent_text)
 
 # Keep a host-visible trace around the final GeckoView navigation handoff.
 # Unified iOS logs do not reliably surface chrome JS exceptions, so report the
@@ -171,8 +714,10 @@ nav_text = nav_text.replace(load_case, load_case_replacement, 1)
 
 fixup_call = '''        this.browser.fixupAndLoadURIString(uri, {\n          loadFlags: navFlags,\n          referrerInfo,\n          triggeringPrincipal,\n          headers: additionalHeaders,\n          policyContainer,\n          textDirectiveUserActivation,\n          schemelessInput,\n          appLinkLaunchType,\n        });\n'''
 fixup_replacement = '''        try {\n          this.eventDispatcher.sendRequest("GeminiGecko:NavTrace", {\n            stage: "before-fixup",\n            uri,\n            remote: this.browser.isRemoteBrowser,\n            remoteType: this.browser.getAttribute("remoteType"),\n          });\n          this.browser.fixupAndLoadURIString(uri, {\n            loadFlags: navFlags,\n            referrerInfo,\n            triggeringPrincipal,\n            headers: additionalHeaders,\n            policyContainer,\n            textDirectiveUserActivation,\n            schemelessInput,\n            appLinkLaunchType,\n          });\n          this.eventDispatcher.sendRequest("GeminiGecko:NavTrace", {\n            stage: "after-fixup",\n            uri,\n            remote: this.browser.isRemoteBrowser,\n            remoteType: this.browser.getAttribute("remoteType"),\n          });\n        } catch (error) {\n          this.eventDispatcher.sendRequest("GeminiGecko:NavTrace", {\n            stage: "fixup-error",\n            uri,\n            remote: this.browser.isRemoteBrowser,\n            remoteType: this.browser.getAttribute("remoteType"),\n            error: String(error),\n            stack: error?.stack ?? null,\n          });\n          throw error;\n        }\n'''
-snapshot_diagnostics = '''          for (const delay of [250, 1000, 3000]) {
-            this.browser.ownerGlobal.setTimeout(() => {
+snapshot_diagnostics = '''          const snapshotWindow = this.browser.ownerGlobal;
+          if (snapshotWindow?.setTimeout) {
+            for (const delay of [250, 1000, 3000]) {
+              snapshotWindow.setTimeout(() => {
               try {
                 const doc = this.browser.contentDocument;
                 const win = this.browser.contentWindow;
@@ -209,7 +754,8 @@ snapshot_diagnostics = '''          for (const delay of [250, 1000, 3000]) {
                   error: String(snapshotError),
                 });
               }
-            }, delay);
+              }, delay);
+            }
           }
 '''
 fixup_replacement = fixup_replacement.replace(

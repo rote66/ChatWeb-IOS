@@ -13,7 +13,7 @@ fail() {
 
 /usr/bin/plutil -lint "$INFO_PLIST" "$PROJECT_FILE"
 
-for key in NSCameraUsageDescription NSMicrophoneUsageDescription NSPhotoLibraryUsageDescription NSPhotoLibraryAddUsageDescription; do
+for key in NSCameraUsageDescription NSMicrophoneUsageDescription NSSpeechRecognitionUsageDescription NSPhotoLibraryUsageDescription NSPhotoLibraryAddUsageDescription; do
     /usr/libexec/PlistBuddy -c "Print :$key" "$INFO_PLIST" >/dev/null 2>&1 || fail "Info.plist missing $key"
 done
 
