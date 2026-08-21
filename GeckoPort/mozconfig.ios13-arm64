@@ -10,8 +10,9 @@ ac_add_options --disable-backgroundtasks
 ac_add_options --disable-accessibility
 ac_add_options --disable-ffmpeg
 ac_add_options --disable-jxl
-# Optimize the Gecko/native side for binary size. SpiderMonkey is kept at -O3
-# by the iOS-specific js/moz.configure override in the project patchset.
+# Optimize the Gecko/native side for binary size. SpiderMonkey keeps its full
+# JIT/Wasm feature set, but the iOS-specific js/moz.configure override uses
+# -Oz instead of Firefox's usual -O3 for this size-constrained embedding.
 ac_add_options --enable-optimize=-Oz
 ac_add_options --enable-release
 ac_add_options --enable-rust-simd
@@ -19,11 +20,16 @@ ac_add_options --enable-lto
 ac_add_options --disable-debug
 ac_add_options --disable-tests
 
+# Rust-heavy Gecko components (Stylo, WebRender, wgpu, networking and glue)
+# otherwise default to opt-level=2 even though C/C++ is built with -Oz.
+# Keep the full feature set but optimize Rust code for binary size as well.
+export RUSTC_OPT_LEVEL="z"
+
 # Let the Mach-O linker discard unreferenced sections after LTO. This is
 # especially useful for the dedicated UIKit runtime because Firefox product
 # surfaces are intentionally omitted while the core Gecko libraries remain
 # large archives.
-export LDFLAGS="-Wl,-dead_strip -Wl,-no_function_starts"
+export LDFLAGS="-Wl,-dead_strip -Wl,-no_function_starts -Wl,--icf=safe"
 
 # SpiderMonkey JIT is intentionally not disabled. Production readiness requires
 # the iOS child process to report a working executable-memory/JIT path.

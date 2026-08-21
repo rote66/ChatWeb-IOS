@@ -1025,6 +1025,17 @@ if actors.is_dir():
 
 
 # Keep manifest registrations consistent with the files above.
+root_manifest = root / "chrome.manifest"
+root_lines = root_manifest.read_text().splitlines()
+clean_root_lines: list[str] = []
+for line in root_lines:
+    if line.startswith("manifest "):
+        target = line.split(None, 1)[1]
+        if not (root / target).is_file():
+            continue
+    clean_root_lines.append(line)
+root_manifest.write_text("\n".join(clean_root_lines) + "\n")
+
 toolkit_manifest = root / "chrome/toolkit.manifest"
 lines = toolkit_manifest.read_text().splitlines()
 drop_prefixes = (

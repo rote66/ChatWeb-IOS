@@ -19,6 +19,7 @@ verify_tree() {
     local include="$2"
 
     [ -f "$runtime/XUL" ] || return 1
+    [ -f "$runtime/omni.ja" ] || return 1
     [ -f "$include/GeckoView/GeckoViewSwiftSupport.h" ] || return 1
     [ -f "$include/GeckoView/IOSBootstrap.h" ] || return 1
     [ -f "$include/GeckoView/GeckoViewRuntimeSupport.h" ] || return 1

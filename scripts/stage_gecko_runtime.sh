@@ -216,6 +216,17 @@ fi
 
 [ -f "$STAGE_DIR/XUL" ] || fail "staged runtime has no XUL"
 
+# Gecko natively prefers greDir/omni.ja over a flat chrome.manifest/resource
+# tree. Pack the already-trimmed UIKit resources with Mozilla's own Jarrer so
+# the iOS app stores JS/chrome/defaults/localization compressed on disk while
+# keeping XUL and dependent Mach-O libraries as ordinary files. The packer
+# validates the manifest/startup closure before deleting any flat resources.
+(
+    cd "$SOURCE_DIR"
+    ./mach python "$PROJECT_ROOT/scripts/pack_gecko_omnijar.py" "$STAGE_DIR"
+)
+[ -f "$STAGE_DIR/omni.ja" ] || fail "staged runtime has no omni.ja"
+
 FILE_COUNT="$(/usr/bin/find "$STAGE_DIR" -type f | /usr/bin/wc -l | /usr/bin/tr -d ' ')"
 
 # Publish the complete tree only after every copy/assertion succeeds. Renaming
