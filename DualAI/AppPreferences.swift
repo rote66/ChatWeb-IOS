@@ -12,6 +12,8 @@ final class AppPreferences {
         static let lastService = "lastService"
         static let lastSafeChatGPTURL = "lastSafeChatGPTURL"
         static let lastSafeGeminiURL = "lastSafeGeminiURL"
+        static let geckoDiskCacheSmartSizeEnabled = "geckoDiskCacheSmartSizeEnabled"
+        static let geckoDiskCacheCapacityKB = "geckoDiskCacheCapacityKB"
     }
 
     private let defaults: UserDefaults
@@ -54,6 +56,30 @@ final class AppPreferences {
                 return
             }
             defaults.set(url.absoluteString, forKey: Key.lastSafeGeminiURL)
+        }
+    }
+
+    var geckoDiskCacheSmartSizeEnabled: Bool {
+        get {
+            guard defaults.object(forKey: Key.geckoDiskCacheSmartSizeEnabled) != nil else {
+                return false
+            }
+            return defaults.bool(forKey: Key.geckoDiskCacheSmartSizeEnabled)
+        }
+        set {
+            defaults.set(newValue, forKey: Key.geckoDiskCacheSmartSizeEnabled)
+        }
+    }
+
+    var geckoDiskCacheCapacityKB: Int {
+        get {
+            guard defaults.object(forKey: Key.geckoDiskCacheCapacityKB) != nil else {
+                return 32 * 1024
+            }
+            return max(0, defaults.integer(forKey: Key.geckoDiskCacheCapacityKB))
+        }
+        set {
+            defaults.set(max(0, newValue), forKey: Key.geckoDiskCacheCapacityKB)
         }
     }
 }

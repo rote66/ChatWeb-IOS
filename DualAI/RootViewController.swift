@@ -215,16 +215,9 @@ final class RootViewController: UIViewController {
         sheet.addAction(UIAlertAction(title: "返回\(serviceName)首页", style: .default) { [weak controller] _ in
             controller?.loadHome()
         })
-        sheet.addAction(UIAlertAction(title: "清除缓存", style: .default) { [weak self, weak controller] _ in
-            controller?.clearCache { success in
-                guard let self, let controller else { return }
-                if success {
-                    NSLog("[GeminiGecko][Storage] cache clear accepted; bypass-cache reload")
-                    controller.reloadIgnoringCache()
-                } else {
-                    self.showStorageResult(title: "清除缓存", success: false)
-                }
-            }
+        sheet.addAction(UIAlertAction(title: "设置&清理缓存", style: .default) { [weak self, weak controller] _ in
+            guard let self, let controller else { return }
+            self.showCacheSettingsMenu(for: controller)
         })
         sheet.addAction(UIAlertAction(title: "清除 Cookie", style: .destructive) { [weak self, weak controller] _ in
             guard let self, let controller else { return }
@@ -261,6 +254,122 @@ final class RootViewController: UIViewController {
         sheet.addAction(UIAlertAction(title: "取消", style: .cancel))
         sheet.popoverPresentationController?.barButtonItem = toolbar.items?.last
         present(sheet, animated: true)
+    }
+
+    private func showCacheSettingsMenu(for controller: WebContentController) {
+        let smartSizeEnabled = preferences.geckoDiskCacheSmartSizeEnabled
+        let capacityKB = preferences.geckoDiskCacheCapacityKB
+        let menu = UIAlertController(
+            title: "设置 & 清理缓存",
+            message: smartSizeEnabled
+                ? "Smart Size 已开启：Gecko 会自动决定磁盘缓存容量，browser.cache.disk.capacity 暂不作为硬上限。修改会实时写入 Gecko，并在下次启动继续使用。"
+                : "Smart Size 已关闭：browser.cache.disk.capacity 是磁盘缓存硬上限（KiB）。修改会实时写入 Gecko，并在下次启动继续使用。",
+            preferredStyle: .alert
+        )
+        menu.addAction(UIAlertAction(title: "清理缓存", style: .default) { [weak self, weak controller] _ in
+            guard let self, let controller else { return }
+            self.showClearCacheConfirmation(for: controller)
+        })
+        menu.addAction(UIAlertAction(
+            title: "browser.cache.disk.smart_size.enabled = \(smartSizeEnabled ? "true" : "false")",
+            style: .default
+        ) { [weak self, weak controller] _ in
+            guard let self, let controller else { return }
+            let newValue = !smartSizeEnabled
+            controller.setDiskCacheSmartSizeEnabled(newValue) { [weak self, weak controller] success in
+                guard let self else { return }
+                if success {
+                    self.preferences.geckoDiskCacheSmartSizeEnabled = newValue
+                    NSLog("[GeminiGecko][Storage] smart-size setting updated value=%d",
+                          newValue ? 1 : 0)
+                    if let controller {
+                        DispatchQueue.main.async {
+                            self.showCacheSettingsMenu(for: controller)
+                        }
+                    }
+                } else {
+                    self.showStorageResult(title: "修改 Smart Size", success: false)
+                }
+            }
+        })
+        menu.addAction(UIAlertAction(
+            title: "browser.cache.disk.capacity = \(capacityKB) KiB",
+            style: .default
+        ) { [weak self, weak controller] _ in
+            guard let self, let controller else { return }
+            self.showDiskCacheCapacityEditor(for: controller)
+        })
+        menu.addAction(UIAlertAction(title: "取消", style: .cancel))
+        present(menu, animated: true)
+    }
+
+    private func showClearCacheConfirmation(for controller: WebContentController) {
+        let confirm = UIAlertController(
+            title: "清除缓存和离线网站数据？",
+            message: "会清除网页网络/图片缓存，以及 IndexedDB、Cache API 等离线网站数据。不会主动清除 Cookie，但网页可能需要重新建立本地数据。",
+            preferredStyle: .alert
+        )
+        confirm.addAction(UIAlertAction(title: "取消", style: .cancel))
+        confirm.addAction(UIAlertAction(title: "清除", style: .destructive) { [weak self, weak controller] _ in
+            controller?.clearCache { success in
+                guard let self else { return }
+                if success {
+                    NSLog("[GeminiGecko][Storage] cache clear completed; page restored")
+                    let alert = UIAlertController(
+                        title: "已完成",
+                        message: "缓存和离线网站数据已清除。iOS“储存空间”里的数据大小统计可能不会立即刷新。",
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "好", style: .default))
+                    self.present(alert, animated: true)
+                } else {
+                    self.showStorageResult(title: "清除缓存", success: false)
+                }
+            }
+        })
+        present(confirm, animated: true)
+    }
+
+    private func showDiskCacheCapacityEditor(for controller: WebContentController) {
+        let currentValue = preferences.geckoDiskCacheCapacityKB
+        let editor = UIAlertController(
+            title: "browser.cache.disk.capacity",
+            message: "单位为 KiB。32768 = 32 MiB。Smart Size 开启时此值会保留，但不会作为硬上限。降低容量不会立即删除已有 cache2；需要马上释放空间时请再点“清理缓存”。",
+            preferredStyle: .alert
+        )
+        editor.addTextField { textField in
+            textField.keyboardType = .numberPad
+            textField.text = String(currentValue)
+            textField.placeholder = "例如 32768"
+            textField.clearButtonMode = .whileEditing
+        }
+        editor.addAction(UIAlertAction(title: "取消", style: .cancel))
+        editor.addAction(UIAlertAction(title: "保存", style: .default) { [weak self, weak controller, weak editor] _ in
+            guard let self, let controller,
+                  let rawValue = editor?.textFields?.first?.text,
+                  let capacityKB = Int(rawValue),
+                  capacityKB >= 0,
+                  capacityKB <= Int(Int32.max) else {
+                self?.showStorageResult(title: "容量值无效", success: false)
+                return
+            }
+            controller.setDiskCacheCapacityKB(capacityKB) { [weak self, weak controller] success in
+                guard let self else { return }
+                if success {
+                    self.preferences.geckoDiskCacheCapacityKB = capacityKB
+                    NSLog("[GeminiGecko][Storage] disk-cache capacity updated capacityKB=%d",
+                          capacityKB)
+                    if let controller {
+                        DispatchQueue.main.async {
+                            self.showCacheSettingsMenu(for: controller)
+                        }
+                    }
+                } else {
+                    self.showStorageResult(title: "修改缓存容量", success: false)
+                }
+            }
+        })
+        present(editor, animated: true)
     }
 
     private func showStorageResult(title: String, success: Bool) {
