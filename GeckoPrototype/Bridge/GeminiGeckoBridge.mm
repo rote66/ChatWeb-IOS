@@ -200,21 +200,41 @@ static void GGClearDataDidFinish(void *context, bool success) {
 - (void)enterBackground { if (_runtime) GGGeckoRuntimeEnterBackground(_runtime); }
 - (void)enterForeground { if (_runtime) GGGeckoRuntimeEnterForeground(_runtime); }
 
-- (void)clearCacheWithCompletion:(void (^)(BOOL))completion {
+- (void)clearCacheForBaseDomain:(NSString *)baseDomain
+                     completion:(void (^)(BOOL))completion {
     if (!_runtime) {
         if (completion) { completion(NO); }
         return;
     }
-    uint32_t flags = GGGeckoClearDataNetworkCache | GGGeckoClearDataImageCache;
+    // Network/image caches are only part of Gecko's on-disk footprint. Web
+    // applications also keep sizeable quota-managed data in IndexedDB and the
+    // Cache API. Clear those as well, while deliberately leaving cookies out
+    // of this operation so the dedicated "清除 Cookie" action stays separate.
+    uint32_t flags = GGGeckoClearDataNetworkCache |
+                     GGGeckoClearDataImageCache |
+                     GGGeckoClearDataDOMStorages;
+
+    GGClearDataCompletionBox *box = nil;
+    void *context = nullptr;
+    GGGeckoOperationCallback callback = nullptr;
+    if (completion) {
+        box = [[GGClearDataCompletionBox alloc] init];
+        box.completion = completion;
+        context = (__bridge_retained void *)box;
+        callback = GGClearDataDidFinish;
+    }
+
     GGGeckoResult result = GGGeckoRuntimeClearData(_runtime,
                                                    flags,
-                                                   nullptr,
-                                                   nullptr);
-    // Treat completion here as "request accepted". The UIKit async callback
-    // bridge does not currently propagate Promise-backed ClearData completion
-    // reliably, so callers use a bypass-cache reload as the visible/effective
-    // completion path.
-    if (completion) { completion(result == GGGeckoResultOK); }
+                                                   baseDomain.UTF8String,
+                                                   context,
+                                                   callback);
+    if (result != GGGeckoResultOK && context) {
+        // The callback will never run when dispatch was rejected, so balance
+        // the retained bridge context here and report the failure ourselves.
+        CFBridgingRelease(context);
+        completion(NO);
+    }
 }
 
 - (void)clearCookiesForBaseDomain:(NSString *)baseDomain
@@ -228,6 +248,40 @@ static void GGClearDataDidFinish(void *context, bool success) {
         baseDomain.UTF8String,
         GGGeckoClearDataCookies);
     if (completion) { completion(result == GGGeckoResultOK); }
+}
+
+- (void)setDiskCacheSmartSizeEnabled:(BOOL)enabled
+                           completion:(void (^)(BOOL))completion {
+    if (!_runtime) {
+        if (completion) { completion(NO); }
+        return;
+    }
+    GGClearDataCompletionBox *box = [[GGClearDataCompletionBox alloc] init];
+    box.completion = completion;
+    void *context = (__bridge_retained void *)box;
+    GGGeckoResult result = GGGeckoRuntimeSetDiskCacheSmartSizeEnabled(
+        _runtime, enabled, context, GGClearDataDidFinish);
+    if (result != GGGeckoResultOK) {
+        CFBridgingRelease(context);
+        if (completion) { completion(NO); }
+    }
+}
+
+- (void)setDiskCacheCapacityKB:(NSInteger)capacityKB
+                     completion:(void (^)(BOOL))completion {
+    if (!_runtime || capacityKB < 0 || capacityKB > INT32_MAX) {
+        if (completion) { completion(NO); }
+        return;
+    }
+    GGClearDataCompletionBox *box = [[GGClearDataCompletionBox alloc] init];
+    box.completion = completion;
+    void *context = (__bridge_retained void *)box;
+    GGGeckoResult result = GGGeckoRuntimeSetDiskCacheCapacityKB(
+        _runtime, (uint32_t)capacityKB, context, GGClearDataDidFinish);
+    if (result != GGGeckoResultOK) {
+        CFBridgingRelease(context);
+        if (completion) { completion(NO); }
+    }
 }
 
 - (void)close {

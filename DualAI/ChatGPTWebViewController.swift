@@ -24,6 +24,8 @@ protocol WebContentController: AnyObject {
     func releaseWebViewForMemoryPressureIfBackgrounded()
     func clearCache(completion: @escaping (Bool) -> Void)
     func clearCookies(completion: @escaping (Bool) -> Void)
+    func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void)
+    func setDiskCacheCapacityKB(_ capacityKB: Int, completion: @escaping (Bool) -> Void)
 }
 
 /// ChatGPT uses the same Gecko controller implementation as Gemini. Keeping a

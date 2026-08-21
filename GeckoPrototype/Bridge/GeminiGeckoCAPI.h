@@ -35,6 +35,10 @@ typedef enum GGGeckoClearDataFlags {
     GGGeckoClearDataCookies = 1u << 0,
     GGGeckoClearDataNetworkCache = 1u << 1,
     GGGeckoClearDataImageCache = 1u << 2,
+    // Matches GeckoView StorageController.ClearFlags.DOM_STORAGES. This clears
+    // quota-managed site storage (IndexedDB/Cache API/etc.) without requesting
+    // cookie deletion.
+    GGGeckoClearDataDOMStorages = 1u << 4,
 } GGGeckoClearDataFlags;
 
 typedef void (*GGGeckoOperationCallback)(void *context, bool success);
@@ -103,11 +107,22 @@ void GGGeckoRuntimeEnterBackground(GGGeckoRuntime *runtime);
 void GGGeckoRuntimeEnterForeground(GGGeckoRuntime *runtime);
 GGGeckoResult GGGeckoRuntimeClearData(GGGeckoRuntime *runtime,
                                       uint32_t flags,
+                                      const char *base_domain_utf8,
                                       void *context,
                                       GGGeckoOperationCallback callback);
 GGGeckoResult GGGeckoRuntimeClearBaseDomainData(GGGeckoRuntime *runtime,
                                                 const char *base_domain_utf8,
                                                 uint32_t flags);
+GGGeckoResult GGGeckoRuntimeSetDiskCacheSmartSizeEnabled(
+    GGGeckoRuntime *runtime,
+    bool enabled,
+    void *context,
+    GGGeckoOperationCallback callback);
+GGGeckoResult GGGeckoRuntimeSetDiskCacheCapacityKB(
+    GGGeckoRuntime *runtime,
+    uint32_t capacity_kb,
+    void *context,
+    GGGeckoOperationCallback callback);
 
 #ifdef __cplusplus
 }

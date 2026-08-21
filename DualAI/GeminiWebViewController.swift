@@ -326,7 +326,25 @@ class GeminiWebViewController: UIViewController, WebContentController {
     }
 
     func clearCache(completion: @escaping (Bool) -> Void) {
-        engine.clearCache(completion: completion)
+        let restoreURL = currentSafeURL
+        let baseDomain = service == .chatGPT ? "chatgpt.com" : "google.com"
+        NSLog("[GeminiGecko][Storage] prepare-clear service=%@ base=%@ restore=%@",
+              service == .chatGPT ? "ChatGPT" : "Gemini",
+              baseDomain,
+              restoreURL.absoluteString)
+        engine.stopLoading()
+        engine.load(URL(string: "about:blank")!)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self else { return }
+            self.engine.clearCache(baseDomain: baseDomain) { [weak self] success in
+                guard let self else { return }
+                NSLog("[GeminiGecko][Storage] restore-after-clear success=%d url=%@",
+                      success ? 1 : 0,
+                      restoreURL.absoluteString)
+                self.engine.load(restoreURL)
+                completion(success)
+            }
+        }
     }
 
     func clearCookies(completion: @escaping (Bool) -> Void) {
@@ -334,6 +352,14 @@ class GeminiWebViewController: UIViewController, WebContentController {
         NSLog("[GeminiGecko][Storage] service=%@ cookie-base-domain=%@",
               service == .chatGPT ? "ChatGPT" : "Gemini", baseDomain)
         engine.clearCookies(baseDomain: baseDomain, completion: completion)
+    }
+
+    func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void) {
+        engine.setDiskCacheSmartSizeEnabled(enabled, completion: completion)
+    }
+
+    func setDiskCacheCapacityKB(_ capacityKB: Int, completion: @escaping (Bool) -> Void) {
+        engine.setDiskCacheCapacityKB(capacityKB, completion: completion)
     }
 
 }

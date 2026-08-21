@@ -81,11 +81,17 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
     }
     func enterBackground() { bridge.enterBackground() }
     func enterForeground() { bridge.enterForeground() }
-    func clearCache(completion: @escaping (Bool) -> Void) {
-        bridge.clearCache(completion: completion)
+    func clearCache(baseDomain: String, completion: @escaping (Bool) -> Void) {
+        bridge.clearCache(forBaseDomain: baseDomain, completion: completion)
     }
     func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void) {
         bridge.clearCookies(forBaseDomain: baseDomain, completion: completion)
+    }
+    func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void) {
+        bridge.setDiskCacheSmartSizeEnabled(enabled, completion: completion)
+    }
+    func setDiskCacheCapacityKB(_ capacityKB: Int, completion: @escaping (Bool) -> Void) {
+        bridge.setDiskCacheCapacityKB(capacityKB, completion: completion)
     }
     func close() { bridge.close() }
 }

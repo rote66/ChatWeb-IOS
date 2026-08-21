@@ -43,9 +43,14 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
 - (void)setRequestedLocales:(NSArray<NSString *> *)locales;
 - (void)enterBackground;
 - (void)enterForeground;
-- (void)clearCacheWithCompletion:(void (^)(BOOL success))completion;
+- (void)clearCacheForBaseDomain:(NSString *)baseDomain
+                     completion:(void (^)(BOOL success))completion;
 - (void)clearCookiesForBaseDomain:(NSString *)baseDomain
                        completion:(void (^)(BOOL success))completion;
+- (void)setDiskCacheSmartSizeEnabled:(BOOL)enabled
+                           completion:(void (^)(BOOL success))completion;
+- (void)setDiskCacheCapacityKB:(NSInteger)capacityKB
+                     completion:(void (^)(BOOL success))completion;
 - (void)close;
 
 @end

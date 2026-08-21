@@ -39,9 +39,9 @@ struct GGGeckoSession;
 
 @implementation GGBlockEventCallback
 - (void)sendSuccess:(id)response {
-    (void)response;
     if (self.completion) {
-        NSLog(@"[GeminiGecko][Storage] clear-data callback success");
+        NSLog(@"[GeminiGecko][Storage] clear-data callback success response=%@",
+              response ?: @"(none)");
         self.completion(YES);
         self.completion = nil;
     }
@@ -199,6 +199,7 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
     dispatch_once(&onceToken, ^{
         events = [NSSet setWithArray:@[
             @"GeminiGecko:NavTrace",
+            @"GeminiGecko:StorageTrace",
             @"GeckoView:Prompt",
             // GeckoViewNavigation
             @"GeckoView:LocationChange",
@@ -328,6 +329,18 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
         GGPresentFilePrompt(dictionary ?: @{}, callback)) {
         return;
     }
+    if ([type isEqualToString:@"GeminiGecko:StorageTrace"]) {
+        NSLog(@"[GeminiGecko][StorageJS] stage=%@ flags=%@ base=%@ origin=%@ code=%@ smart=%@ capacityKB=%@ error=%@",
+              dictionary[@"stage"] ?: @"(none)",
+              dictionary[@"flags"] ?: @"(none)",
+              dictionary[@"baseDomain"] ?: @"(none)",
+              dictionary[@"origin"] ?: @"(none)",
+              dictionary[@"resultCode"] ?: @"(none)",
+              dictionary[@"smartSizeEnabled"] ?: @"(none)",
+              dictionary[@"capacityKB"] ?: @"(none)",
+              dictionary[@"error"] ?: @"(none)");
+        return;
+    }
     if ([type isEqualToString:@"GeminiGecko:NavTrace"]) {
         NSLog(@"[GeminiGecko][NavJS] stage=%@ uri=%@ remote=%@ remoteType=%@ error=%@",
               dictionary[@"stage"] ?: @"(none)",
@@ -402,7 +415,8 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
     if (!type.length) { return; }
     BOOL hasListener = self.gecko ? [self.gecko hasListener:type] : NO;
     if ([type isEqualToString:@"GeckoView:LoadUri"] ||
-        [type isEqualToString:@"GeckoView:Reload"]) {
+        [type isEqualToString:@"GeckoView:Reload"] ||
+        [type isEqualToString:@"GeckoView:ClearData"]) {
         NSLog(@"[GeminiGecko][Nav] send %@ active=%d gecko=%@ listener=%d uri=%@",
               type, self.active, self.gecko ? @"yes" : @"no", hasListener,
               message[@"uri"] ?: @"(none)");
@@ -492,6 +506,78 @@ struct GGGeckoSession {
 
 static GGHostRuntimeAdapter *gRuntimeAdapter;
 static BOOL gBootstrapEntered = NO;
+static NSString *gProcessProfilePath;
+static NSString * const GGDiskCacheSmartSizeDefaultsKey = @"geckoDiskCacheSmartSizeEnabled";
+static NSString * const GGDiskCacheCapacityDefaultsKey = @"geckoDiskCacheCapacityKB";
+
+static unsigned long long GGDirectorySizeAtPath(NSString *path) {
+    if (!path.length) { return 0; }
+    NSFileManager *fm = NSFileManager.defaultManager;
+    BOOL isDirectory = NO;
+    if (![fm fileExistsAtPath:path isDirectory:&isDirectory]) { return 0; }
+    if (!isDirectory) {
+        return [[fm attributesOfItemAtPath:path error:nil] fileSize];
+    }
+
+    unsigned long long total = 0;
+    NSDirectoryEnumerator<NSString *> *enumerator = [fm enumeratorAtPath:path];
+    for (NSString *relativePath in enumerator) {
+        NSString *itemPath = [path stringByAppendingPathComponent:relativePath];
+        NSDictionary<NSFileAttributeKey, id> *attributes =
+            [fm attributesOfItemAtPath:itemPath error:nil];
+        if ([attributes[NSFileType] isEqualToString:NSFileTypeRegular]) {
+            total += [attributes fileSize];
+        }
+    }
+    return total;
+}
+
+static void GGLogProfileDiskUsage(NSString *stage) {
+    NSString *profile = gProcessProfilePath;
+    if (!profile.length) { return; }
+    unsigned long long profileBytes = GGDirectorySizeAtPath(profile);
+    unsigned long long cache2Bytes =
+        GGDirectorySizeAtPath([profile stringByAppendingPathComponent:@"cache2"]);
+    unsigned long long storageBytes =
+        GGDirectorySizeAtPath([profile stringByAppendingPathComponent:@"storage"]);
+    unsigned long long startupCacheBytes =
+        GGDirectorySizeAtPath([profile stringByAppendingPathComponent:@"startupCache"]);
+    NSLog(@"[GeminiGecko][StorageDisk] stage=%@ profile=%llu cache2=%llu storage=%llu startupCache=%llu path=%@",
+          stage ?: @"(none)", profileBytes, cache2Bytes, storageBytes,
+          startupCacheBytes, profile);
+}
+
+static void GGInstallUIKitCachePolicy(NSString *profilePath) {
+    // This dedicated iOS profile must not inherit desktop Firefox's roughly
+    // 250 MiB smart-sized HTTP cache. The app exposes both values as live
+    // settings; mirror the persisted app preference into user.js before Gecko
+    // starts so the chosen policy survives relaunches.
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    BOOL smartSizeEnabled = [defaults objectForKey:GGDiskCacheSmartSizeDefaultsKey]
+        ? [defaults boolForKey:GGDiskCacheSmartSizeDefaultsKey]
+        : NO;
+    NSInteger capacityKB = [defaults objectForKey:GGDiskCacheCapacityDefaultsKey]
+        ? [defaults integerForKey:GGDiskCacheCapacityDefaultsKey]
+        : 32 * 1024;
+    capacityKB = MAX(0, capacityKB);
+    NSString *userJS = [NSString stringWithFormat:
+        @"// Generated by DualAI. Keep the iOS HTTP cache bounded.\n"
+         "user_pref(\"browser.cache.disk.smart_size.enabled\", %@);\n"
+         "user_pref(\"browser.cache.disk.capacity\", %ld);\n",
+        smartSizeEnabled ? @"true" : @"false", (long)capacityKB];
+    NSString *userJSPath = [profilePath stringByAppendingPathComponent:@"user.js"];
+    NSError *error = nil;
+    if (![userJS writeToFile:userJSPath
+                   atomically:YES
+                     encoding:NSUTF8StringEncoding
+                        error:&error]) {
+        NSLog(@"[GeminiGecko][StorageDisk] cache-policy write failed path=%@ error=%@",
+              userJSPath, error);
+    } else {
+        NSLog(@"[GeminiGecko][StorageDisk] cache-policy smart=%d capacityKB=%ld path=%@",
+              smartSizeEnabled ? 1 : 0, (long)capacityKB, userJSPath);
+    }
+}
 
 static NSString *GGStartupTracePath(void) {
     NSString *cache = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Caches"];
@@ -645,6 +731,9 @@ int GGGeckoApplicationMain(int argc,
             GGGeckoStartupTrace("application-main.profile-create-failed");
             return 4;
         }
+        gProcessProfilePath = [profilePath copy];
+        GGInstallUIKitCachePolicy(profilePath);
+        GGLogProfileDiskUsage(@"startup-before-gecko");
         GGGeckoStartupTrace("application-main.profile-ready");
 
         // Firefox's XP_IOS defaults route HTTP/DNS/socket work through the
@@ -704,6 +793,67 @@ GGGeckoResult GGGeckoRuntimeCreate(const GGGeckoRuntimeOptions *options,
     *out_runtime = runtime.release();
     GGGeckoStartupTrace("runtime-create.ok");
     return GGGeckoResultOK;
+}
+
+static GGGeckoResult GGGeckoRuntimeSetDiskCachePrefs(
+    GGGeckoRuntime *runtime,
+    NSDictionary *message,
+    void *context,
+    GGGeckoOperationCallback callback) {
+    if (!runtime || !runtime->adapter || !message.count) {
+        return GGGeckoResultInvalidArgument;
+    }
+
+    GGBlockEventCallback *eventCallback = [[GGBlockEventCallback alloc] init];
+    if (callback) {
+        eventCallback.completion = ^(BOOL success) {
+            callback(context, success);
+        };
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                     (int64_t)(3 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            if (eventCallback.completion) {
+                NSLog(@"[GeminiGecko][Storage] cache-prefs callback timeout message=%@",
+                      message);
+                eventCallback.completion(NO);
+                eventCallback.completion = nil;
+            }
+        });
+    }
+
+    NSLog(@"[GeminiGecko][Storage] cache-prefs dispatch message=%@", message);
+    [runtime->adapter.runtimeDispatcherImpl
+        sendToGecko:@"GeminiGecko:SetCachePrefs"
+             message:message
+            callback:eventCallback];
+    return GGGeckoResultOK;
+}
+
+GGGeckoResult GGGeckoRuntimeSetDiskCacheSmartSizeEnabled(
+    GGGeckoRuntime *runtime,
+    bool enabled,
+    void *context,
+    GGGeckoOperationCallback callback) {
+    return GGGeckoRuntimeSetDiskCachePrefs(
+        runtime,
+        @{ @"smartSizeEnabled": @(enabled) },
+        context,
+        callback);
+}
+
+GGGeckoResult GGGeckoRuntimeSetDiskCacheCapacityKB(
+    GGGeckoRuntime *runtime,
+    uint32_t capacity_kb,
+    void *context,
+    GGGeckoOperationCallback callback) {
+    if (capacity_kb > INT32_MAX) {
+        return GGGeckoResultInvalidArgument;
+    }
+    return GGGeckoRuntimeSetDiskCachePrefs(
+        runtime,
+        @{ @"capacityKB": @(capacity_kb) },
+        context,
+        callback);
 }
 
 GGGeckoResult GGGeckoRuntimeClearBaseDomainData(GGGeckoRuntime *runtime,
@@ -1048,23 +1198,55 @@ void GGGeckoRuntimeEnterForeground(GGGeckoRuntime *runtime) {
 
 GGGeckoResult GGGeckoRuntimeClearData(GGGeckoRuntime *runtime,
                                       uint32_t flags,
+                                      const char *base_domain_utf8,
                                       void *context,
                                       GGGeckoOperationCallback callback) {
-    if (!runtime || !runtime->adapter || flags == 0) {
+    if (!runtime || !runtime->adapter || flags == 0 || !base_domain_utf8) {
+        return GGGeckoResultInvalidArgument;
+    }
+    NSString *baseDomain = [NSString stringWithUTF8String:base_domain_utf8];
+    if (!baseDomain.length) {
         return GGGeckoResultInvalidArgument;
     }
 
     GGBlockEventCallback *eventCallback = [[GGBlockEventCallback alloc] init];
     if (callback) {
         eventCallback.completion = ^(BOOL success) {
+            GGLogProfileDiskUsage(success ? @"clear-callback-success"
+                                               : @"clear-callback-failure");
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                         (int64_t)(2 * NSEC_PER_SEC)),
+                           dispatch_get_main_queue(), ^{
+                GGLogProfileDiskUsage(@"clear-settled-2s");
+            });
             callback(context, success);
         };
+        // A Gecko listener is allowed to complete asynchronously, but the UI
+        // must never remain in an indeterminate state forever if an internal
+        // cleaner wedges. The callback object is retained by the Gecko bridge
+        // while the dispatch is outstanding, so this timeout can safely clear
+        // the one-shot completion without risking a double callback if Gecko
+        // eventually responds later.
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                     (int64_t)(8 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            if (eventCallback.completion) {
+                NSLog(@"[GeminiGecko][Storage] direct-clear callback timeout");
+                eventCallback.completion(NO);
+                eventCallback.completion = nil;
+            }
+        });
     }
 
-    NSLog(@"[GeminiGecko][Storage] clear-data flags=0x%x", flags);
+    NSLog(@"[GeminiGecko][Storage] direct-clear dispatch flags=0x%x base=%@",
+          flags, baseDomain);
+    GGLogProfileDiskUsage(@"clear-before-dispatch");
     [runtime->adapter.runtimeDispatcherImpl
-        sendToGecko:@"GeckoView:ClearData"
-             message:@{ @"flags": @(flags) }
+        sendToGecko:@"GeminiGecko:ClearData"
+             message:@{
+                 @"flags": @(flags),
+                 @"baseDomain": baseDomain,
+             }
             callback:eventCallback];
     return GGGeckoResultOK;
 }

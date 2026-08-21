@@ -22,8 +22,10 @@ protocol GeckoEmbedding: AnyObject {
     func setRequestedLocales(_ locales: [String])
     func enterBackground()
     func enterForeground()
-    func clearCache(completion: @escaping (Bool) -> Void)
+    func clearCache(baseDomain: String, completion: @escaping (Bool) -> Void)
     func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void)
+    func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void)
+    func setDiskCacheCapacityKB(_ capacityKB: Int, completion: @escaping (Bool) -> Void)
     func close()
 }
 
@@ -98,11 +100,17 @@ final class GeckoEngine: WebEngine {
     func setRequestedLocales(_ locales: [String]) { embedding.setRequestedLocales(locales) }
     func applicationDidEnterBackground() { embedding.enterBackground() }
     func applicationWillEnterForeground() { embedding.enterForeground() }
-    func clearCache(completion: @escaping (Bool) -> Void) {
-        embedding.clearCache(completion: completion)
+    func clearCache(baseDomain: String, completion: @escaping (Bool) -> Void) {
+        embedding.clearCache(baseDomain: baseDomain, completion: completion)
     }
     func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void) {
         embedding.clearCookies(baseDomain: baseDomain, completion: completion)
+    }
+    func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void) {
+        embedding.setDiskCacheSmartSizeEnabled(enabled, completion: completion)
+    }
+    func setDiskCacheCapacityKB(_ capacityKB: Int, completion: @escaping (Bool) -> Void) {
+        embedding.setDiskCacheCapacityKB(capacityKB, completion: completion)
     }
 
     func close() {
