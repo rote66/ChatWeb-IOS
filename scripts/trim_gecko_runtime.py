@@ -586,7 +586,7 @@ photo_method_replacement = photo_method_anchor + '''
       .filter(value => typeof value === "string" && value.trim())
       .map(value => value.trim());
     return values.some(value =>
-      /^(google\s*photos|google\s*相册|相册|相簿)$/i.test(value)
+      /^(google\\s*photos|google\\s*相册|相册|相簿)$/i.test(value)
     );
   }
 
@@ -599,7 +599,7 @@ photo_method_replacement = photo_method_anchor + '''
 
     const inputs = Array.from(doc.querySelectorAll("input[type='file']"));
     const input =
-      inputs.find(candidate => /image\//i.test(candidate.accept || "")) ??
+      inputs.find(candidate => /image\\//i.test(candidate.accept || "")) ??
       inputs[0] ??
       null;
     this.traceGeminiVoice("photo-input-probe", {
