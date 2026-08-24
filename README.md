@@ -20,9 +20,9 @@ Gecko 端的完整源码修改集中在一份
 `GeckoPrebuilt/GeckoCore-ios-arm64.zip`，因此修改 Swift/UIKit 层时不需要重新
 编译 Firefox/XUL。
 
-当前可交付版本为 `1.0.15 (87)`。Build 87 在 Build 82 的缓存容量/清理能力之上，
-增加了可切换的 GPT/Gemini 登录 Cookie 隔离、加密数据备份/恢复，以及 ChatGPT
-退出页的 UIKit single-process safe-logout 处理。
+当前测试版本为 `1.0.15 (88)`。Build 88 在 Build 87 的登录 Cookie 隔离、加密
+数据备份/恢复和 safe-logout 处理之上，增加了全局用户代理切换，并修正默认
+iPhone Gecko UA 缺少 `Mobile` 标记的问题。
 
 ## 当前结构
 
@@ -389,12 +389,12 @@ git apply --check GeckoPort/DualAI-Gecko.patch
 压缩包包含 `Runtime/`、`include/` 和同一份 `MANIFEST.lock`。
 `prepare_gecko_prebuilt.sh` 会校验结构、manifest 和 XUL arm64 架构。
 
-当前预编译核心对应 Build 87 的 Gecko runtime（最终以
+Build 88 继续使用当前已验证的 Gecko runtime（最终以
 `GeckoPrebuilt/MANIFEST.lock` 为准）：
 
 ```text
-XUL bytes:     134656920
-XUL SHA256:    2a291acb0dd8a93c230eb164933229030964516e0a7b4c25de71d0a7926ba535
+XUL bytes:     134656928
+XUL SHA256:    2fa1a035222b35ce17b38fbd3d8bb967e2105d4177bdadfde45389ac4d9b1e7c
 Runtime files: 12
 ```
 
@@ -418,6 +418,10 @@ SpiderMonkey JIT 保留。目标真机使用 TrollStore 的 JIT 启动路径；A
   持久站点数据和 App 设置，并排除 `cache2`、`startupCache` 等可重建缓存；
   导入后在下一次 Gecko 启动前恢复。服务端已撤销或过期的登录令牌不能靠本地
   备份重新激活。
+- 用户代理：设置中可全局切换默认 iPhone Gecko、Android Firefox（Reynard
+  兼容）、macOS Firefox、Windows Firefox 和 iOS Firefox（FxiOS/Safari）五个
+  档位。UA、`navigator.platform`、`navigator.appVersion`、`navigator.oscpu` 与
+  mobile/desktop viewport 会成组切换，已打开的 GPT/Gemini 页面随即重新加载。
 - ChatGPT 退出：`/auth/logout` 在当前单进程 docshell 中触发安全脱离页面、清理
   当前 context Cookie 并回到首页，避免在退出脚本仍运行时直接清 Cookie。
 - 前进/后退：由 Gecko `PageStart/PageStop` 同步历史状态。

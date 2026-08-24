@@ -107025,10 +107025,10 @@ index 1575183eb4e327e37f5f7e26e7921e3ed43bc8ba..10f6b6e7fdcd89401d418860184bfaed
  
    getPromptType() {
 diff --git a/mobile/shared/components/geckoview/GeckoViewStartup.sys.mjs b/mobile/shared/components/geckoview/GeckoViewStartup.sys.mjs
-index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..cc8207dd0bc12218faee10715b6fd1e812410c50 100644
+index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..6d1c97861b7492b5989ad249d610146cffca8dec 100644
 --- a/mobile/shared/components/geckoview/GeckoViewStartup.sys.mjs
 +++ b/mobile/shared/components/geckoview/GeckoViewStartup.sys.mjs
-@@ -19,6 +19,484 @@ ChromeUtils.defineESModuleGetters(lazy, {
+@@ -19,6 +19,557 @@ ChromeUtils.defineESModuleGetters(lazy, {
  
  const { debug, warn } = GeckoViewUtils.initLogging("Startup");
  
@@ -107404,6 +107404,53 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..cc8207dd0bc12218faee10715b6fd1e8
 +  },
 +};
 +
++const DualAIContentPrefsListener = {
++  onEvent(aEvent, aData, aCallback) {
++    try {
++      const autoplayDefault = Number(aData?.autoplayDefault);
++      const cookieBehavior = Number(aData?.cookieBehavior);
++      if (![0, 1, 5].includes(autoplayDefault)) {
++        throw new Error("Invalid autoplay policy");
++      }
++      if (![0, 1, 5].includes(cookieBehavior)) {
++        throw new Error("Invalid cookie behavior");
++      }
++
++      const trackingProtectionEnabled = !!aData.trackingProtectionEnabled;
++      const strictTrackingListEnabled = !!aData.strictTrackingListEnabled;
++      Services.prefs.setIntPref("media.autoplay.default", autoplayDefault);
++      Services.prefs.setIntPref(
++        "network.cookie.cookieBehavior",
++        cookieBehavior
++      );
++      Services.prefs.setIntPref(
++        "network.cookie.cookieBehavior.pbmode",
++        cookieBehavior
++      );
++      Services.prefs.setBoolPref(
++        "privacy.trackingprotection.annotate_channels",
++        trackingProtectionEnabled
++      );
++      Services.prefs.setBoolPref(
++        "privacy.annotate_channels.strict_list.enabled",
++        strictTrackingListEnabled
++      );
++      Services.prefs.setStringPref(
++        "browser.contentblocking.category",
++        strictTrackingListEnabled ? "strict" : "standard"
++      );
++      aCallback?.onSuccess({
++        autoplayDefault,
++        cookieBehavior,
++        trackingProtectionEnabled,
++        strictTrackingListEnabled,
++      });
++    } catch (error) {
++      aCallback?.onError({ message: String(error) });
++    }
++  },
++};
++
 +const DualAIClearDataListener = {
 +  onEvent(aEvent, aData, aCallback) {
 +    this.clearData(aData, aCallback);
@@ -107492,13 +107539,39 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..cc8207dd0bc12218faee10715b6fd1e8
 +        clearedOriginCount = 1;
 +      }
 +
-+      trace("success", { clearedOriginCount });
++      let clearedPermissionSites = 0;
++      if (flags & (1 << 6)) {
++        if (!baseDomain) {
++          throw new Error("Missing base domain for permission clear");
++        }
++        const schemelessSite =
++          Services.eTLD.getSchemelessSiteFromHost(baseDomain);
++        const failedFlags = await new Promise(resolve => {
++          Services.clearData.deleteDataFromSite(
++            schemelessSite,
++            { geckoViewSessionContextId: sessionContextId ?? "" },
++            /* isUserRequest */ true,
++            Ci.nsIClearDataService.CLEAR_PERMISSIONS,
++            resolve
++          );
++        });
++        if (failedFlags) {
++          throw new Error(
++            `Permission clear failed site=${schemelessSite} flags=${failedFlags}`
++          );
++        }
++        clearedPermissionSites = 1;
++        trace("permissions-done", { origin: schemelessSite });
++      }
++
++      trace("success", { clearedOriginCount, clearedPermissionSites });
 +      if (aCallback) {
 +        aCallback.onSuccess({
 +          uikitDiskDataOnly: true,
 +          baseDomain,
 +          sessionContextId,
 +          clearedOriginCount,
++          clearedPermissionSites,
 +        });
 +      }
 +    } catch (ex) {
@@ -107513,7 +107586,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..cc8207dd0bc12218faee10715b6fd1e8
  function InitLater(fn, object, name) {
    return DelayedInit.schedule(fn, object, name, 15000 /* 15s max wait */);
  }
-@@ -113,6 +591,73 @@ export class GeckoViewStartup {
+@@ -113,6 +664,77 @@ export class GeckoViewStartup {
      switch (aTopic) {
        case "content-process-ready-for-script":
        case "app-startup": {
@@ -107536,6 +107609,10 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..cc8207dd0bc12218faee10715b6fd1e8
 +          lazy.EventDispatcher.instance.registerListener(
 +            DualAICachePrefsListener,
 +            "GeminiGecko:SetCachePrefs"
++          );
++          lazy.EventDispatcher.instance.registerListener(
++            DualAIContentPrefsListener,
++            "GeminiGecko:SetContentPrefs"
 +          );
 +          dualAICachePrefsRegistered = true;
 +        }
@@ -107587,7 +107664,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..cc8207dd0bc12218faee10715b6fd1e8
          GeckoViewUtils.addLazyGetter(this, "GeckoViewConsole", {
            module: "resource://gre/modules/GeckoViewConsole.sys.mjs",
          });
-@@ -128,6 +673,8 @@ export class GeckoViewStartup {
+@@ -128,6 +750,8 @@ export class GeckoViewStartup {
              "GeckoView:GetPermissionsByURI",
              "GeckoView:SetPermission",
              "GeckoView:SetPermissionByURI",
@@ -107596,7 +107673,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..cc8207dd0bc12218faee10715b6fd1e8
              "GeckoView:GetCookieBannerModeForDomain",
              "GeckoView:SetCookieBannerModeForDomain",
              "GeckoView:RemoveCookieBannerModeForDomain",
-@@ -174,51 +721,55 @@ export class GeckoViewStartup {
+@@ -174,51 +798,55 @@ export class GeckoViewStartup {
              ],
            });
  
@@ -107696,7 +107773,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..cc8207dd0bc12218faee10715b6fd1e8
  
            GeckoViewUtils.addLazyGetter(this, "ChildCrashHandler", {
              module: "resource://gre/modules/ChildCrashHandler.sys.mjs",
-@@ -236,73 +787,85 @@ export class GeckoViewStartup {
+@@ -236,73 +864,85 @@ export class GeckoViewStartup {
            ]);
          }
  
@@ -107835,7 +107912,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..cc8207dd0bc12218faee10715b6fd1e8
  
          // Initialize the cookie service early so the DB is loaded by
          // the time we make the first HTTP request. Skip in xpcshell tests,
-@@ -312,10 +875,12 @@ export class GeckoViewStartup {
+@@ -312,10 +952,12 @@ export class GeckoViewStartup {
            Services.cookies;
          }
  
@@ -107852,7 +107929,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..cc8207dd0bc12218faee10715b6fd1e8
  
          // Listen for global EventDispatcher messages
          lazy.EventDispatcher.instance.registerListener(this, [
-@@ -328,7 +893,9 @@ export class GeckoViewStartup {
+@@ -328,7 +970,9 @@ export class GeckoViewStartup {
          Services.obs.addObserver(this, "browser-idle-startup-tasks-finished");
          Services.obs.addObserver(this, "handlersvc-store-initialized");
  
@@ -111639,7 +111716,7 @@ index 0079aa60a1e9ef4eab9b810f373543b6b47b451f..dcc95451fd6654eb6a0c42e7ecb44798
        case "GeckoView:MediaSession:SkipAd":
          this.controller.skipAd();
 diff --git a/mobile/shared/modules/geckoview/GeckoViewSettings.sys.mjs b/mobile/shared/modules/geckoview/GeckoViewSettings.sys.mjs
-index 8fb59f0a7f72a12b5ceb81add1232e7ff7c6beff..21a0cf188289f7aab95f0255d1bfb80704632e6f 100644
+index 8fb59f0a7f72a12b5ceb81add1232e7ff7c6beff..b8e74cb8f30bb1d597e417b9244dfd64bfe0688e 100644
 --- a/mobile/shared/modules/geckoview/GeckoViewSettings.sys.mjs
 +++ b/mobile/shared/modules/geckoview/GeckoViewSettings.sys.mjs
 @@ -32,6 +32,9 @@ export class GeckoViewSettings extends GeckoViewModule {
@@ -111652,7 +111729,7 @@ index 8fb59f0a7f72a12b5ceb81add1232e7ff7c6beff..21a0cf188289f7aab95f0255d1bfb807
      this._sessionContextId = null;
  
      this.registerListener(["GeckoView:GetUserAgent"]);
-@@ -79,10 +82,14 @@ export class GeckoViewSettings extends GeckoViewModule {
+@@ -79,10 +82,15 @@ export class GeckoViewSettings extends GeckoViewModule {
      this.unsafeSessionContextId = settings.unsafeSessionContextId;
      this.userAgentMode = settings.userAgentMode;
      this.userAgentOverride = settings.userAgentOverride;
@@ -111664,10 +111741,11 @@ index 8fb59f0a7f72a12b5ceb81add1232e7ff7c6beff..21a0cf188289f7aab95f0255d1bfb807
      this.allowJavascript = settings.allowJavascript;
      this.viewportMode = settings.viewportMode;
 +    this.pageZoom = settings.pageZoom;
++    this.textZoom = settings.textZoom;
      this.useTrackingProtection = !!settings.useTrackingProtection;
  
      if (settings.isExtensionPopup) {
-@@ -135,6 +142,14 @@ export class GeckoViewSettings extends GeckoViewModule {
+@@ -135,6 +143,22 @@ export class GeckoViewSettings extends GeckoViewModule {
        aViewportMode == VIEWPORT_MODE_DESKTOP;
    }
  
@@ -111679,10 +111757,18 @@ index 8fb59f0a7f72a12b5ceb81add1232e7ff7c6beff..21a0cf188289f7aab95f0255d1bfb807
 +    this.browsingContext.fullZoom = aPageZoom;
 +  }
 +
++  set textZoom(aTextZoom) {
++    if (typeof aTextZoom != "number" || aTextZoom <= 0) {
++      return;
++    }
++
++    this.browsingContext.textZoom = aTextZoom;
++  }
++
    get userAgentMode() {
      return this._userAgentMode;
    }
-@@ -163,6 +178,42 @@ export class GeckoViewSettings extends GeckoViewModule {
+@@ -163,6 +187,42 @@ export class GeckoViewSettings extends GeckoViewModule {
      this.browsingContext.customUserAgent = this.customUserAgent;
    }
  
