@@ -20,6 +20,10 @@ Gecko 端的完整源码修改集中在一份
 `GeckoPrebuilt/GeckoCore-ios-arm64.zip`，因此修改 Swift/UIKit 层时不需要重新
 编译 Firefox/XUL。
 
+当前可交付版本为 `1.0.15 (87)`。Build 87 在 Build 82 的缓存容量/清理能力之上，
+增加了可切换的 GPT/Gemini 登录 Cookie 隔离、加密数据备份/恢复，以及 ChatGPT
+退出页的 UIKit single-process safe-logout 处理。
+
 ## 当前结构
 
 ```text
@@ -91,6 +95,10 @@ GeckoPrebuilt/include
 
 读取 consumer headers，所以 App 构建不再依赖 Firefox objdir。
 
+如需确认构建确实来自压缩包而不是工作区中先前展开的副本，可先移走或删除
+Git 忽略的 `GeckoPrebuilt/Runtime` 与 `GeckoPrebuilt/include`，再执行上述准备
+命令。脚本会从 zip 重新展开，并校验内置 manifest 和 arm64 XUL。
+
 ### 3. 生成 IPA
 
 ```bash
@@ -133,6 +141,15 @@ make static-check
 
 `debug` / `release` 同样只使用预编译 Gecko。
 
+这条路径的最小可复现命令是：
+
+```bash
+bash scripts/prepare_gecko_prebuilt.sh
+bash scripts/static_check.sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  bash scripts/build_ipa.sh
+```
+
 ---
 
 ## 构建方式二：从 Firefox 源码编 Gecko，再出 IPA
@@ -163,6 +180,11 @@ git -C build/firefox-src checkout \
 ```bash
 bash GeckoPort/apply_patches.sh build/firefox-src
 ```
+
+这里要求 Firefox checkout 在应用 patch 前是干净的。如果工作区已经是已应用
+canonical patch 的增量开发树，不要重复执行 `apply_patches.sh`；先用
+`git -C build/firefox-src diff HEAD --binary` 与 canonical patch 核对，再直接
+增量构建。
 
 `apply_patches.sh` 会同时验证：
 
@@ -239,6 +261,26 @@ make ipa
 其中 `gecko-core` = `gecko-build` + `gecko-export`；它假定 Firefox source 已经
 位于锁定 commit 并应用了 canonical patch。
 
+从一份全新的 Firefox checkout 开始时，完整流程为：
+
+```bash
+bash GeckoPort/apply_patches.sh build/firefox-src
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+GECKO_BUILD_JOBS=4 \
+  bash GeckoPort/build_gecko.sh build/firefox-src
+bash GeckoPort/regenerate_patch.sh build/firefox-src
+# 将输出的 SHA-256 写入 GeckoPort/PATCHSET.lock
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  bash scripts/export_gecko_prebuilt.sh
+bash scripts/static_check.sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  bash scripts/build_ipa.sh
+```
+
+源码、canonical patch 和 prebuilt 必须作为同一组更新：Firefox `git diff HEAD`
+应与 `DualAI-Gecko.patch` 完全一致，patch SHA-256 应匹配 `PATCHSET.lock`，objdir
+XUL 的 SHA-256 应匹配 `GeckoPrebuilt/MANIFEST.lock` 和 zip 内的 XUL。
+
 ---
 
 ## 修改 Gecko patch
@@ -285,12 +327,13 @@ git apply --check GeckoPort/DualAI-Gecko.patch
 压缩包包含 `Runtime/`、`include/` 和同一份 `MANIFEST.lock`。
 `prepare_gecko_prebuilt.sh` 会校验结构、manifest 和 XUL arm64 架构。
 
-当前预编译核心对应 Build 48 时的 Gecko runtime：
+当前预编译核心对应 Build 87 的 Gecko runtime（最终以
+`GeckoPrebuilt/MANIFEST.lock` 为准）：
 
 ```text
-XUL bytes:     181495872
-XUL SHA256:    01eb153b43552ba7b9f8942e7f2a3e665770dca975565222e767d346817f0c8a
-Runtime files: 745
+XUL bytes:     134656920
+XUL SHA256:    2a291acb0dd8a93c230eb164933229030964516e0a7b4c25de71d0a7926ba535
+Runtime files: 12
 ```
 
 ## 运行模型与 JIT
@@ -305,8 +348,16 @@ SpiderMonkey JIT 保留。目标真机使用 TrollStore 的 JIT 启动路径；A
 
 ## 当前功能状态
 
-- ChatGPT / Gemini：统一 Gecko 内核与独立 profile/session。
+- ChatGPT / Gemini：统一使用一个进程级 Gecko profile；两个页面各自拥有独立
+  GeckoView session。设置中的“共用登录 Cookie”默认开启；关闭后通过固定
+  `sessionContextId` 隔离 Cookie、站点存储和权限，修改在完全重启 App 后生效。
 - HTTPS 页面、登录、流式内容、Storage/Cookie：已进入真实 Gecko 路径。
+- 数据备份：可导出密码加密的单个 `.dualaibackup` 文件，包含逻辑 Cookie、
+  持久站点数据和 App 设置，并排除 `cache2`、`startupCache` 等可重建缓存；
+  导入后在下一次 Gecko 启动前恢复。服务端已撤销或过期的登录令牌不能靠本地
+  备份重新激活。
+- ChatGPT 退出：`/auth/logout` 在当前单进程 docshell 中触发安全脱离页面、清理
+  当前 context Cookie 并回到首页，避免在退出脚本仍运行时直接清 Cookie。
 - 前进/后退：由 Gecko `PageStart/PageStop` 同步历史状态。
 - 文件上传：GeckoView `FilePickerDelegate` -> UIKit `UIDocumentPickerViewController`。
 - 麦克风/摄像头权限：Gecko media permission bridge 已接通；完整实时通话仍受

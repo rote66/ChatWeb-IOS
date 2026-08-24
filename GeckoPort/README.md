@@ -34,6 +34,19 @@ bash scripts/export_gecko_prebuilt.sh
 runtime, exports the three consumer headers needed by the app, and refreshes
 the compressed `GeckoPrebuilt/GeckoCore-ios-arm64.zip` artifact.
 
+After the export, the normal app/IPA build must consume that prebuilt artifact:
+
+```bash
+bash scripts/prepare_gecko_prebuilt.sh
+bash scripts/static_check.sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  bash scripts/build_ipa.sh
+```
+
+The source diff, canonical patch, patch lock, objdir XUL, prebuilt manifest and
+archive are one release unit. Do not commit a Gecko source change without
+refreshing and verifying all of them.
+
 To intentionally reset only Firefox source back to the lock before reapplying
 the patch, use `reset_source.sh`. This does not remove ignored Gecko objdirs or
 the exported prebuilt kernel.

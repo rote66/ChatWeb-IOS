@@ -11,3 +11,4 @@ GeckoPrebuilt/include/
 GeckoPrebuilt/.extract.*/
 GeckoPrebuilt/.export.*/
 GeckoPrebuilt/*.tmp
+XUL-after-release-log-prune
