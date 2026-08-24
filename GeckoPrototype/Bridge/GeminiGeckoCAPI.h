@@ -51,6 +51,14 @@ typedef struct GGGeckoRuntimeOptions {
     GGGeckoJITMode jit_mode;
 } GGGeckoRuntimeOptions;
 
+typedef struct GGGeckoUserAgentSettings {
+    const char *user_agent_utf8;
+    const char *platform_utf8;
+    const char *app_version_utf8;
+    const char *oscpu_utf8;
+    bool use_desktop_viewport;
+} GGGeckoUserAgentSettings;
+
 typedef struct GGGeckoSessionCallbacks {
     void *context;
     void (*did_commit_url)(void *context, const char *url_utf8);
@@ -89,6 +97,7 @@ void GGGeckoRuntimeDestroy(GGGeckoRuntime *runtime);
 GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
                                    const GGGeckoSessionCallbacks *callbacks,
                                    const char *session_context_id_utf8,
+                                   const GGGeckoUserAgentSettings *user_agent_settings,
                                    GGGeckoSession **out_session);
 void GGGeckoSessionDestroy(GGGeckoSession *session);
 
@@ -106,6 +115,9 @@ bool GGGeckoSessionCanGoBack(GGGeckoSession *session);
 bool GGGeckoSessionCanGoForward(GGGeckoSession *session);
 void GGGeckoSessionSetActive(GGGeckoSession *session, bool active);
 void GGGeckoSessionSetFocused(GGGeckoSession *session, bool focused);
+GGGeckoResult GGGeckoSessionSetUserAgentSettings(
+    GGGeckoSession *session,
+    const GGGeckoUserAgentSettings *settings);
 void GGGeckoRuntimeSetLocales(GGGeckoRuntime *runtime,
                               const char *locales_csv_utf8);
 void GGGeckoRuntimeEnterBackground(GGGeckoRuntime *runtime);

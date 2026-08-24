@@ -535,6 +535,31 @@ struct GGGeckoSession {
     bool canGoForward;
 };
 
+static NSDictionary *GGUserAgentSettingsDictionary(
+    const GGGeckoUserAgentSettings *settings) {
+    if (!settings || !settings->user_agent_utf8 || !settings->platform_utf8 ||
+        !settings->app_version_utf8 || !settings->oscpu_utf8) {
+        return nil;
+    }
+
+    NSString *userAgent = [NSString stringWithUTF8String:settings->user_agent_utf8];
+    NSString *platform = [NSString stringWithUTF8String:settings->platform_utf8];
+    NSString *appVersion = [NSString stringWithUTF8String:settings->app_version_utf8];
+    NSString *oscpu = [NSString stringWithUTF8String:settings->oscpu_utf8];
+    if (!userAgent.length || !platform.length || !appVersion.length || !oscpu.length) {
+        return nil;
+    }
+
+    return @{
+        @"userAgentMode": @0,
+        @"userAgentOverride": userAgent,
+        @"platformOverride": platform,
+        @"appVersionOverride": appVersion,
+        @"oscpuOverride": oscpu,
+        @"viewportMode": settings->use_desktop_viewport ? @1 : @0,
+    };
+}
+
 static GGHostRuntimeAdapter *gRuntimeAdapter;
 static BOOL gBootstrapEntered = NO;
 static NSString *gProcessProfilePath;
@@ -1061,9 +1086,13 @@ void GGGeckoRuntimeDestroy(GGGeckoRuntime *runtime) {
 GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
                                    const GGGeckoSessionCallbacks *callbacks,
                                    const char *session_context_id_utf8,
+                                   const GGGeckoUserAgentSettings *user_agent_settings,
                                    GGGeckoSession **out_session) {
     GGGeckoStartupTrace("session-create.enter");
-    if (!runtime || !callbacks || !out_session || !NSThread.isMainThread) {
+    NSDictionary *userAgentSettings =
+        GGUserAgentSettingsDictionary(user_agent_settings);
+    if (!runtime || !callbacks || !out_session || !userAgentSettings ||
+        !NSThread.isMainThread) {
         GGGeckoStartupTrace("session-create.invalid-argument");
         return GGGeckoResultInvalidArgument;
     }
@@ -1219,13 +1248,10 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
         return GGGeckoResultInvalidArgument;
     }
 
-    NSDictionary *settings = @{
+    NSMutableDictionary *settings = [@{
         @"chromeUri": NSNull.null,
         @"screenId": @0,
         @"useTrackingProtection": @NO,
-        @"userAgentMode": @0,
-        @"userAgentOverride": NSNull.null,
-        @"viewportMode": @0,
         @"displayMode": @0,
         @"suspendMediaWhenInactive": @YES,
         @"allowJavascript": @YES,
@@ -1233,7 +1259,8 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
         @"isPopup": @NO,
         @"sessionContextId": sessionContextId ?: NSNull.null,
         @"unsafeSessionContextId": NSNull.null,
-    };
+    } mutableCopy];
+    [settings addEntriesFromDictionary:userAgentSettings];
     NSDictionary *modules = @{
         @"GeckoViewContent": @YES,
         @"GeckoViewNavigation": @YES,
@@ -1349,6 +1376,21 @@ void GGGeckoSessionSetFocused(GGGeckoSession *session, bool focused) {
     if (!session) { return; }
     [session->dispatcher sendToGecko:@"GeckoView:SetFocused"
                              message:@{ @"focused": @(focused) }];
+}
+
+GGGeckoResult GGGeckoSessionSetUserAgentSettings(
+    GGGeckoSession *session,
+    const GGGeckoUserAgentSettings *settings) {
+    NSDictionary *message = GGUserAgentSettingsDictionary(settings);
+    if (!session || !message || !NSThread.isMainThread) {
+        return GGGeckoResultInvalidArgument;
+    }
+    NSLog(@"[GeminiGecko][UA] update platform=%@ desktop=%@",
+          message[@"platformOverride"],
+          [message[@"viewportMode"] boolValue] ? @"yes" : @"no");
+    [session->dispatcher sendToGecko:@"GeckoView:UpdateSettings"
+                             message:message];
+    return GGGeckoResultOK;
 }
 
 void GGGeckoRuntimeSetLocales(GGGeckoRuntime *runtime,

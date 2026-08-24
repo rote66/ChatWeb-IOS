@@ -33,7 +33,8 @@ class GeminiWebViewController: UIViewController, WebContentController {
         return GeckoEngine(embedding: embedding,
                            profileDirectory: profile,
                            jitPolicy: .required,
-                           sessionContextId: sessionContextId)
+                           sessionContextId: sessionContextId,
+                           userAgentConfiguration: preferences.userAgentProfile.configuration)
     }()
     private let progressView = UIProgressView(progressViewStyle: .bar)
     private let containerView = UIView()
@@ -491,6 +492,18 @@ class GeminiWebViewController: UIViewController, WebContentController {
 
     func exportCookieSnapshot(completion: @escaping (Data?) -> Void) {
         engine.exportCookies(completion: completion)
+    }
+
+    func applyUserAgentProfile(_ profile: WebUserAgentProfile) -> Bool {
+        let applied = engine.setUserAgentConfiguration(profile.configuration)
+        guard applied else { return false }
+        NSLog("[GeminiGecko][UA] service=%@ profile=%@",
+              service == .chatGPT ? "ChatGPT" : "Gemini",
+              profile.displayName)
+        if didStart {
+            reloadIgnoringCache()
+        }
+        return true
     }
 
     func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void) {

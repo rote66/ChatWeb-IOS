@@ -30,8 +30,13 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
 - (BOOL)startWithProfileDirectory:(NSURL *)profileDirectory
                         jitPolicy:(GeminiGeckoJITPolicy)jitPolicy
                  sessionContextId:(nullable NSString *)sessionContextId
+                        userAgent:(NSString *)userAgent
+                          platform:(NSString *)platform
+                        appVersion:(NSString *)appVersion
+                              oscpu:(NSString *)oscpu
+                useDesktopViewport:(BOOL)useDesktopViewport
                             error:(NSError * _Nullable * _Nullable)error
-    NS_SWIFT_NAME(start(profileDirectory:jitPolicy:sessionContextId:));
+    NS_SWIFT_NAME(start(profileDirectory:jitPolicy:sessionContextId:userAgent:platform:appVersion:oscpu:useDesktopViewport:));
 - (BOOL)loadURL:(NSURL *)url
           error:(NSError * _Nullable * _Nullable)error
     NS_SWIFT_NAME(load(url:));
@@ -42,6 +47,12 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
 - (void)goForward;
 - (void)setActive:(BOOL)active;
 - (void)setFocused:(BOOL)focused;
+- (BOOL)setUserAgent:(NSString *)userAgent
+             platform:(NSString *)platform
+           appVersion:(NSString *)appVersion
+                 oscpu:(NSString *)oscpu
+    useDesktopViewport:(BOOL)useDesktopViewport
+    NS_SWIFT_NAME(setUserAgent(_:platform:appVersion:oscpu:useDesktopViewport:));
 - (void)setRequestedLocales:(NSArray<NSString *> *)locales;
 - (void)enterBackground;
 - (void)enterForeground;

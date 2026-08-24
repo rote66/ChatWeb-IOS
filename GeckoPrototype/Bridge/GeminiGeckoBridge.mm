@@ -197,10 +197,16 @@ static void GGClearDataDidFinish(void *context, bool success) {
 - (BOOL)startWithProfileDirectory:(NSURL *)profileDirectory
                         jitPolicy:(GeminiGeckoJITPolicy)jitPolicy
                  sessionContextId:(NSString *)sessionContextId
+                        userAgent:(NSString *)userAgent
+                          platform:(NSString *)platform
+                        appVersion:(NSString *)appVersion
+                              oscpu:(NSString *)oscpu
+                useDesktopViewport:(BOOL)useDesktopViewport
                             error:(NSError **)error {
     NSAssert(NSThread.isMainThread, @"Gecko bridge must start on the main thread");
     if (_started) { return YES; }
-    if (!profileDirectory.isFileURL) {
+    if (!profileDirectory.isFileURL || !userAgent.length || !platform.length ||
+        !appVersion.length || !oscpu.length) {
         if (error) { *error = GGMakeError(GGGeckoResultInvalidArgument, @"profile path"); }
         return NO;
     }
@@ -229,10 +235,18 @@ static void GGClearDataDidFinish(void *context, bool success) {
     callbacks.did_change_jit_state = GGDidChangeJITState;
     callbacks.did_request_safe_logout = GGDidRequestSafeLogout;
 
-    result = GGGeckoSessionCreate(_runtime,
-                                  &callbacks,
-                                  _sessionContextId.length ? _sessionContextId.UTF8String : nullptr,
-                                  &_session);
+    GGGeckoUserAgentSettings userAgentSettings = {};
+    userAgentSettings.user_agent_utf8 = userAgent.UTF8String;
+    userAgentSettings.platform_utf8 = platform.UTF8String;
+    userAgentSettings.app_version_utf8 = appVersion.UTF8String;
+    userAgentSettings.oscpu_utf8 = oscpu.UTF8String;
+    userAgentSettings.use_desktop_viewport = useDesktopViewport;
+    result = GGGeckoSessionCreate(
+        _runtime,
+        &callbacks,
+        _sessionContextId.length ? _sessionContextId.UTF8String : nullptr,
+        &userAgentSettings,
+        &_session);
     if (result != GGGeckoResultOK || !_session) {
         GGGeckoRuntimeDestroy(_runtime);
         _runtime = nullptr;
@@ -273,6 +287,23 @@ static void GGClearDataDidFinish(void *context, bool success) {
 - (void)goForward { if (_session) GGGeckoSessionGoForward(_session); }
 - (void)setActive:(BOOL)active { if (_session) GGGeckoSessionSetActive(_session, active); }
 - (void)setFocused:(BOOL)focused { if (_session) GGGeckoSessionSetFocused(_session, focused); }
+- (BOOL)setUserAgent:(NSString *)userAgent
+             platform:(NSString *)platform
+           appVersion:(NSString *)appVersion
+                 oscpu:(NSString *)oscpu
+    useDesktopViewport:(BOOL)useDesktopViewport {
+    if (!_session || !userAgent.length || !platform.length ||
+        !appVersion.length || !oscpu.length) {
+        return NO;
+    }
+    GGGeckoUserAgentSettings settings = {};
+    settings.user_agent_utf8 = userAgent.UTF8String;
+    settings.platform_utf8 = platform.UTF8String;
+    settings.app_version_utf8 = appVersion.UTF8String;
+    settings.oscpu_utf8 = oscpu.UTF8String;
+    settings.use_desktop_viewport = useDesktopViewport;
+    return GGGeckoSessionSetUserAgentSettings(_session, &settings) == GGGeckoResultOK;
+}
 - (void)setRequestedLocales:(NSArray<NSString *> *)locales {
     if (!_runtime || locales.count == 0) { return; }
     NSString *csv = [locales componentsJoinedByString:@","];

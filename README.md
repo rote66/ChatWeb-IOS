@@ -168,12 +168,48 @@ UIKit widget 或 runtime 裁剪时才需要走这条路径。
 build/firefox-src
 ```
 
-获取 Firefox 源码后切到 `GeckoPort/PATCHSET.lock` 记录的 commit：
+为避免下载 Firefox 的完整历史，推荐直接从 Mozilla GitHub 镜像浅克隆锁定
+release tag：
 
 ```bash
-git -C build/firefox-src checkout \
-  c178247e1dfea52241a6b18b18cf3a00f8da935c
+git clone \
+  --depth 1 \
+  --single-branch \
+  --branch FIREFOX_153_0_4_RELEASE \
+  --filter=blob:none \
+  https://github.com/mozilla-firefox/firefox.git \
+  build/firefox-src
 ```
+
+这会保留当前 tag 的完整工作树，但不下载其他分支和完整提交历史；
+`--filter=blob:none` 还会让 Git 仅按 checkout 需要获取文件对象。克隆后必须核对：
+
+```bash
+test "$(git -C build/firefox-src rev-parse HEAD)" = \
+  c178247e1dfea52241a6b18b18cf3a00f8da935c
+git -C build/firefox-src rev-parse --is-shallow-repository
+```
+
+第二条命令应输出 `true`。
+
+### 2. 准备 Mozilla 私有工具链
+
+如果是新机器，或已经清理过 `~/.mozbuild`，必须先下载 Firefox 锁定的
+clang/lld、Node、sccache 等构建工具。只准备用户级工具链、不修改 Homebrew
+或系统配置的命令为：
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  build/firefox-src/mach bootstrap \
+    --application-choice browser \
+    --no-system-changes
+```
+
+跳过这一步时，`mach configure` 可能退回 `/usr/bin/clang`，随后报
+`Failed to find an adequate linker`。工具链会保存在 `~/.mozbuild`，清理该目录
+后需要重新 bootstrap。
+
+### 3. 应用 canonical patch
 
 应用 DualAI 唯一 Gecko patch：
 
@@ -193,13 +229,26 @@ canonical patch 的增量开发树，不要重复执行 `apply_patches.sh`；先
 - `DualAI-Gecko.patch` SHA-256 是否匹配 `PATCHSET.lock`；
 - patch 是否能完整应用。
 
-### 2. 编译 Gecko
+### 4. 编译 Gecko
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 GECKO_BUILD_JOBS=4 \
 bash GeckoPort/build_gecko.sh build/firefox-src
 ```
+
+2026-08-24 在 16 GiB Mac 上从空 `objdir`、空 `~/.mozbuild` 实测（4 jobs、
+未启用 SCCache）：
+
+- `mach build`：32 分 09 秒，成功完成 Release + ThinLTO；
+- Firefox 浅克隆工作树：约 5.6 GB，其中 `.git` 约 1.1 GB；
+- 构建完成后的 `obj-gemini-gecko-ios-arm64`：约 19 GB；
+- bootstrap 后的 `~/.mozbuild` 工具链：约 3.2 GB；
+- 导出 prebuilt：约 32 秒；从 prebuilt 全新构建/签名 IPA：约 19 秒。
+
+源码克隆和 bootstrap 的下载时间取决于网络，不包含在 32 分 09 秒内。本次完整
+源码树（含 objdir）最终约 25 GB；构建曾产生较多 swap I/O，16 GiB 内存机器不要
+提高默认的 4 jobs，也应预留额外磁盘空间给链接临时文件。
 
 默认 objdir：
 
@@ -217,7 +266,7 @@ build/firefox-src/obj-gemini-gecko-ios-arm64/dist/bin/XUL
 `mach/make/cargo/clang/ld64` 进程把机器内存和 swap 打满。`GECKO_BUILD_JOBS`
 可以调节并行度。
 
-### 3. 把已编译 Gecko 导出为预编译内核
+### 5. 把已编译 Gecko 导出为预编译内核
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
@@ -243,7 +292,7 @@ build/GeckoRuntimeClean
 
 因此后续仍可增量修改 Gecko。
 
-### 4. 使用刚导出的内核生成 IPA
+### 6. 使用刚导出的内核生成 IPA
 
 ```bash
 make ipa
@@ -264,12 +313,25 @@ make ipa
 从一份全新的 Firefox checkout 开始时，完整流程为：
 
 ```bash
+git clone \
+  --depth 1 \
+  --single-branch \
+  --branch FIREFOX_153_0_4_RELEASE \
+  --filter=blob:none \
+  https://github.com/mozilla-firefox/firefox.git \
+  build/firefox-src
+test "$(git -C build/firefox-src rev-parse HEAD)" = \
+  c178247e1dfea52241a6b18b18cf3a00f8da935c
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  build/firefox-src/mach bootstrap \
+    --application-choice browser \
+    --no-system-changes
 bash GeckoPort/apply_patches.sh build/firefox-src
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 GECKO_BUILD_JOBS=4 \
   bash GeckoPort/build_gecko.sh build/firefox-src
-bash GeckoPort/regenerate_patch.sh build/firefox-src
-# 将输出的 SHA-256 写入 GeckoPort/PATCHSET.lock
+cmp GeckoPort/DualAI-Gecko.patch \
+  <(git -C build/firefox-src diff HEAD --binary --full-index)
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   bash scripts/export_gecko_prebuilt.sh
 bash scripts/static_check.sh

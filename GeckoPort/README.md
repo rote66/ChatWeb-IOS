@@ -24,6 +24,12 @@ overlays.
 Starting from a clean checkout at the locked commit:
 
 ```bash
+git clone --depth 1 --single-branch \
+  --branch FIREFOX_153_0_4_RELEASE --filter=blob:none \
+  https://github.com/mozilla-firefox/firefox.git build/firefox-src
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  build/firefox-src/mach bootstrap \
+    --application-choice browser --no-system-changes
 bash GeckoPort/apply_patches.sh build/firefox-src
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   bash GeckoPort/build_gecko.sh build/firefox-src

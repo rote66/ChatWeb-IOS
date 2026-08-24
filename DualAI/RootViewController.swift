@@ -259,6 +259,12 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
                 : "当前 GPT 与 Gemini 使用独立 session context，Google/站点登录 Cookie 与站点存储互不复用；需要重新启动 App 后生效。",
             preferredStyle: .alert
         )
+        menu.addAction(UIAlertAction(
+            title: "用户代理：\(preferences.userAgentProfile.displayName)",
+            style: .default
+        ) { [weak self] _ in
+            self?.showUserAgentMenu()
+        })
         menu.addAction(UIAlertAction(title: "缓存设置与清理", style: .default) { [weak self, weak controller] _ in
             guard let self, let controller else { return }
             self.showCacheSettingsMenu(for: controller)
@@ -297,6 +303,41 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
         })
         menu.addAction(UIAlertAction(title: "取消", style: .cancel))
         present(menu, animated: true)
+    }
+
+    private func showUserAgentMenu() {
+        let currentProfile = preferences.userAgentProfile
+        let menu = UIAlertController(
+            title: "用户代理",
+            message: "该设置同时用于 GPT 与 Gemini。切换后，已打开的页面会重新加载。",
+            preferredStyle: .alert
+        )
+        for profile in WebUserAgentProfile.allCases {
+            let selectedPrefix = profile == currentProfile ? "✓ " : ""
+            menu.addAction(UIAlertAction(
+                title: selectedPrefix + profile.displayName,
+                style: .default
+            ) { [weak self] _ in
+                self?.applyUserAgentProfile(profile)
+            })
+        }
+        menu.addAction(UIAlertAction(title: "取消", style: .cancel))
+        present(menu, animated: true)
+    }
+
+    private func applyUserAgentProfile(_ profile: WebUserAgentProfile) {
+        guard profile != preferences.userAgentProfile else { return }
+        let chatGPTApplied = chatGPTViewController.applyUserAgentProfile(profile)
+        let geminiApplied = geminiViewController.applyUserAgentProfile(profile)
+        guard chatGPTApplied, geminiApplied else {
+            let previousProfile = preferences.userAgentProfile
+            _ = chatGPTViewController.applyUserAgentProfile(previousProfile)
+            _ = geminiViewController.applyUserAgentProfile(previousProfile)
+            showSimpleAlert(title: "切换失败", message: "用户代理未更改，请稍后重试。")
+            return
+        }
+        preferences.userAgentProfile = profile
+        NSLog("[GeminiGecko][UA] persisted profile=%@", profile.displayName)
     }
 
     private func applySharedCookieSetting(_ newValue: Bool,

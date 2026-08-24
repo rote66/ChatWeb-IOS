@@ -26,6 +26,7 @@ protocol WebContentController: AnyObject {
     func clearCookies(completion: @escaping (Bool) -> Void)
     func migrateLoginCookies(toShared: Bool, completion: @escaping (Bool) -> Void)
     func exportCookieSnapshot(completion: @escaping (Data?) -> Void)
+    func applyUserAgentProfile(_ profile: WebUserAgentProfile) -> Bool
     func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void)
     func setDiskCacheCapacityKB(_ capacityKB: Int, completion: @escaping (Bool) -> Void)
 }

@@ -10,7 +10,10 @@ protocol GeckoEmbedding: AnyObject {
     var canGoForward: Bool { get }
     var jitState: GeckoJITRuntimeState { get }
 
-    func start(profileDirectory: URL, jitPolicy: GeckoJITPolicy, sessionContextId: String?) throws
+    func start(profileDirectory: URL,
+               jitPolicy: GeckoJITPolicy,
+               sessionContextId: String?,
+               userAgentConfiguration: WebUserAgentConfiguration) throws
     func load(_ url: URL) throws
     func reload()
     func reloadIgnoringCache()
@@ -19,6 +22,7 @@ protocol GeckoEmbedding: AnyObject {
     func goForward()
     func setActive(_ active: Bool)
     func setFocused(_ focused: Bool)
+    func setUserAgentConfiguration(_ configuration: WebUserAgentConfiguration) -> Bool
     func setRequestedLocales(_ locales: [String])
     func enterBackground()
     func enterForeground()
@@ -53,6 +57,7 @@ final class GeckoEngine: WebEngine {
     private let profileDirectory: URL
     private let jitPolicy: GeckoJITPolicy
     private let sessionContextId: String?
+    private var userAgentConfiguration: WebUserAgentConfiguration
     private var started = false
     private var isClosed = false
 
@@ -60,12 +65,14 @@ final class GeckoEngine: WebEngine {
         embedding: GeckoEmbedding,
         profileDirectory: URL,
         jitPolicy: GeckoJITPolicy = .required,
-        sessionContextId: String? = nil
+        sessionContextId: String? = nil,
+        userAgentConfiguration: WebUserAgentConfiguration
     ) {
         self.embedding = embedding
         self.profileDirectory = profileDirectory
         self.jitPolicy = jitPolicy
         self.sessionContextId = sessionContextId
+        self.userAgentConfiguration = userAgentConfiguration
     }
 
     var view: UIView { embedding.nativeView }
@@ -103,6 +110,11 @@ final class GeckoEngine: WebEngine {
     func goForward() { embedding.goForward() }
     func setActive(_ active: Bool) { embedding.setActive(active) }
     func setFocused(_ focused: Bool) { embedding.setFocused(focused) }
+    func setUserAgentConfiguration(_ configuration: WebUserAgentConfiguration) -> Bool {
+        userAgentConfiguration = configuration
+        guard started else { return true }
+        return embedding.setUserAgentConfiguration(configuration)
+    }
     func setRequestedLocales(_ locales: [String]) { embedding.setRequestedLocales(locales) }
     func applicationDidEnterBackground() { embedding.enterBackground() }
     func applicationWillEnterForeground() { embedding.enterForeground() }
@@ -143,7 +155,12 @@ final class GeckoEngine: WebEngine {
             at: profileDirectory,
             withIntermediateDirectories: true
         )
-        try embedding.start(profileDirectory: profileDirectory, jitPolicy: jitPolicy, sessionContextId: sessionContextId)
+        try embedding.start(
+            profileDirectory: profileDirectory,
+            jitPolicy: jitPolicy,
+            sessionContextId: sessionContextId,
+            userAgentConfiguration: userAgentConfiguration
+        )
         started = true
     }
 
