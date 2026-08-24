@@ -34,7 +34,8 @@ class GeminiWebViewController: UIViewController, WebContentController {
                            profileDirectory: profile,
                            jitPolicy: .required,
                            sessionContextId: sessionContextId,
-                           userAgentConfiguration: preferences.userAgentProfile.configuration)
+                           userAgentConfiguration: preferences.userAgentProfile.configuration,
+                           contentConfiguration: preferences.webContentConfiguration)
     }()
     private let progressView = UIProgressView(progressViewStyle: .bar)
     private let containerView = UIView()
@@ -453,6 +454,31 @@ class GeminiWebViewController: UIViewController, WebContentController {
         clearCookieDomains(domains, completion: completion)
     }
 
+    func clearWebsitePermissions(completion: @escaping (Bool) -> Void) {
+        let domains = service == .chatGPT
+            ? ["chatgpt.com", "openai.com"]
+            : ["google.com"]
+        clearPermissionDomains(domains, completion: completion)
+    }
+
+    private func clearPermissionDomains(_ baseDomains: [String],
+                                        completion: @escaping (Bool) -> Void) {
+        guard let first = baseDomains.first else {
+            completion(true)
+            return
+        }
+        NSLog("[GeminiGecko][Permission] service=%@ reset-base-domain=%@",
+              service == .chatGPT ? "ChatGPT" : "Gemini", first)
+        engine.clearPermissions(baseDomain: first) { [weak self] success in
+            guard let self else { return }
+            guard success else {
+                completion(false)
+                return
+            }
+            self.clearPermissionDomains(Array(baseDomains.dropFirst()), completion: completion)
+        }
+    }
+
     private func performCookieClear(completion: @escaping (Bool) -> Void) {
         let domains = service == .chatGPT
             ? ["chatgpt.com", "openai.com"]
@@ -504,6 +530,11 @@ class GeminiWebViewController: UIViewController, WebContentController {
             reloadIgnoringCache()
         }
         return true
+    }
+
+    func applyContentConfiguration(_ configuration: WebContentConfiguration,
+                                   completion: @escaping (Bool) -> Void) {
+        engine.setContentConfiguration(configuration, completion: completion)
     }
 
     func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void) {

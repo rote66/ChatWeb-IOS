@@ -39,6 +39,7 @@ typedef enum GGGeckoClearDataFlags {
     // quota-managed site storage (IndexedDB/Cache API/etc.) without requesting
     // cookie deletion.
     GGGeckoClearDataDOMStorages = 1u << 4,
+    GGGeckoClearDataPermissions = 1u << 6,
 } GGGeckoClearDataFlags;
 
 typedef void (*GGGeckoOperationCallback)(void *context, bool success);
@@ -58,6 +59,15 @@ typedef struct GGGeckoUserAgentSettings {
     const char *oscpu_utf8;
     bool use_desktop_viewport;
 } GGGeckoUserAgentSettings;
+
+typedef struct GGGeckoContentSettings {
+    double text_zoom;
+    int32_t autoplay_default;
+    bool suspend_media_when_inactive;
+    int32_t cookie_behavior;
+    bool use_tracking_protection;
+    bool use_strict_tracking_list;
+} GGGeckoContentSettings;
 
 typedef struct GGGeckoSessionCallbacks {
     void *context;
@@ -98,6 +108,7 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
                                    const GGGeckoSessionCallbacks *callbacks,
                                    const char *session_context_id_utf8,
                                    const GGGeckoUserAgentSettings *user_agent_settings,
+                                   const GGGeckoContentSettings *content_settings,
                                    GGGeckoSession **out_session);
 void GGGeckoSessionDestroy(GGGeckoSession *session);
 
@@ -118,6 +129,11 @@ void GGGeckoSessionSetFocused(GGGeckoSession *session, bool focused);
 GGGeckoResult GGGeckoSessionSetUserAgentSettings(
     GGGeckoSession *session,
     const GGGeckoUserAgentSettings *settings);
+GGGeckoResult GGGeckoSessionSetContentSettings(
+    GGGeckoSession *session,
+    const GGGeckoContentSettings *settings,
+    void *context,
+    GGGeckoOperationCallback callback);
 void GGGeckoRuntimeSetLocales(GGGeckoRuntime *runtime,
                               const char *locales_csv_utf8);
 void GGGeckoRuntimeEnterBackground(GGGeckoRuntime *runtime);

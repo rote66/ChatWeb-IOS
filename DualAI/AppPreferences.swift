@@ -76,6 +76,65 @@ enum WebUserAgentProfile: Int, CaseIterable {
     }
 }
 
+enum WebTextSize: Int, CaseIterable {
+    case percent80 = 80
+    case percent100 = 100
+    case percent120 = 120
+    case percent140 = 140
+    case percent160 = 160
+
+    var displayName: String { "\(rawValue)%" }
+    var zoom: Double { Double(rawValue) / 100.0 }
+}
+
+enum WebAutoplayPolicy: Int, CaseIterable {
+    case blockAudible = 1
+    case allow = 0
+    case blockAll = 5
+
+    var displayName: String {
+        switch self {
+        case .blockAudible: return "阻止有声自动播放（推荐）"
+        case .allow: return "允许自动播放"
+        case .blockAll: return "阻止所有自动播放"
+        }
+    }
+}
+
+enum WebPrivacyProtectionLevel: Int, CaseIterable {
+    case standard = 1
+    case compatibility = 0
+    case strict = 2
+
+    var displayName: String {
+        switch self {
+        case .standard: return "标准"
+        case .compatibility: return "兼容"
+        case .strict: return "严格"
+        }
+    }
+
+    var cookieBehavior: Int {
+        switch self {
+        case .standard: return 5
+        case .compatibility: return 0
+        case .strict: return 1
+        }
+    }
+
+    var usesTrackingProtection: Bool { self != .compatibility }
+    var usesStrictTrackingList: Bool { self == .strict }
+}
+
+struct WebContentConfiguration: Equatable {
+    let textZoom: Double
+    let autoplayDefault: Int
+    let suspendMediaWhenInactive: Bool
+    let cookieBehavior: Int
+    let usesTrackingProtection: Bool
+    let usesStrictTrackingList: Bool
+}
+
 final class AppPreferences {
     static let shared = AppPreferences()
 
@@ -86,6 +145,10 @@ final class AppPreferences {
         static let geckoDiskCacheSmartSizeEnabled = "geckoDiskCacheSmartSizeEnabled"
         static let geckoDiskCacheCapacityKB = "geckoDiskCacheCapacityKB"
         static let userAgentProfile = "userAgentProfile"
+        static let webTextSize = "webTextSize"
+        static let webAutoplayPolicy = "webAutoplayPolicy"
+        static let suspendMediaWhenInactive = "suspendMediaWhenInactive"
+        static let webPrivacyProtectionLevel = "webPrivacyProtectionLevel"
         static let shareGeckoLoginCookies = "shareGeckoLoginCookies"
         static let didSanitizeIsolatedGPTIdentityCookiesV1 = "didSanitizeIsolatedGPTIdentityCookiesV1"
         static let didSeedIsolatedCookieContexts = "didSeedIsolatedCookieContexts"
@@ -179,6 +242,70 @@ final class AppPreferences {
         set {
             defaults.set(newValue, forKey: Key.shareGeckoLoginCookies)
         }
+    }
+
+    var webTextSize: WebTextSize {
+        get {
+            guard defaults.object(forKey: Key.webTextSize) != nil else {
+                return .percent100
+            }
+            return WebTextSize(rawValue: defaults.integer(forKey: Key.webTextSize))
+                ?? .percent100
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: Key.webTextSize)
+        }
+    }
+
+    var webAutoplayPolicy: WebAutoplayPolicy {
+        get {
+            guard defaults.object(forKey: Key.webAutoplayPolicy) != nil else {
+                return .blockAudible
+            }
+            return WebAutoplayPolicy(rawValue: defaults.integer(forKey: Key.webAutoplayPolicy))
+                ?? .blockAudible
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: Key.webAutoplayPolicy)
+        }
+    }
+
+    var suspendMediaWhenInactive: Bool {
+        get {
+            guard defaults.object(forKey: Key.suspendMediaWhenInactive) != nil else {
+                return true
+            }
+            return defaults.bool(forKey: Key.suspendMediaWhenInactive)
+        }
+        set {
+            defaults.set(newValue, forKey: Key.suspendMediaWhenInactive)
+        }
+    }
+
+    var webPrivacyProtectionLevel: WebPrivacyProtectionLevel {
+        get {
+            guard defaults.object(forKey: Key.webPrivacyProtectionLevel) != nil else {
+                return .standard
+            }
+            return WebPrivacyProtectionLevel(
+                rawValue: defaults.integer(forKey: Key.webPrivacyProtectionLevel)
+            ) ?? .standard
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: Key.webPrivacyProtectionLevel)
+        }
+    }
+
+    var webContentConfiguration: WebContentConfiguration {
+        let privacy = webPrivacyProtectionLevel
+        return WebContentConfiguration(
+            textZoom: webTextSize.zoom,
+            autoplayDefault: webAutoplayPolicy.rawValue,
+            suspendMediaWhenInactive: suspendMediaWhenInactive,
+            cookieBehavior: privacy.cookieBehavior,
+            usesTrackingProtection: privacy.usesTrackingProtection,
+            usesStrictTrackingList: privacy.usesStrictTrackingList
+        )
     }
 
     var geckoDiskCacheCapacityKB: Int {

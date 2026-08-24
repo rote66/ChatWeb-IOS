@@ -13,7 +13,8 @@ protocol GeckoEmbedding: AnyObject {
     func start(profileDirectory: URL,
                jitPolicy: GeckoJITPolicy,
                sessionContextId: String?,
-               userAgentConfiguration: WebUserAgentConfiguration) throws
+               userAgentConfiguration: WebUserAgentConfiguration,
+               contentConfiguration: WebContentConfiguration) throws
     func load(_ url: URL) throws
     func reload()
     func reloadIgnoringCache()
@@ -23,11 +24,14 @@ protocol GeckoEmbedding: AnyObject {
     func setActive(_ active: Bool)
     func setFocused(_ focused: Bool)
     func setUserAgentConfiguration(_ configuration: WebUserAgentConfiguration) -> Bool
+    func setContentConfiguration(_ configuration: WebContentConfiguration,
+                                 completion: @escaping (Bool) -> Void)
     func setRequestedLocales(_ locales: [String])
     func enterBackground()
     func enterForeground()
     func clearCache(baseDomain: String, completion: @escaping (Bool) -> Void)
     func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void)
+    func clearPermissions(baseDomain: String, completion: @escaping (Bool) -> Void)
     func migrateCookies(toShared: Bool, contextIds: [String], completion: @escaping (Bool) -> Void)
     func exportCookies(completion: @escaping (Data?) -> Void)
     func importCookies(_ jsonData: Data, completion: @escaping (Bool) -> Void)
@@ -58,6 +62,7 @@ final class GeckoEngine: WebEngine {
     private let jitPolicy: GeckoJITPolicy
     private let sessionContextId: String?
     private var userAgentConfiguration: WebUserAgentConfiguration
+    private var contentConfiguration: WebContentConfiguration
     private var started = false
     private var isClosed = false
 
@@ -66,13 +71,15 @@ final class GeckoEngine: WebEngine {
         profileDirectory: URL,
         jitPolicy: GeckoJITPolicy = .required,
         sessionContextId: String? = nil,
-        userAgentConfiguration: WebUserAgentConfiguration
+        userAgentConfiguration: WebUserAgentConfiguration,
+        contentConfiguration: WebContentConfiguration
     ) {
         self.embedding = embedding
         self.profileDirectory = profileDirectory
         self.jitPolicy = jitPolicy
         self.sessionContextId = sessionContextId
         self.userAgentConfiguration = userAgentConfiguration
+        self.contentConfiguration = contentConfiguration
     }
 
     var view: UIView { embedding.nativeView }
@@ -115,6 +122,15 @@ final class GeckoEngine: WebEngine {
         guard started else { return true }
         return embedding.setUserAgentConfiguration(configuration)
     }
+    func setContentConfiguration(_ configuration: WebContentConfiguration,
+                                 completion: @escaping (Bool) -> Void) {
+        contentConfiguration = configuration
+        guard started else {
+            completion(true)
+            return
+        }
+        embedding.setContentConfiguration(configuration, completion: completion)
+    }
     func setRequestedLocales(_ locales: [String]) { embedding.setRequestedLocales(locales) }
     func applicationDidEnterBackground() { embedding.enterBackground() }
     func applicationWillEnterForeground() { embedding.enterForeground() }
@@ -123,6 +139,9 @@ final class GeckoEngine: WebEngine {
     }
     func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void) {
         embedding.clearCookies(baseDomain: baseDomain, completion: completion)
+    }
+    func clearPermissions(baseDomain: String, completion: @escaping (Bool) -> Void) {
+        embedding.clearPermissions(baseDomain: baseDomain, completion: completion)
     }
     func migrateCookies(toShared: Bool, contextIds: [String], completion: @escaping (Bool) -> Void) {
         embedding.migrateCookies(toShared: toShared, contextIds: contextIds, completion: completion)
@@ -159,7 +178,8 @@ final class GeckoEngine: WebEngine {
             profileDirectory: profileDirectory,
             jitPolicy: jitPolicy,
             sessionContextId: sessionContextId,
-            userAgentConfiguration: userAgentConfiguration
+            userAgentConfiguration: userAgentConfiguration,
+            contentConfiguration: contentConfiguration
         )
         started = true
     }

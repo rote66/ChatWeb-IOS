@@ -265,6 +265,32 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
         ) { [weak self] _ in
             self?.showUserAgentMenu()
         })
+        menu.addAction(UIAlertAction(
+            title: "网页文字大小：\(preferences.webTextSize.displayName)",
+            style: .default
+        ) { [weak self] _ in
+            self?.showWebTextSizeMenu()
+        })
+        menu.addAction(UIAlertAction(
+            title: "媒体播放设置",
+            style: .default
+        ) { [weak self] _ in
+            self?.showMediaSettingsMenu()
+        })
+        menu.addAction(UIAlertAction(
+            title: "隐私保护：\(preferences.webPrivacyProtectionLevel.displayName)",
+            style: .default
+        ) { [weak self] _ in
+            self?.showPrivacyProtectionMenu()
+        })
+        let serviceName = controller.service == .chatGPT ? "ChatGPT" : "Gemini"
+        menu.addAction(UIAlertAction(
+            title: "重置\(serviceName)网站权限",
+            style: .destructive
+        ) { [weak self, weak controller] _ in
+            guard let self, let controller else { return }
+            self.showResetWebsitePermissionsConfirmation(for: controller)
+        })
         menu.addAction(UIAlertAction(title: "缓存设置与清理", style: .default) { [weak self, weak controller] _ in
             guard let self, let controller else { return }
             self.showCacheSettingsMenu(for: controller)
@@ -338,6 +364,201 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
         }
         preferences.userAgentProfile = profile
         NSLog("[GeminiGecko][UA] persisted profile=%@", profile.displayName)
+    }
+
+    private func showWebTextSizeMenu() {
+        let current = preferences.webTextSize
+        let menu = UIAlertController(
+            title: "网页文字大小",
+            message: "只缩放网页文字，不改变工具栏和 App 界面大小。已打开的页面会重新加载。",
+            preferredStyle: .alert
+        )
+        for size in WebTextSize.allCases {
+            let prefix = size == current ? "✓ " : ""
+            menu.addAction(UIAlertAction(title: prefix + size.displayName, style: .default) {
+                [weak self] _ in
+                guard let self, size != current else { return }
+                let configuration = self.makeContentConfiguration(textSize: size)
+                self.applyContentConfiguration(
+                    configuration,
+                    failureTitle: "修改文字大小失败",
+                    reloadPages: true
+                ) {
+                    self.preferences.webTextSize = size
+                }
+            })
+        }
+        menu.addAction(UIAlertAction(title: "取消", style: .cancel))
+        present(menu, animated: true)
+    }
+
+    private func showMediaSettingsMenu() {
+        let suspend = preferences.suspendMediaWhenInactive
+        let menu = UIAlertController(
+            title: "媒体播放",
+            message: "自动播放策略对所有网页生效；后台暂停也用于 GPT/Gemini 切换后的非活动页面。",
+            preferredStyle: .alert
+        )
+        menu.addAction(UIAlertAction(
+            title: "自动播放：\(preferences.webAutoplayPolicy.displayName)",
+            style: .default
+        ) { [weak self] _ in
+            self?.showAutoplayPolicyMenu()
+        })
+        menu.addAction(UIAlertAction(
+            title: "非活动/后台暂停媒体 = \(suspend ? "开" : "关")",
+            style: .default
+        ) { [weak self] _ in
+            guard let self else { return }
+            let newValue = !suspend
+            let configuration = self.makeContentConfiguration(
+                suspendMediaWhenInactive: newValue
+            )
+            self.applyContentConfiguration(
+                configuration,
+                failureTitle: "修改后台媒体设置失败",
+                reloadPages: false
+            ) {
+                self.preferences.suspendMediaWhenInactive = newValue
+            }
+        })
+        menu.addAction(UIAlertAction(title: "取消", style: .cancel))
+        present(menu, animated: true)
+    }
+
+    private func showAutoplayPolicyMenu() {
+        let current = preferences.webAutoplayPolicy
+        let menu = UIAlertController(
+            title: "自动播放",
+            message: "“阻止有声”允许静音媒体自动播放；“阻止所有”兼容性最严格。",
+            preferredStyle: .alert
+        )
+        for policy in WebAutoplayPolicy.allCases {
+            let prefix = policy == current ? "✓ " : ""
+            menu.addAction(UIAlertAction(title: prefix + policy.displayName, style: .default) {
+                [weak self] _ in
+                guard let self, policy != current else { return }
+                let configuration = self.makeContentConfiguration(autoplayPolicy: policy)
+                self.applyContentConfiguration(
+                    configuration,
+                    failureTitle: "修改自动播放失败",
+                    reloadPages: true
+                ) {
+                    self.preferences.webAutoplayPolicy = policy
+                }
+            })
+        }
+        menu.addAction(UIAlertAction(title: "取消", style: .cancel))
+        present(menu, animated: true)
+    }
+
+    private func showPrivacyProtectionMenu() {
+        let current = preferences.webPrivacyProtectionLevel
+        let menu = UIAlertController(
+            title: "隐私保护",
+            message: "标准会启用跟踪保护并分区第三方 Cookie；兼容允许第三方 Cookie；严格会阻止第三方 Cookie，部分登录或嵌入内容可能失效。该设置不改变 GPT/Gemini 是否共用登录 Cookie。",
+            preferredStyle: .alert
+        )
+        for level in WebPrivacyProtectionLevel.allCases {
+            let prefix = level == current ? "✓ " : ""
+            menu.addAction(UIAlertAction(title: prefix + level.displayName, style: .default) {
+                [weak self] _ in
+                guard let self, level != current else { return }
+                let configuration = self.makeContentConfiguration(privacyLevel: level)
+                self.applyContentConfiguration(
+                    configuration,
+                    failureTitle: "修改隐私保护失败",
+                    reloadPages: true
+                ) {
+                    self.preferences.webPrivacyProtectionLevel = level
+                }
+            })
+        }
+        menu.addAction(UIAlertAction(title: "取消", style: .cancel))
+        present(menu, animated: true)
+    }
+
+    private func makeContentConfiguration(
+        textSize: WebTextSize? = nil,
+        autoplayPolicy: WebAutoplayPolicy? = nil,
+        suspendMediaWhenInactive: Bool? = nil,
+        privacyLevel: WebPrivacyProtectionLevel? = nil
+    ) -> WebContentConfiguration {
+        let resolvedTextSize = textSize ?? preferences.webTextSize
+        let resolvedAutoplay = autoplayPolicy ?? preferences.webAutoplayPolicy
+        let resolvedSuspend = suspendMediaWhenInactive ?? preferences.suspendMediaWhenInactive
+        let resolvedPrivacy = privacyLevel ?? preferences.webPrivacyProtectionLevel
+        return WebContentConfiguration(
+            textZoom: resolvedTextSize.zoom,
+            autoplayDefault: resolvedAutoplay.rawValue,
+            suspendMediaWhenInactive: resolvedSuspend,
+            cookieBehavior: resolvedPrivacy.cookieBehavior,
+            usesTrackingProtection: resolvedPrivacy.usesTrackingProtection,
+            usesStrictTrackingList: resolvedPrivacy.usesStrictTrackingList
+        )
+    }
+
+    private func applyContentConfiguration(
+        _ configuration: WebContentConfiguration,
+        failureTitle: String,
+        reloadPages: Bool,
+        persist: @escaping () -> Void
+    ) {
+        let previous = preferences.webContentConfiguration
+        chatGPTViewController.applyContentConfiguration(configuration) { [weak self] chatGPTSuccess in
+            guard let self else { return }
+            guard chatGPTSuccess else {
+                self.rollbackContentConfiguration(previous)
+                self.showSimpleAlert(title: failureTitle, message: "Gecko 设置未更改，请稍后重试。")
+                return
+            }
+            self.geminiViewController.applyContentConfiguration(configuration) {
+                [weak self] geminiSuccess in
+                guard let self else { return }
+                guard geminiSuccess else {
+                    self.rollbackContentConfiguration(previous)
+                    self.showSimpleAlert(title: failureTitle, message: "Gecko 设置未更改，请稍后重试。")
+                    return
+                }
+                persist()
+                if reloadPages {
+                    self.chatGPTViewController.reloadIgnoringCache()
+                    self.geminiViewController.reloadIgnoringCache()
+                }
+                NSLog("[GeminiGecko][Settings] content configuration persisted")
+            }
+        }
+    }
+
+    private func rollbackContentConfiguration(_ configuration: WebContentConfiguration) {
+        chatGPTViewController.applyContentConfiguration(configuration) { _ in }
+        geminiViewController.applyContentConfiguration(configuration) { _ in }
+    }
+
+    private func showResetWebsitePermissionsConfirmation(for controller: WebContentController) {
+        let serviceName = controller.service == .chatGPT ? "ChatGPT" : "Gemini"
+        let alert = UIAlertController(
+            title: "重置\(serviceName)网站权限？",
+            message: "会清除该服务当前登录 context 的麦克风、摄像头、位置、通知和自动播放等网站权限决定。Cookie、登录状态和站点数据不会删除。",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+        alert.addAction(UIAlertAction(title: "重置", style: .destructive) {
+            [weak self, weak controller] _ in
+            controller?.clearWebsitePermissions { success in
+                guard let self, let controller else { return }
+                if success {
+                    controller.reloadIgnoringCache()
+                    self.showSimpleAlert(
+                        title: "网站权限已重置",
+                        message: "\(serviceName)下次使用相关功能时会重新请求权限。"
+                    )
+                } else {
+                    self.showStorageResult(title: "重置网站权限", success: false)
+                }
+            }
+        })
+        present(alert, animated: true)
     }
 
     private func applySharedCookieSetting(_ newValue: Bool,

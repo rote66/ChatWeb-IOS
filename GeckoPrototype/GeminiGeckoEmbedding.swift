@@ -40,7 +40,8 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
     func start(profileDirectory: URL,
                jitPolicy: GeckoJITPolicy,
                sessionContextId: String?,
-               userAgentConfiguration: WebUserAgentConfiguration) throws {
+               userAgentConfiguration: WebUserAgentConfiguration,
+               contentConfiguration: WebContentConfiguration) throws {
         let objcPolicy = GeminiGeckoJITPolicy(
             rawValue: jitPolicy == .required ? 1 : 0
         )!
@@ -52,7 +53,13 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
             platform: userAgentConfiguration.platform,
             appVersion: userAgentConfiguration.appVersion,
             oscpu: userAgentConfiguration.oscpu,
-            useDesktopViewport: userAgentConfiguration.usesDesktopViewport
+            useDesktopViewport: userAgentConfiguration.usesDesktopViewport,
+            textZoom: contentConfiguration.textZoom,
+            autoplayDefault: contentConfiguration.autoplayDefault,
+            suspendMediaWhenInactive: contentConfiguration.suspendMediaWhenInactive,
+            cookieBehavior: contentConfiguration.cookieBehavior,
+            useTrackingProtection: contentConfiguration.usesTrackingProtection,
+            useStrictTrackingList: contentConfiguration.usesStrictTrackingList
         )
         let preferredLanguages = Locale.preferredLanguages
         let rawLocales = preferredLanguages.isEmpty
@@ -86,6 +93,18 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
             useDesktopViewport: configuration.usesDesktopViewport
         )
     }
+    func setContentConfiguration(_ configuration: WebContentConfiguration,
+                                 completion: @escaping (Bool) -> Void) {
+        bridge.setContentConfiguration(
+            textZoom: configuration.textZoom,
+            autoplayDefault: configuration.autoplayDefault,
+            suspendMediaWhenInactive: configuration.suspendMediaWhenInactive,
+            cookieBehavior: configuration.cookieBehavior,
+            useTrackingProtection: configuration.usesTrackingProtection,
+            useStrictTrackingList: configuration.usesStrictTrackingList,
+            completion: completion
+        )
+    }
     func setRequestedLocales(_ locales: [String]) { bridge.setRequestedLocales(locales) }
 
     private static func normalizedRequestedLocales(_ locales: [String]) -> [String] {
@@ -113,6 +132,9 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
     }
     func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void) {
         bridge.clearCookies(forBaseDomain: baseDomain, completion: completion)
+    }
+    func clearPermissions(baseDomain: String, completion: @escaping (Bool) -> Void) {
+        bridge.clearPermissions(forBaseDomain: baseDomain, completion: completion)
     }
     func migrateCookies(toShared: Bool, contextIds: [String], completion: @escaping (Bool) -> Void) {
         bridge.migrateCookies(toShared: toShared, contextIds: contextIds, completion: completion)

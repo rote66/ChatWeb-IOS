@@ -202,6 +202,12 @@ static void GGClearDataDidFinish(void *context, bool success) {
                         appVersion:(NSString *)appVersion
                               oscpu:(NSString *)oscpu
                 useDesktopViewport:(BOOL)useDesktopViewport
+                          textZoom:(double)textZoom
+                    autoplayDefault:(NSInteger)autoplayDefault
+          suspendMediaWhenInactive:(BOOL)suspendMediaWhenInactive
+                     cookieBehavior:(NSInteger)cookieBehavior
+              useTrackingProtection:(BOOL)useTrackingProtection
+               useStrictTrackingList:(BOOL)useStrictTrackingList
                             error:(NSError **)error {
     NSAssert(NSThread.isMainThread, @"Gecko bridge must start on the main thread");
     if (_started) { return YES; }
@@ -241,11 +247,19 @@ static void GGClearDataDidFinish(void *context, bool success) {
     userAgentSettings.app_version_utf8 = appVersion.UTF8String;
     userAgentSettings.oscpu_utf8 = oscpu.UTF8String;
     userAgentSettings.use_desktop_viewport = useDesktopViewport;
+    GGGeckoContentSettings contentSettings = {};
+    contentSettings.text_zoom = textZoom;
+    contentSettings.autoplay_default = (int32_t)autoplayDefault;
+    contentSettings.suspend_media_when_inactive = suspendMediaWhenInactive;
+    contentSettings.cookie_behavior = (int32_t)cookieBehavior;
+    contentSettings.use_tracking_protection = useTrackingProtection;
+    contentSettings.use_strict_tracking_list = useStrictTrackingList;
     result = GGGeckoSessionCreate(
         _runtime,
         &callbacks,
         _sessionContextId.length ? _sessionContextId.UTF8String : nullptr,
         &userAgentSettings,
+        &contentSettings,
         &_session);
     if (result != GGGeckoResultOK || !_session) {
         GGGeckoRuntimeDestroy(_runtime);
@@ -303,6 +317,36 @@ static void GGClearDataDidFinish(void *context, bool success) {
     settings.oscpu_utf8 = oscpu.UTF8String;
     settings.use_desktop_viewport = useDesktopViewport;
     return GGGeckoSessionSetUserAgentSettings(_session, &settings) == GGGeckoResultOK;
+}
+- (void)setContentConfigurationWithTextZoom:(double)textZoom
+                            autoplayDefault:(NSInteger)autoplayDefault
+                  suspendMediaWhenInactive:(BOOL)suspendMediaWhenInactive
+                             cookieBehavior:(NSInteger)cookieBehavior
+                      useTrackingProtection:(BOOL)useTrackingProtection
+                       useStrictTrackingList:(BOOL)useStrictTrackingList
+                                  completion:(void (^)(BOOL))completion {
+    if (!_session || autoplayDefault < INT32_MIN || autoplayDefault > INT32_MAX ||
+        cookieBehavior < INT32_MIN || cookieBehavior > INT32_MAX) {
+        if (completion) { completion(NO); }
+        return;
+    }
+    GGGeckoContentSettings settings = {};
+    settings.text_zoom = textZoom;
+    settings.autoplay_default = (int32_t)autoplayDefault;
+    settings.suspend_media_when_inactive = suspendMediaWhenInactive;
+    settings.cookie_behavior = (int32_t)cookieBehavior;
+    settings.use_tracking_protection = useTrackingProtection;
+    settings.use_strict_tracking_list = useStrictTrackingList;
+
+    GGClearDataCompletionBox *box = [[GGClearDataCompletionBox alloc] init];
+    box.completion = completion;
+    void *context = (__bridge_retained void *)box;
+    GGGeckoResult result = GGGeckoSessionSetContentSettings(
+        _session, &settings, context, GGClearDataDidFinish);
+    if (result != GGGeckoResultOK) {
+        CFBridgingRelease(context);
+        if (completion) { completion(NO); }
+    }
 }
 - (void)setRequestedLocales:(NSArray<NSString *> *)locales {
     if (!_runtime || locales.count == 0) { return; }
@@ -377,6 +421,29 @@ static void GGClearDataDidFinish(void *context, bool success) {
     if (result != GGGeckoResultOK && context) {
         CFBridgingRelease(context);
         completion(NO);
+    }
+}
+
+- (void)clearPermissionsForBaseDomain:(NSString *)baseDomain
+                           completion:(void (^)(BOOL))completion {
+    if (!_runtime) {
+        if (completion) { completion(NO); }
+        return;
+    }
+
+    GGClearDataCompletionBox *box = [[GGClearDataCompletionBox alloc] init];
+    box.completion = completion;
+    void *context = (__bridge_retained void *)box;
+    GGGeckoResult result = GGGeckoRuntimeClearData(
+        _runtime,
+        GGGeckoClearDataPermissions,
+        baseDomain.UTF8String,
+        _sessionContextId.length ? _sessionContextId.UTF8String : nullptr,
+        context,
+        GGClearDataDidFinish);
+    if (result != GGGeckoResultOK) {
+        CFBridgingRelease(context);
+        if (completion) { completion(NO); }
     }
 }
 

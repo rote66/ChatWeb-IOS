@@ -35,8 +35,14 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
                         appVersion:(NSString *)appVersion
                               oscpu:(NSString *)oscpu
                 useDesktopViewport:(BOOL)useDesktopViewport
+                          textZoom:(double)textZoom
+                    autoplayDefault:(NSInteger)autoplayDefault
+          suspendMediaWhenInactive:(BOOL)suspendMediaWhenInactive
+                     cookieBehavior:(NSInteger)cookieBehavior
+              useTrackingProtection:(BOOL)useTrackingProtection
+               useStrictTrackingList:(BOOL)useStrictTrackingList
                             error:(NSError * _Nullable * _Nullable)error
-    NS_SWIFT_NAME(start(profileDirectory:jitPolicy:sessionContextId:userAgent:platform:appVersion:oscpu:useDesktopViewport:));
+    NS_SWIFT_NAME(start(profileDirectory:jitPolicy:sessionContextId:userAgent:platform:appVersion:oscpu:useDesktopViewport:textZoom:autoplayDefault:suspendMediaWhenInactive:cookieBehavior:useTrackingProtection:useStrictTrackingList:));
 - (BOOL)loadURL:(NSURL *)url
           error:(NSError * _Nullable * _Nullable)error
     NS_SWIFT_NAME(load(url:));
@@ -53,6 +59,14 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
                  oscpu:(NSString *)oscpu
     useDesktopViewport:(BOOL)useDesktopViewport
     NS_SWIFT_NAME(setUserAgent(_:platform:appVersion:oscpu:useDesktopViewport:));
+- (void)setContentConfigurationWithTextZoom:(double)textZoom
+                            autoplayDefault:(NSInteger)autoplayDefault
+                  suspendMediaWhenInactive:(BOOL)suspendMediaWhenInactive
+                             cookieBehavior:(NSInteger)cookieBehavior
+                      useTrackingProtection:(BOOL)useTrackingProtection
+                       useStrictTrackingList:(BOOL)useStrictTrackingList
+                                  completion:(void (^)(BOOL success))completion
+    NS_SWIFT_NAME(setContentConfiguration(textZoom:autoplayDefault:suspendMediaWhenInactive:cookieBehavior:useTrackingProtection:useStrictTrackingList:completion:));
 - (void)setRequestedLocales:(NSArray<NSString *> *)locales;
 - (void)enterBackground;
 - (void)enterForeground;
@@ -60,6 +74,8 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
                      completion:(void (^)(BOOL success))completion;
 - (void)clearCookiesForBaseDomain:(NSString *)baseDomain
                        completion:(void (^)(BOOL success))completion;
+- (void)clearPermissionsForBaseDomain:(NSString *)baseDomain
+                           completion:(void (^)(BOOL success))completion;
 - (void)migrateCookiesToShared:(BOOL)toShared
                     contextIds:(NSArray<NSString *> *)contextIds
                     completion:(void (^)(BOOL success))completion;
