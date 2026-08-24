@@ -1,6 +1,6 @@
 import UIKit
 
-final class RootViewController: UIViewController {
+final class RootViewController: UIViewController, UIDocumentPickerDelegate {
     var onSafariRequested: ((URL) -> Void)?
 
     let chatGPTViewController: ChatGPTWebViewController
@@ -215,9 +215,9 @@ final class RootViewController: UIViewController {
         sheet.addAction(UIAlertAction(title: "返回\(serviceName)首页", style: .default) { [weak controller] _ in
             controller?.loadHome()
         })
-        sheet.addAction(UIAlertAction(title: "设置&清理缓存", style: .default) { [weak self, weak controller] _ in
+        sheet.addAction(UIAlertAction(title: "设置&数据", style: .default) { [weak self, weak controller] _ in
             guard let self, let controller else { return }
-            self.showCacheSettingsMenu(for: controller)
+            self.showSettingsMenu(for: controller)
         })
         sheet.addAction(UIAlertAction(title: "清除 Cookie", style: .destructive) { [weak self, weak controller] _ in
             guard let self, let controller else { return }
@@ -233,17 +233,11 @@ final class RootViewController: UIViewController {
                 controller?.clearCookies { success in
                     guard let self, let controller else { return }
                     if success {
-                        NSLog("[GeminiGecko][Storage] scoped cookie clear accepted service=%@",
+                        NSLog("[GeminiGecko][Storage] scoped cookie clear completed service=%@",
                               controller.service == .chatGPT ? "ChatGPT" : "Gemini")
-                        // deleteDataFromSite is asynchronous inside Gecko. Its
-                        // callback is not reliable on the current UIKit bridge,
-                        // so give it a short head start before reloading. The
-                        // request itself is already dispatched synchronously.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak controller] in
-                            NSLog("[GeminiGecko][Storage] scoped cookie reload service=%@",
-                                  controller?.service == .chatGPT ? "ChatGPT" : "Gemini")
-                            controller?.reloadIgnoringCache()
-                        }
+                        NSLog("[GeminiGecko][Storage] scoped cookie reload service=%@",
+                              controller.service == .chatGPT ? "ChatGPT" : "Gemini")
+                        controller.reloadIgnoringCache()
                     } else {
                         self.showStorageResult(title: "清除 Cookie", success: false)
                     }
@@ -254,6 +248,220 @@ final class RootViewController: UIViewController {
         sheet.addAction(UIAlertAction(title: "取消", style: .cancel))
         sheet.popoverPresentationController?.barButtonItem = toolbar.items?.last
         present(sheet, animated: true)
+    }
+
+    private func showSettingsMenu(for controller: WebContentController) {
+        let sharedCookies = preferences.shareGeckoLoginCookies
+        let menu = UIAlertController(
+            title: "设置 & 数据",
+            message: sharedCookies
+                ? "当前 GPT 与 Gemini 共用 Gecko 登录 Cookie。关闭后两边会使用独立 session context；需要重新启动 App 后生效。"
+                : "当前 GPT 与 Gemini 使用独立 session context，Google/站点登录 Cookie 与站点存储互不复用；需要重新启动 App 后生效。",
+            preferredStyle: .alert
+        )
+        menu.addAction(UIAlertAction(title: "缓存设置与清理", style: .default) { [weak self, weak controller] _ in
+            guard let self, let controller else { return }
+            self.showCacheSettingsMenu(for: controller)
+        })
+        menu.addAction(UIAlertAction(
+            title: "GPT/Gemini 共用登录 Cookie = \(sharedCookies ? "开" : "关")",
+            style: .default
+        ) { [weak self, weak controller] _ in
+            guard let self, let controller else { return }
+            let newValue = !sharedCookies
+            let progress = UIAlertController(
+                title: newValue ? "正在合并登录状态" : "正在拆分登录状态",
+                message: newValue
+                    ? "正在把 GPT 与 Gemini 两个独立 context 的当前登录 Cookie 合并回共享 context。"
+                    : "正在按服务把共享 Cookie 迁移到 GPT 与 Gemini 两个独立 context；Google 身份 Cookie 不会复制到 GPT。",
+                preferredStyle: .alert
+            )
+            self.present(progress, animated: true)
+            controller.migrateLoginCookies(toShared: newValue) { [weak self, weak controller, weak progress] success in
+                guard let self, let controller else { return }
+                progress?.dismiss(animated: true) {
+                    if success {
+                        self.applySharedCookieSetting(newValue, controller: controller)
+                    } else {
+                        self.showStorageResult(title: "迁移登录 Cookie", success: false)
+                    }
+                }
+            }
+        })
+        menu.addAction(UIAlertAction(title: "导出加密备份", style: .default) { [weak self, weak controller] _ in
+            guard let self, let controller else { return }
+            self.showBackupExportPasswordPrompt(for: controller)
+        })
+        menu.addAction(UIAlertAction(title: "导入加密备份", style: .default) { [weak self] _ in
+            self?.showBackupImportPicker()
+        })
+        menu.addAction(UIAlertAction(title: "取消", style: .cancel))
+        present(menu, animated: true)
+    }
+
+    private func applySharedCookieSetting(_ newValue: Bool,
+                                          controller: WebContentController) {
+        preferences.shareGeckoLoginCookies = newValue
+        preferences.didSeedIsolatedCookieContexts = !newValue
+        NSLog("[GeminiGecko][Storage] shared-login-cookie setting updated value=%d next-launch=1 migrated=1",
+              newValue ? 1 : 0)
+        let alert = UIAlertController(
+            title: "已保存",
+            message: newValue
+                ? "两个独立 context 的当前登录 Cookie 已合并回共享 context。完全退出并重新打开 App 后生效。"
+                : "共享登录 Cookie 已按服务迁移到两个独立 context。完全退出并重新打开 App 后生效；Google 身份 Cookie 不会带入 GPT。",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "好", style: .default) { [weak self, weak controller] _ in
+            guard let self, let controller else { return }
+            self.showSettingsMenu(for: controller)
+        })
+        present(alert, animated: true)
+    }
+
+    private func showBackupExportPasswordPrompt(for controller: WebContentController) {
+        let prompt = UIAlertController(
+            title: "导出加密备份",
+            message: "备份包含登录 Cookie、站点存储/IndexedDB、权限和 App 设置，因此必须使用密码加密。cache2/startupCache 等可重建缓存不会导出。",
+            preferredStyle: .alert
+        )
+        prompt.addTextField { field in
+            field.placeholder = "备份密码（至少 8 个字符）"
+            field.isSecureTextEntry = true
+            field.textContentType = .newPassword
+        }
+        prompt.addTextField { field in
+            field.placeholder = "再次输入密码"
+            field.isSecureTextEntry = true
+            field.textContentType = .newPassword
+        }
+        prompt.addAction(UIAlertAction(title: "取消", style: .cancel))
+        prompt.addAction(UIAlertAction(title: "生成备份", style: .default) { [weak self, weak prompt] _ in
+            guard let self else { return }
+            let password = prompt?.textFields?.first?.text ?? ""
+            let confirmation = prompt?.textFields?.dropFirst().first?.text ?? ""
+            guard password == confirmation, password.utf8.count >= 8 else {
+                self.showSimpleAlert(title: "密码无效", message: "两次密码必须一致，且至少 8 个字符。")
+                return
+            }
+            self.performBackupExport(password: password, controller: controller)
+        })
+        present(prompt, animated: true)
+    }
+
+    private func performBackupExport(password: String, controller: WebContentController) {
+        let progress = UIAlertController(
+            title: "正在生成备份",
+            message: "正在从 Gecko 导出逻辑 Cookie 快照，并复制、加密账户和站点数据…",
+            preferredStyle: .alert
+        )
+        present(progress, animated: true)
+        controller.exportCookieSnapshot { [weak self, weak progress] cookieSnapshot in
+            guard let self else { return }
+            guard let cookieSnapshot, !cookieSnapshot.isEmpty else {
+                progress?.dismiss(animated: true) {
+                    self.showSimpleAlert(title: "备份失败", message: "Gecko 登录 Cookie 快照导出失败。")
+                }
+                return
+            }
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                do {
+                    let url = try AppDataBackupManager.shared.createEncryptedBackup(
+                        password: password,
+                        cookieSnapshot: cookieSnapshot
+                    )
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        progress?.dismiss(animated: true) {
+                            let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                            activity.popoverPresentationController?.sourceView = self.view
+                            activity.popoverPresentationController?.sourceRect = CGRect(
+                                x: self.view.bounds.midX,
+                                y: self.view.bounds.midY,
+                                width: 1,
+                                height: 1
+                            )
+                            self.present(activity, animated: true)
+                        }
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        progress?.dismiss(animated: true) {
+                            self.showSimpleAlert(title: "备份失败", message: error.localizedDescription)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func showBackupImportPicker() {
+        let picker = UIDocumentPickerViewController(documentTypes: ["public.data"], in: .import)
+        picker.delegate = self
+        picker.allowsMultipleSelection = false
+        present(picker, animated: true)
+    }
+
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else { return }
+        let prompt = UIAlertController(
+            title: "导入加密备份",
+            message: "输入创建此备份时使用的密码。恢复会先写入安全 staging，下一次启动 Gecko 前再替换数据。",
+            preferredStyle: .alert
+        )
+        prompt.addTextField { field in
+            field.placeholder = "备份密码"
+            field.isSecureTextEntry = true
+            field.textContentType = .password
+        }
+        prompt.addAction(UIAlertAction(title: "取消", style: .cancel))
+        prompt.addAction(UIAlertAction(title: "导入", style: .default) { [weak self, weak prompt] _ in
+            guard let self else { return }
+            let password = prompt?.textFields?.first?.text ?? ""
+            guard password.utf8.count >= 8 else {
+                self.showSimpleAlert(title: "密码无效", message: "请输入至少 8 个字符的备份密码。")
+                return
+            }
+            self.performBackupImport(url: url, password: password)
+        })
+        present(prompt, animated: true)
+    }
+
+    private func performBackupImport(url: URL, password: String) {
+        let progress = UIAlertController(
+            title: "正在导入备份",
+            message: "正在验证、解密并准备恢复数据…",
+            preferredStyle: .alert
+        )
+        present(progress, animated: true)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                try AppDataBackupManager.shared.stageRestore(from: url, password: password)
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    progress.dismiss(animated: true) {
+                        self.showSimpleAlert(
+                            title: "备份已准备好",
+                            message: "请完全退出并重新打开 App。下一次启动会在 Gecko 加载 profile 之前恢复账号、站点数据和 App 设置；恢复完成后备份 staging 会自动删除。"
+                        )
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    progress.dismiss(animated: true) {
+                        self.showSimpleAlert(title: "导入失败", message: error.localizedDescription)
+                    }
+                }
+            }
+        }
+    }
+
+    private func showSimpleAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "好", style: .default))
+        present(alert, animated: true)
     }
 
     private func showCacheSettingsMenu(for controller: WebContentController) {

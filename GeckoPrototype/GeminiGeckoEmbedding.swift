@@ -10,6 +10,12 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
         }
     }
 
+    var onSafeLogoutRequested: (() -> Void)? {
+        didSet {
+            bridge.safeLogoutHandler = onSafeLogoutRequested
+        }
+    }
+
     var nativeView: UIView {
         bridge.nativeView ?? placeholderView
     }
@@ -31,11 +37,11 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
         }
     }
 
-    func start(profileDirectory: URL, jitPolicy: GeckoJITPolicy) throws {
+    func start(profileDirectory: URL, jitPolicy: GeckoJITPolicy, sessionContextId: String?) throws {
         let objcPolicy = GeminiGeckoJITPolicy(
             rawValue: jitPolicy == .required ? 1 : 0
         )!
-        try bridge.start(profileDirectory: profileDirectory, jitPolicy: objcPolicy)
+        try bridge.start(profileDirectory: profileDirectory, jitPolicy: objcPolicy, sessionContextId: sessionContextId)
         let preferredLanguages = Locale.preferredLanguages
         let rawLocales = preferredLanguages.isEmpty
             ? [Locale.current.identifier.replacingOccurrences(of: "_", with: "-")]
@@ -86,6 +92,15 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
     }
     func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void) {
         bridge.clearCookies(forBaseDomain: baseDomain, completion: completion)
+    }
+    func migrateCookies(toShared: Bool, contextIds: [String], completion: @escaping (Bool) -> Void) {
+        bridge.migrateCookies(toShared: toShared, contextIds: contextIds, completion: completion)
+    }
+    func exportCookies(completion: @escaping (Data?) -> Void) {
+        bridge.exportCookies(completion: completion)
+    }
+    func importCookies(_ jsonData: Data, completion: @escaping (Bool) -> Void) {
+        bridge.importCookies(fromJSONData: jsonData, completion: completion)
     }
     func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void) {
         bridge.setDiskCacheSmartSizeEnabled(enabled, completion: completion)

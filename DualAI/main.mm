@@ -138,6 +138,100 @@ static void GGInstallFatalSignalDiagnostics(void) {
     }
 }
 
+static void GGApplyPendingBackupRestore(NSURL *applicationSupportURL) {
+    NSFileManager *fileManager = NSFileManager.defaultManager;
+    NSURL *pending = [applicationSupportURL
+        URLByAppendingPathComponent:@"DualAIBackupRestore.pending"
+                         isDirectory:YES];
+    NSURL *ready = [pending URLByAppendingPathComponent:@"READY" isDirectory:NO];
+    if (![fileManager fileExistsAtPath:ready.path]) {
+        return;
+    }
+
+    GGGeckoStartupTrace("main.backup-restore-found");
+    NSURL *profilesRoot = [pending URLByAppendingPathComponent:@"Profiles"
+                                             isDirectory:YES];
+    NSArray<NSString *> *profileNames = @[@"GeminiGeckoProfile", @"ChatGPTGeckoProfile"];
+    BOOL success = YES;
+
+    for (NSString *profileName in profileNames) {
+        NSURL *source = [profilesRoot URLByAppendingPathComponent:profileName isDirectory:YES];
+        BOOL sourceIsDirectory = NO;
+        if (![fileManager fileExistsAtPath:source.path isDirectory:&sourceIsDirectory] ||
+            !sourceIsDirectory) {
+            continue;
+        }
+
+        NSURL *destination = [applicationSupportURL
+            URLByAppendingPathComponent:profileName
+                             isDirectory:YES];
+        NSURL *rollback = [applicationSupportURL
+            URLByAppendingPathComponent:[profileName stringByAppendingString:@".preRestore"]
+                             isDirectory:YES];
+        [fileManager removeItemAtURL:rollback error:nil];
+
+        BOOL destinationExists = [fileManager fileExistsAtPath:destination.path];
+        NSError *error = nil;
+        if (destinationExists && ![fileManager moveItemAtURL:destination
+                                                       toURL:rollback
+                                                       error:&error]) {
+            NSLog(@"[GeminiGecko][Backup] failed to stage old profile %@ error=%@",
+                  profileName, error);
+            success = NO;
+            break;
+        }
+
+        error = nil;
+        if (![fileManager moveItemAtURL:source toURL:destination error:&error]) {
+            NSLog(@"[GeminiGecko][Backup] failed to restore profile %@ error=%@",
+                  profileName, error);
+            [fileManager removeItemAtURL:destination error:nil];
+            if (destinationExists) {
+                [fileManager moveItemAtURL:rollback toURL:destination error:nil];
+            }
+            success = NO;
+            break;
+        }
+        [fileManager removeItemAtURL:rollback error:nil];
+        NSLog(@"[GeminiGecko][Backup] restored profile %@", profileName);
+    }
+
+    if (success) {
+        NSURL *defaultsURL = [pending URLByAppendingPathComponent:@"UserDefaults.plist"];
+        NSDictionary *defaults = [NSDictionary dictionaryWithContentsOfURL:defaultsURL];
+        NSString *bundleIdentifier = NSBundle.mainBundle.bundleIdentifier;
+        if (defaults && bundleIdentifier.length) {
+            [NSUserDefaults.standardUserDefaults setPersistentDomain:defaults
+                                                             forName:bundleIdentifier];
+            [NSUserDefaults.standardUserDefaults synchronize];
+            NSLog(@"[GeminiGecko][Backup] restored app preferences");
+        }
+        NSURL *cookieSnapshot = [pending URLByAppendingPathComponent:@"CookieSnapshot.json"];
+        if ([fileManager fileExistsAtPath:cookieSnapshot.path]) {
+            NSURL *cookieRestore = [applicationSupportURL
+                URLByAppendingPathComponent:@"DualAICookieRestore.pending.json"];
+            [fileManager removeItemAtURL:cookieRestore error:nil];
+            NSError *cookieError = nil;
+            if ([fileManager moveItemAtURL:cookieSnapshot
+                                     toURL:cookieRestore
+                                     error:&cookieError]) {
+                NSLog(@"[GeminiGecko][Backup] staged logical cookie restore");
+            } else {
+                NSLog(@"[GeminiGecko][Backup] failed to stage logical cookie restore error=%@",
+                      cookieError);
+                success = NO;
+            }
+        }
+    }
+
+    if (success) {
+        [fileManager removeItemAtURL:pending error:nil];
+        GGGeckoStartupTrace("main.backup-restore-complete");
+    } else {
+        GGGeckoStartupTrace("main.backup-restore-failed");
+    }
+}
+
 int main(int argc, char *argv[]) {
     GGInstallFatalSignalDiagnostics();
     @autoreleasepool {
@@ -157,6 +251,8 @@ int main(int argc, char *argv[]) {
             GGGeckoStartupTrace("main.no-application-support");
             return 70;
         }
+
+        GGApplyPendingBackupRestore(applicationSupportURL);
 
         NSURL *profileURL = [applicationSupportURL
             URLByAppendingPathComponent:@"GeminiGeckoProfile"

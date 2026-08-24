@@ -8,19 +8,32 @@ protocol GeminiWebViewControllerDelegate: AnyObject {
 }
 
 class GeminiWebViewController: UIViewController, WebContentController {
+    private static let chatGPTSessionContextId = "gvctxc001"
+    private static let geminiSessionContextId = "gvctxc002"
+    private static var didAttemptPendingCookieRestoreThisProcess = false
     weak var delegate: GeminiWebViewControllerDelegate?
     let service: WebService
 
     private let policy: NavigationPolicy
+    private let preferences: AppPreferences
     private let networkMonitor = NetworkMonitor()
     private let embedding = GeminiGeckoEmbedding()
     private lazy var engine: GeckoEngine = {
         let profileName = service == .chatGPT ? "ChatGPTGeckoProfile" : "GeminiGeckoProfile"
         let profile = (try? GeckoEngine.defaultProfileDirectory(named: profileName)) ??
             FileManager.default.temporaryDirectory.appendingPathComponent(profileName)
+        let sessionContextId: String?
+        if preferences.shareGeckoLoginCookies {
+            sessionContextId = nil
+        } else {
+            sessionContextId = service == .chatGPT
+                ? Self.chatGPTSessionContextId
+                : Self.geminiSessionContextId
+        }
         return GeckoEngine(embedding: embedding,
                            profileDirectory: profile,
-                           jitPolicy: .required)
+                           jitPolicy: .required,
+                           sessionContextId: sessionContextId)
     }()
     private let progressView = UIProgressView(progressViewStyle: .bar)
     private let containerView = UIView()
@@ -32,11 +45,13 @@ class GeminiWebViewController: UIViewController, WebContentController {
     private var isLoading = false
     private var isOnline = true
     private var isBackgrounded = false
+    private var safeLogoutInProgress = false
+    private var isolatedGPTIdentitySanitizeInFlight = false
 
     init(service: WebService = .gemini, preferences: AppPreferences = .shared) {
         self.service = service
         self.policy = NavigationPolicy(service: service)
-        _ = preferences
+        self.preferences = preferences
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -148,12 +163,14 @@ class GeminiWebViewController: UIViewController, WebContentController {
         let rawCurve = (userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.uintValue ?? 7
         let options = UIView.AnimationOptions(rawValue: rawCurve << 16)
 
+#if DEBUG
         NSLog("[GeminiGecko][Keyboard] hiding=%d screen=%@ local=%@ overlap=%.1f view=%@",
               hiding ? 1 : 0,
               NSCoder.string(for: screenEndFrame),
               NSCoder.string(for: localEndFrame),
               overlap,
               NSCoder.string(for: view.bounds))
+#endif
 
         UIView.animate(withDuration: duration,
                        delay: 0,
@@ -164,10 +181,12 @@ class GeminiWebViewController: UIViewController, WebContentController {
                            self.engine.view.layoutIfNeeded()
                        },
                        completion: { _ in
+#if DEBUG
                            NSLog("[GeminiGecko][Keyboard] applied overlap=%.1f container=%@ gecko=%@",
                                  overlap,
                                  NSCoder.string(for: self.containerView.bounds),
                                  NSCoder.string(for: self.engine.view.bounds))
+#endif
                        })
     }
 
@@ -177,6 +196,9 @@ class GeminiWebViewController: UIViewController, WebContentController {
                 self?.handleGeckoProgress(progress)
             }
         }
+        embedding.onSafeLogoutRequested = { [weak self] in
+            self?.performSafeChatGPTLogout()
+        }
     }
 
     private func beginLoadingUI() {
@@ -184,6 +206,24 @@ class GeminiWebViewController: UIViewController, WebContentController {
         progressView.isHidden = false
         progressView.setProgress(0.05, animated: false)
         delegate?.geminiWebViewController(self, didUpdate: navigationState)
+    }
+
+    private func performSafeChatGPTLogout() {
+        guard service == .chatGPT, !safeLogoutInProgress else { return }
+        safeLogoutInProgress = true
+        NSLog("[GeminiGecko][Auth] safe logout begin context=%@",
+              preferences.shareGeckoLoginCookies ? "(shared)" : Self.chatGPTSessionContextId)
+        engine.stopLoading()
+        engine.load(URL(string: "about:blank")!)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self, self.safeLogoutInProgress else { return }
+            self.clearCookieDomains(["chatgpt.com", "openai.com"]) { [weak self] success in
+                guard let self else { return }
+                self.safeLogoutInProgress = false
+                NSLog("[GeminiGecko][Auth] safe logout done success=%d", success ? 1 : 0)
+                self.engine.load(self.policy.homeURL)
+            }
+        }
     }
 
     private func handleGeckoProgress(_ value: Double) {
@@ -269,9 +309,67 @@ class GeminiWebViewController: UIViewController, WebContentController {
               NSCoder.string(for: geckoView.bounds),
               geckoView.contentScaleFactor)
 
+        if service == .chatGPT,
+           !preferences.shareGeckoLoginCookies,
+           !preferences.didSanitizeIsolatedGPTIdentityCookiesV1 {
+            guard !isolatedGPTIdentitySanitizeInFlight else { return }
+            isolatedGPTIdentitySanitizeInFlight = true
+            NSLog("[GeminiGecko][Storage] isolated-gpt identity sanitize start context=%@",
+                  Self.chatGPTSessionContextId)
+            sanitizeIsolatedGPTIdentityCookies(baseDomains: ["google.com", "youtube.com"]) { [weak self] success in
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    self.isolatedGPTIdentitySanitizeInFlight = false
+                    if success {
+                        self.preferences.didSanitizeIsolatedGPTIdentityCookiesV1 = true
+                    }
+                    NSLog("[GeminiGecko][Storage] isolated-gpt identity sanitize done success=%d",
+                          success ? 1 : 0)
+                    self.loadPendingInitialURLIfReady()
+                }
+            }
+            return
+        }
+
+        if !GeminiWebViewController.didAttemptPendingCookieRestoreThisProcess,
+           let cookieSnapshot = AppDataBackupManager.shared.pendingCookieRestoreData() {
+            GeminiWebViewController.didAttemptPendingCookieRestoreThisProcess = true
+            NSLog("[GeminiGecko][Backup] logical cookie restore start bytes=%lu",
+                  cookieSnapshot.count)
+            engine.importCookies(cookieSnapshot) { [weak self] success in
+                guard let self else { return }
+                if success {
+                    AppDataBackupManager.shared.completePendingCookieRestore()
+                }
+                NSLog("[GeminiGecko][Backup] logical cookie restore done success=%d",
+                      success ? 1 : 0)
+                self.loadPendingInitialURLIfReady()
+            }
+            return
+        }
+
         pendingInitialURL = nil
         beginLoadingUI()
         engine.load(url)
+    }
+
+    private func sanitizeIsolatedGPTIdentityCookies(baseDomains: [String],
+                                                    completion: @escaping (Bool) -> Void) {
+        guard let first = baseDomains.first else {
+            completion(true)
+            return
+        }
+        engine.clearCookies(baseDomain: first) { [weak self] success in
+            guard let self else { return }
+            guard success else {
+                completion(false)
+                return
+            }
+            self.sanitizeIsolatedGPTIdentityCookies(
+                baseDomains: Array(baseDomains.dropFirst()),
+                completion: completion
+            )
+        }
     }
 
     func goBack() {
@@ -348,10 +446,51 @@ class GeminiWebViewController: UIViewController, WebContentController {
     }
 
     func clearCookies(completion: @escaping (Bool) -> Void) {
-        let baseDomain = service == .chatGPT ? "chatgpt.com" : "google.com"
+        let domains = service == .chatGPT
+            ? ["chatgpt.com", "openai.com"]
+            : ["google.com"]
+        clearCookieDomains(domains, completion: completion)
+    }
+
+    private func performCookieClear(completion: @escaping (Bool) -> Void) {
+        let domains = service == .chatGPT
+            ? ["chatgpt.com", "openai.com"]
+            : ["google.com"]
+        clearCookieDomains(domains, completion: completion)
+    }
+
+    private func clearCookieDomains(_ baseDomains: [String],
+                                    completion: @escaping (Bool) -> Void) {
+        guard let first = baseDomains.first else {
+            completion(true)
+            return
+        }
         NSLog("[GeminiGecko][Storage] service=%@ cookie-base-domain=%@",
-              service == .chatGPT ? "ChatGPT" : "Gemini", baseDomain)
-        engine.clearCookies(baseDomain: baseDomain, completion: completion)
+              service == .chatGPT ? "ChatGPT" : "Gemini", first)
+        engine.clearCookies(baseDomain: first) { [weak self] success in
+            guard let self else { return }
+            guard success else {
+                completion(false)
+                return
+            }
+            self.clearCookieDomains(Array(baseDomains.dropFirst()), completion: completion)
+        }
+    }
+
+    func migrateLoginCookies(toShared: Bool, completion: @escaping (Bool) -> Void) {
+        NSLog("[GeminiGecko][Storage] migrate login cookies toShared=%d contexts=%@,%@",
+              toShared ? 1 : 0,
+              Self.chatGPTSessionContextId,
+              Self.geminiSessionContextId)
+        engine.migrateCookies(
+            toShared: toShared,
+            contextIds: [Self.chatGPTSessionContextId, Self.geminiSessionContextId],
+            completion: completion
+        )
+    }
+
+    func exportCookieSnapshot(completion: @escaping (Data?) -> Void) {
+        engine.exportCookies(completion: completion)
     }
 
     func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void) {

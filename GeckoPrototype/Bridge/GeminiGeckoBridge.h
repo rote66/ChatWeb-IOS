@@ -25,11 +25,13 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
 @property(nonatomic, readonly) GeminiGeckoJITState jitState;
 @property(nonatomic, readonly) NSInteger jitReason;
 @property(nonatomic, copy, nullable) void (^progressHandler)(double progress);
+@property(nonatomic, copy, nullable) void (^safeLogoutHandler)(void);
 
 - (BOOL)startWithProfileDirectory:(NSURL *)profileDirectory
                         jitPolicy:(GeminiGeckoJITPolicy)jitPolicy
+                 sessionContextId:(nullable NSString *)sessionContextId
                             error:(NSError * _Nullable * _Nullable)error
-    NS_SWIFT_NAME(start(profileDirectory:jitPolicy:));
+    NS_SWIFT_NAME(start(profileDirectory:jitPolicy:sessionContextId:));
 - (BOOL)loadURL:(NSURL *)url
           error:(NSError * _Nullable * _Nullable)error
     NS_SWIFT_NAME(load(url:));
@@ -46,6 +48,12 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
 - (void)clearCacheForBaseDomain:(NSString *)baseDomain
                      completion:(void (^)(BOOL success))completion;
 - (void)clearCookiesForBaseDomain:(NSString *)baseDomain
+                       completion:(void (^)(BOOL success))completion;
+- (void)migrateCookiesToShared:(BOOL)toShared
+                    contextIds:(NSArray<NSString *> *)contextIds
+                    completion:(void (^)(BOOL success))completion;
+- (void)exportCookiesWithCompletion:(void (^)(NSData * _Nullable jsonData))completion;
+- (void)importCookiesFromJSONData:(NSData *)jsonData
                        completion:(void (^)(BOOL success))completion;
 - (void)setDiskCacheSmartSizeEnabled:(BOOL)enabled
                            completion:(void (^)(BOOL success))completion;

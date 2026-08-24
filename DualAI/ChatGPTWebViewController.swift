@@ -24,6 +24,8 @@ protocol WebContentController: AnyObject {
     func releaseWebViewForMemoryPressureIfBackgrounded()
     func clearCache(completion: @escaping (Bool) -> Void)
     func clearCookies(completion: @escaping (Bool) -> Void)
+    func migrateLoginCookies(toShared: Bool, completion: @escaping (Bool) -> Void)
+    func exportCookieSnapshot(completion: @escaping (Data?) -> Void)
     func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void)
     func setDiskCacheCapacityKB(_ capacityKB: Int, completion: @escaping (Bool) -> Void)
 }

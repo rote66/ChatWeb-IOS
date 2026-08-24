@@ -57,6 +57,35 @@ struct GGGeckoSession;
 }
 @end
 
+@interface GGJSONEventCallback : NSObject <EventCallback>
+@property(nonatomic, copy, nullable) void (^completion)(BOOL success,
+                                                        NSString * _Nullable json);
+@end
+
+@implementation GGJSONEventCallback
+- (void)sendSuccess:(id)response {
+    if (!self.completion) { return; }
+    NSError *error = nil;
+    NSData *data = [NSJSONSerialization dataWithJSONObject:response ?: @{}
+                                                   options:0
+                                                     error:&error];
+    NSString *json = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+    if (!json.length || error) {
+        NSLog(@"[GeminiGecko][Storage] JSON callback encode error=%@", error);
+        self.completion(NO, nil);
+    } else {
+        self.completion(YES, json);
+    }
+    self.completion = nil;
+}
+- (void)sendError:(id)response {
+    if (!self.completion) { return; }
+    NSLog(@"[GeminiGecko][Storage] JSON callback error=%@", response ?: @"(none)");
+    self.completion(NO, nil);
+    self.completion = nil;
+}
+@end
+
 @interface GGDocumentPickerCallbackDelegate
     : NSObject <UIDocumentPickerDelegate>
 @property(nonatomic, strong, nullable) id<EventCallback> callback;
@@ -200,6 +229,7 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
         events = [NSSet setWithArray:@[
             @"GeminiGecko:NavTrace",
             @"GeminiGecko:StorageTrace",
+            @"GeminiGecko:SafeLogoutRequested",
             @"GeckoView:Prompt",
             // GeckoViewNavigation
             @"GeckoView:LocationChange",
@@ -330,10 +360,11 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
         return;
     }
     if ([type isEqualToString:@"GeminiGecko:StorageTrace"]) {
-        NSLog(@"[GeminiGecko][StorageJS] stage=%@ flags=%@ base=%@ origin=%@ code=%@ smart=%@ capacityKB=%@ error=%@",
+        NSLog(@"[GeminiGecko][StorageJS] stage=%@ flags=%@ base=%@ context=%@ origin=%@ code=%@ smart=%@ capacityKB=%@ error=%@",
               dictionary[@"stage"] ?: @"(none)",
               dictionary[@"flags"] ?: @"(none)",
               dictionary[@"baseDomain"] ?: @"(none)",
+              dictionary[@"sessionContextId"] ?: @"(shared)",
               dictionary[@"origin"] ?: @"(none)",
               dictionary[@"resultCode"] ?: @"(none)",
               dictionary[@"smartSizeEnabled"] ?: @"(none)",
@@ -858,8 +889,12 @@ GGGeckoResult GGGeckoRuntimeSetDiskCacheCapacityKB(
 
 GGGeckoResult GGGeckoRuntimeClearBaseDomainData(GGGeckoRuntime *runtime,
                                                 const char *base_domain_utf8,
-                                                uint32_t flags) {
-    if (!runtime || !runtime->adapter || !base_domain_utf8 || flags == 0) {
+                                                uint32_t flags,
+                                                const char *session_context_id_utf8,
+                                                void *context,
+                                                GGGeckoOperationCallback callback) {
+    if (!runtime || !runtime->adapter || !base_domain_utf8 ||
+        flags != GGGeckoClearDataCookies) {
         return GGGeckoResultInvalidArgument;
     }
     NSString *baseDomain = [NSString stringWithUTF8String:base_domain_utf8];
@@ -867,16 +902,154 @@ GGGeckoResult GGGeckoRuntimeClearBaseDomainData(GGGeckoRuntime *runtime,
         return GGGeckoResultInvalidArgument;
     }
 
-    // GeckoViewStorageController currently expects a non-null callback even
-    // though UIKit's async callback bridge is not yet reliable for these
-    // Promise-backed clear-data operations. Keep a no-op callback attached so
-    // the Gecko handler can safely call onSuccess after deletion finishes.
     GGBlockEventCallback *eventCallback = [[GGBlockEventCallback alloc] init];
-    NSLog(@"[GeminiGecko][Storage] clear-base-domain base=%@ flags=0x%x",
-          baseDomain, flags);
+    if (callback) {
+        eventCallback.completion = ^(BOOL success) {
+            callback(context, success);
+        };
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                     (int64_t)(8 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            if (eventCallback.completion) {
+                NSLog(@"[GeminiGecko][Storage] cookie-clear callback timeout base=%@",
+                      baseDomain);
+                eventCallback.completion(NO);
+                eventCallback.completion = nil;
+            }
+        });
+    }
+
+    NSString *sessionContextId = session_context_id_utf8
+        ? [NSString stringWithUTF8String:session_context_id_utf8]
+        : nil;
+    NSLog(@"[GeminiGecko][Storage] clear-cookies dispatch base=%@ flags=0x%x context=%@",
+          baseDomain, flags, sessionContextId ?: @"(shared)");
     [runtime->adapter.runtimeDispatcherImpl
-        sendToGecko:@"GeckoView:ClearBaseDomainData"
-             message:@{ @"baseDomain": baseDomain, @"flags": @(flags) }
+        sendToGecko:@"GeminiGecko:ClearCookies"
+             message:@{
+                 @"baseDomain": baseDomain,
+                 @"sessionContextId": sessionContextId ?: NSNull.null,
+             }
+            callback:eventCallback];
+    return GGGeckoResultOK;
+}
+
+GGGeckoResult GGGeckoRuntimeMigrateCookies(
+    GGGeckoRuntime *runtime,
+    const char *first_context_id_utf8,
+    const char *second_context_id_utf8,
+    bool to_shared,
+    void *context,
+    GGGeckoOperationCallback callback) {
+    if (!runtime || !runtime->adapter || !first_context_id_utf8 ||
+        !second_context_id_utf8) {
+        return GGGeckoResultInvalidArgument;
+    }
+
+    NSString *firstContextId = [NSString stringWithUTF8String:first_context_id_utf8];
+    NSString *secondContextId = [NSString stringWithUTF8String:second_context_id_utf8];
+    if (!firstContextId.length || !secondContextId.length) {
+        return GGGeckoResultInvalidArgument;
+    }
+
+    GGBlockEventCallback *eventCallback = [[GGBlockEventCallback alloc] init];
+    if (callback) {
+        eventCallback.completion = ^(BOOL success) {
+            callback(context, success);
+        };
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                     (int64_t)(8 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            if (eventCallback.completion) {
+                NSLog(@"[GeminiGecko][Storage] cookie-migrate callback timeout");
+                eventCallback.completion(NO);
+                eventCallback.completion = nil;
+            }
+        });
+    }
+
+    NSString *mode = to_shared ? @"isolatedToShared" : @"sharedToIsolated";
+    NSLog(@"[GeminiGecko][Storage] cookie-migrate dispatch mode=%@ contexts=%@,%@",
+          mode, firstContextId, secondContextId);
+    [runtime->adapter.runtimeDispatcherImpl
+        sendToGecko:@"GeminiGecko:CloneSharedCookies"
+             message:@{
+                 @"contextIds": @[ firstContextId, secondContextId ],
+                 @"mode": mode,
+             }
+            callback:eventCallback];
+    return GGGeckoResultOK;
+}
+
+GGGeckoResult GGGeckoRuntimeExportCookies(
+    GGGeckoRuntime *runtime,
+    void *context,
+    GGGeckoJSONCallback callback) {
+    if (!runtime || !runtime->adapter || !callback) {
+        return GGGeckoResultInvalidArgument;
+    }
+
+    GGJSONEventCallback *eventCallback = [[GGJSONEventCallback alloc] init];
+    eventCallback.completion = ^(BOOL success, NSString *json) {
+        callback(context, success, json.length ? json.UTF8String : nullptr);
+    };
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                 (int64_t)(8 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        if (eventCallback.completion) {
+            NSLog(@"[GeminiGecko][Storage] cookie-export callback timeout");
+            eventCallback.completion(NO, nil);
+            eventCallback.completion = nil;
+        }
+    });
+
+    NSLog(@"[GeminiGecko][Storage] cookie-export dispatch");
+    [runtime->adapter.runtimeDispatcherImpl
+        sendToGecko:@"GeminiGecko:ExportCookies"
+             message:@{}
+            callback:eventCallback];
+    return GGGeckoResultOK;
+}
+
+GGGeckoResult GGGeckoRuntimeImportCookies(
+    GGGeckoRuntime *runtime,
+    const char *json_utf8,
+    void *context,
+    GGGeckoOperationCallback callback) {
+    if (!runtime || !runtime->adapter || !json_utf8) {
+        return GGGeckoResultInvalidArgument;
+    }
+    NSString *json = [NSString stringWithUTF8String:json_utf8];
+    NSData *jsonData = [json dataUsingEncoding:NSUTF8StringEncoding];
+    NSError *error = nil;
+    id snapshot = jsonData
+        ? [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error]
+        : nil;
+    if (!snapshot || error) {
+        NSLog(@"[GeminiGecko][Storage] cookie-import invalid JSON error=%@", error);
+        return GGGeckoResultInvalidArgument;
+    }
+
+    GGBlockEventCallback *eventCallback = [[GGBlockEventCallback alloc] init];
+    if (callback) {
+        eventCallback.completion = ^(BOOL success) {
+            callback(context, success);
+        };
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
+                                     (int64_t)(8 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            if (eventCallback.completion) {
+                NSLog(@"[GeminiGecko][Storage] cookie-import callback timeout");
+                eventCallback.completion(NO);
+                eventCallback.completion = nil;
+            }
+        });
+    }
+
+    NSLog(@"[GeminiGecko][Storage] cookie-import dispatch");
+    [runtime->adapter.runtimeDispatcherImpl
+        sendToGecko:@"GeminiGecko:ImportCookies"
+             message:@{ @"snapshot": snapshot }
             callback:eventCallback];
     return GGGeckoResultOK;
 }
@@ -887,6 +1060,7 @@ void GGGeckoRuntimeDestroy(GGGeckoRuntime *runtime) {
 
 GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
                                    const GGGeckoSessionCallbacks *callbacks,
+                                   const char *session_context_id_utf8,
                                    GGGeckoSession **out_session) {
     GGGeckoStartupTrace("session-create.enter");
     if (!runtime || !callbacks || !out_session || !NSThread.isMainThread) {
@@ -982,6 +1156,15 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
             }
             return nil;
         }
+        if ([type isEqualToString:@"GeminiGecko:SafeLogoutRequested"]) {
+            NSLog(@"[GeminiGecko][Auth] safe-logout request intercepted uri=%@",
+                  message[@"uri"] ?: @"(none)");
+            if (rawSession->callbacks.did_request_safe_logout) {
+                rawSession->callbacks.did_request_safe_logout(
+                    rawSession->callbacks.context);
+            }
+            return @YES;
+        }
         if ([type isEqualToString:@"GeckoView:OnLoadRequest"]) {
             return @YES;
         }
@@ -1028,6 +1211,14 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
         return nil;
     };
 
+    NSString *sessionContextId = session_context_id_utf8
+        ? [NSString stringWithUTF8String:session_context_id_utf8]
+        : nil;
+    if (session_context_id_utf8 && !sessionContextId.length) {
+        GGGeckoStartupTrace("session-create.invalid-context-id");
+        return GGGeckoResultInvalidArgument;
+    }
+
     NSDictionary *settings = @{
         @"chromeUri": NSNull.null,
         @"screenId": @0,
@@ -1040,7 +1231,7 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
         @"allowJavascript": @YES,
         @"fullAccessibilityTree": @NO,
         @"isPopup": @NO,
-        @"sessionContextId": NSNull.null,
+        @"sessionContextId": sessionContextId ?: NSNull.null,
         @"unsafeSessionContextId": NSNull.null,
     };
     NSDictionary *modules = @{
@@ -1199,6 +1390,7 @@ void GGGeckoRuntimeEnterForeground(GGGeckoRuntime *runtime) {
 GGGeckoResult GGGeckoRuntimeClearData(GGGeckoRuntime *runtime,
                                       uint32_t flags,
                                       const char *base_domain_utf8,
+                                      const char *session_context_id_utf8,
                                       void *context,
                                       GGGeckoOperationCallback callback) {
     if (!runtime || !runtime->adapter || flags == 0 || !base_domain_utf8) {
@@ -1238,14 +1430,18 @@ GGGeckoResult GGGeckoRuntimeClearData(GGGeckoRuntime *runtime,
         });
     }
 
-    NSLog(@"[GeminiGecko][Storage] direct-clear dispatch flags=0x%x base=%@",
-          flags, baseDomain);
+    NSString *sessionContextId = session_context_id_utf8
+        ? [NSString stringWithUTF8String:session_context_id_utf8]
+        : nil;
+    NSLog(@"[GeminiGecko][Storage] direct-clear dispatch flags=0x%x base=%@ context=%@",
+          flags, baseDomain, sessionContextId ?: @"(shared)");
     GGLogProfileDiskUsage(@"clear-before-dispatch");
     [runtime->adapter.runtimeDispatcherImpl
         sendToGecko:@"GeminiGecko:ClearData"
              message:@{
                  @"flags": @(flags),
                  @"baseDomain": baseDomain,
+                 @"sessionContextId": sessionContextId ?: NSNull.null,
              }
             callback:eventCallback];
     return GGGeckoResultOK;

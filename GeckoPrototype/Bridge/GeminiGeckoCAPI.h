@@ -42,6 +42,9 @@ typedef enum GGGeckoClearDataFlags {
 } GGGeckoClearDataFlags;
 
 typedef void (*GGGeckoOperationCallback)(void *context, bool success);
+typedef void (*GGGeckoJSONCallback)(void *context,
+                                    bool success,
+                                    const char *json_utf8);
 
 typedef struct GGGeckoRuntimeOptions {
     const char *profile_path_utf8;
@@ -57,6 +60,7 @@ typedef struct GGGeckoSessionCallbacks {
     void (*did_change_jit_state)(void *context,
                                  GGGeckoJITState state,
                                  int32_t reason);
+    void (*did_request_safe_logout)(void *context);
 } GGGeckoSessionCallbacks;
 
 /// Appends a synchronous startup breadcrumb to
@@ -84,6 +88,7 @@ void GGGeckoRuntimeDestroy(GGGeckoRuntime *runtime);
 
 GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
                                    const GGGeckoSessionCallbacks *callbacks,
+                                   const char *session_context_id_utf8,
                                    GGGeckoSession **out_session);
 void GGGeckoSessionDestroy(GGGeckoSession *session);
 
@@ -108,11 +113,31 @@ void GGGeckoRuntimeEnterForeground(GGGeckoRuntime *runtime);
 GGGeckoResult GGGeckoRuntimeClearData(GGGeckoRuntime *runtime,
                                       uint32_t flags,
                                       const char *base_domain_utf8,
+                                      const char *session_context_id_utf8,
                                       void *context,
                                       GGGeckoOperationCallback callback);
 GGGeckoResult GGGeckoRuntimeClearBaseDomainData(GGGeckoRuntime *runtime,
                                                 const char *base_domain_utf8,
-                                                uint32_t flags);
+                                                uint32_t flags,
+                                                const char *session_context_id_utf8,
+                                                void *context,
+                                                GGGeckoOperationCallback callback);
+GGGeckoResult GGGeckoRuntimeMigrateCookies(
+    GGGeckoRuntime *runtime,
+    const char *first_context_id_utf8,
+    const char *second_context_id_utf8,
+    bool to_shared,
+    void *context,
+    GGGeckoOperationCallback callback);
+GGGeckoResult GGGeckoRuntimeExportCookies(
+    GGGeckoRuntime *runtime,
+    void *context,
+    GGGeckoJSONCallback callback);
+GGGeckoResult GGGeckoRuntimeImportCookies(
+    GGGeckoRuntime *runtime,
+    const char *json_utf8,
+    void *context,
+    GGGeckoOperationCallback callback);
 GGGeckoResult GGGeckoRuntimeSetDiskCacheSmartSizeEnabled(
     GGGeckoRuntime *runtime,
     bool enabled,

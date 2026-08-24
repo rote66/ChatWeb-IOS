@@ -10,7 +10,7 @@ protocol GeckoEmbedding: AnyObject {
     var canGoForward: Bool { get }
     var jitState: GeckoJITRuntimeState { get }
 
-    func start(profileDirectory: URL, jitPolicy: GeckoJITPolicy) throws
+    func start(profileDirectory: URL, jitPolicy: GeckoJITPolicy, sessionContextId: String?) throws
     func load(_ url: URL) throws
     func reload()
     func reloadIgnoringCache()
@@ -24,6 +24,9 @@ protocol GeckoEmbedding: AnyObject {
     func enterForeground()
     func clearCache(baseDomain: String, completion: @escaping (Bool) -> Void)
     func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void)
+    func migrateCookies(toShared: Bool, contextIds: [String], completion: @escaping (Bool) -> Void)
+    func exportCookies(completion: @escaping (Data?) -> Void)
+    func importCookies(_ jsonData: Data, completion: @escaping (Bool) -> Void)
     func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void)
     func setDiskCacheCapacityKB(_ capacityKB: Int, completion: @escaping (Bool) -> Void)
     func close()
@@ -49,17 +52,20 @@ final class GeckoEngine: WebEngine {
     private let embedding: GeckoEmbedding
     private let profileDirectory: URL
     private let jitPolicy: GeckoJITPolicy
+    private let sessionContextId: String?
     private var started = false
     private var isClosed = false
 
     init(
         embedding: GeckoEmbedding,
         profileDirectory: URL,
-        jitPolicy: GeckoJITPolicy = .required
+        jitPolicy: GeckoJITPolicy = .required,
+        sessionContextId: String? = nil
     ) {
         self.embedding = embedding
         self.profileDirectory = profileDirectory
         self.jitPolicy = jitPolicy
+        self.sessionContextId = sessionContextId
     }
 
     var view: UIView { embedding.nativeView }
@@ -106,6 +112,15 @@ final class GeckoEngine: WebEngine {
     func clearCookies(baseDomain: String, completion: @escaping (Bool) -> Void) {
         embedding.clearCookies(baseDomain: baseDomain, completion: completion)
     }
+    func migrateCookies(toShared: Bool, contextIds: [String], completion: @escaping (Bool) -> Void) {
+        embedding.migrateCookies(toShared: toShared, contextIds: contextIds, completion: completion)
+    }
+    func exportCookies(completion: @escaping (Data?) -> Void) {
+        embedding.exportCookies(completion: completion)
+    }
+    func importCookies(_ jsonData: Data, completion: @escaping (Bool) -> Void) {
+        embedding.importCookies(jsonData, completion: completion)
+    }
     func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void) {
         embedding.setDiskCacheSmartSizeEnabled(enabled, completion: completion)
     }
@@ -128,7 +143,7 @@ final class GeckoEngine: WebEngine {
             at: profileDirectory,
             withIntermediateDirectories: true
         )
-        try embedding.start(profileDirectory: profileDirectory, jitPolicy: jitPolicy)
+        try embedding.start(profileDirectory: profileDirectory, jitPolicy: jitPolicy, sessionContextId: sessionContextId)
         started = true
     }
 

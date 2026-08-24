@@ -29,6 +29,7 @@
 		AB0000000000000000000024 /* WebEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000024 /* WebEngine.swift */; };
 		AB0000000000000000000025 /* GeckoEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000025 /* GeckoEngine.swift */; };
 		AB0000000000000000000026 /* GeminiGeckoEmbedding.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000026 /* GeminiGeckoEmbedding.swift */; };
+		AB0000000000000000000027 /* AppDataBackupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000027 /* AppDataBackupManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,6 +69,7 @@
 		AA0000000000000000000024 /* WebEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeckoPrototype/WebEngine.swift; sourceTree = SOURCE_ROOT; };
 		AA0000000000000000000025 /* GeckoEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeckoPrototype/GeckoEngine.swift; sourceTree = SOURCE_ROOT; };
 		AA0000000000000000000026 /* GeminiGeckoEmbedding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeckoPrototype/GeminiGeckoEmbedding.swift; sourceTree = SOURCE_ROOT; };
+		AA0000000000000000000027 /* AppDataBackupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDataBackupManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +112,7 @@
 				AA0000000000000000000009 /* WebErrorViewController.swift */,
 				AA0000000000000000000010 /* NetworkMonitor.swift */,
 				AA0000000000000000000011 /* AppPreferences.swift */,
+				AA0000000000000000000027 /* AppDataBackupManager.swift */,
 				AA0000000000000000000012 /* Assets.xcassets */,
 				AA0000000000000000000013 /* Info.plist */,
 				AA0000000000000000000018 /* LaunchScreen.storyboard */,
@@ -253,6 +256,7 @@
 				AB0000000000000000000009 /* WebErrorViewController.swift in Sources */,
 				AB0000000000000000000010 /* NetworkMonitor.swift in Sources */,
 				AB0000000000000000000011 /* AppPreferences.swift in Sources */,
+				AB0000000000000000000027 /* AppDataBackupManager.swift in Sources */,
 				AB0000000000000000000019 /* SceneDelegate.swift in Sources */,
 				AB0000000000000000000020 /* main.mm in Sources */,
 				AB0000000000000000000021 /* GeminiGeckoCAPI.mm in Sources */,
@@ -329,7 +333,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 82;
+				CURRENT_PROJECT_VERSION = 87;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
@@ -358,7 +362,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 82;
+				CURRENT_PROJECT_VERSION = 87;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";

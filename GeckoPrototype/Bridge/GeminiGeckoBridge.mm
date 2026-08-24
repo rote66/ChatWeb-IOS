@@ -8,6 +8,7 @@ static NSString * const GeminiGeckoBridgeErrorDomain = @"GeminiGeckoBridge";
     GGGeckoSession *_session;
     __weak UIView *_nativeView;
     NSURL *_currentURL;
+    NSString *_sessionContextId;
 }
 @property(nonatomic, readwrite, getter=isStarted) BOOL started;
 @property(nonatomic, readwrite) GeminiGeckoJITState jitState;
@@ -17,6 +18,30 @@ static NSString * const GeminiGeckoBridgeErrorDomain = @"GeminiGeckoBridge";
 - (void)handleContentProcessTermination;
 - (void)handleJITState:(GeminiGeckoJITState)state reason:(NSInteger)reason;
 @end
+
+@interface GGJSONCompletionBox : NSObject
+@property(nonatomic, copy) void (^completion)(NSData * _Nullable jsonData);
+@end
+
+@implementation GGJSONCompletionBox
+@end
+
+
+static void GGJSONDidFinish(void *context,
+                            bool success,
+                            const char *jsonUTF8) {
+    GGJSONCompletionBox *box = (__bridge_transfer GGJSONCompletionBox *)context;
+    NSData *data = nil;
+    if (success && jsonUTF8) {
+        data = [[NSString stringWithUTF8String:jsonUTF8]
+            dataUsingEncoding:NSUTF8StringEncoding];
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (box.completion) {
+            box.completion(data);
+        }
+    });
+}
 
 static NSError *GGMakeError(GGGeckoResult result, NSString *operation) {
     return [NSError errorWithDomain:GeminiGeckoBridgeErrorDomain
@@ -60,6 +85,16 @@ static void GGDidChangeJITState(void *context,
     [bridge handleJITState:(GeminiGeckoJITState)state reason:(NSInteger)reason];
 }
 
+static void GGDidRequestSafeLogout(void *context) {
+    if (!context) { return; }
+    GeminiGeckoBridge *bridge = (__bridge GeminiGeckoBridge *)context;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (bridge.safeLogoutHandler) {
+            bridge.safeLogoutHandler();
+        }
+    });
+}
+
 @interface GGClearDataCompletionBox : NSObject
 @property(nonatomic, copy) void (^completion)(BOOL success);
 @end
@@ -87,6 +122,45 @@ static void GGClearDataDidFinish(void *context, bool success) {
 - (void)handleProgress:(double)progress {
     if (self.progressHandler) {
         self.progressHandler(MAX(0.0, MIN(1.0, progress)));
+    }
+}
+
+- (void)exportCookiesWithCompletion:(void (^)(NSData * _Nullable))completion {
+    if (!_runtime || !completion) {
+        if (completion) { completion(nil); }
+        return;
+    }
+    GGJSONCompletionBox *box = [[GGJSONCompletionBox alloc] init];
+    box.completion = completion;
+    void *context = (__bridge_retained void *)box;
+    GGGeckoResult result = GGGeckoRuntimeExportCookies(
+        _runtime, context, GGJSONDidFinish);
+    if (result != GGGeckoResultOK) {
+        CFBridgingRelease(context);
+        completion(nil);
+    }
+}
+
+- (void)importCookiesFromJSONData:(NSData *)jsonData
+                       completion:(void (^)(BOOL))completion {
+    if (!_runtime || !jsonData.length) {
+        if (completion) { completion(NO); }
+        return;
+    }
+    NSString *json = [[NSString alloc] initWithData:jsonData
+                                           encoding:NSUTF8StringEncoding];
+    if (!json.length) {
+        if (completion) { completion(NO); }
+        return;
+    }
+    GGClearDataCompletionBox *box = [[GGClearDataCompletionBox alloc] init];
+    box.completion = completion;
+    void *context = (__bridge_retained void *)box;
+    GGGeckoResult result = GGGeckoRuntimeImportCookies(
+        _runtime, json.UTF8String, context, GGClearDataDidFinish);
+    if (result != GGGeckoResultOK) {
+        CFBridgingRelease(context);
+        if (completion) { completion(NO); }
     }
 }
 
@@ -122,6 +196,7 @@ static void GGClearDataDidFinish(void *context, bool success) {
 
 - (BOOL)startWithProfileDirectory:(NSURL *)profileDirectory
                         jitPolicy:(GeminiGeckoJITPolicy)jitPolicy
+                 sessionContextId:(NSString *)sessionContextId
                             error:(NSError **)error {
     NSAssert(NSThread.isMainThread, @"Gecko bridge must start on the main thread");
     if (_started) { return YES; }
@@ -129,6 +204,8 @@ static void GGClearDataDidFinish(void *context, bool success) {
         if (error) { *error = GGMakeError(GGGeckoResultInvalidArgument, @"profile path"); }
         return NO;
     }
+
+    _sessionContextId = [sessionContextId copy];
 
     GGGeckoRuntimeOptions options = {};
     options.profile_path_utf8 = profileDirectory.path.UTF8String;
@@ -150,8 +227,12 @@ static void GGClearDataDidFinish(void *context, bool success) {
     callbacks.did_change_progress = GGDidChangeProgress;
     callbacks.did_terminate_content_process = GGDidTerminateContentProcess;
     callbacks.did_change_jit_state = GGDidChangeJITState;
+    callbacks.did_request_safe_logout = GGDidRequestSafeLogout;
 
-    result = GGGeckoSessionCreate(_runtime, &callbacks, &_session);
+    result = GGGeckoSessionCreate(_runtime,
+                                  &callbacks,
+                                  _sessionContextId.length ? _sessionContextId.UTF8String : nullptr,
+                                  &_session);
     if (result != GGGeckoResultOK || !_session) {
         GGGeckoRuntimeDestroy(_runtime);
         _runtime = nullptr;
@@ -227,6 +308,7 @@ static void GGClearDataDidFinish(void *context, bool success) {
     GGGeckoResult result = GGGeckoRuntimeClearData(_runtime,
                                                    flags,
                                                    baseDomain.UTF8String,
+                                                   _sessionContextId.length ? _sessionContextId.UTF8String : nullptr,
                                                    context,
                                                    callback);
     if (result != GGGeckoResultOK && context) {
@@ -243,11 +325,54 @@ static void GGClearDataDidFinish(void *context, bool success) {
         if (completion) { completion(NO); }
         return;
     }
+
+    GGClearDataCompletionBox *box = nil;
+    void *context = nullptr;
+    GGGeckoOperationCallback callback = nullptr;
+    if (completion) {
+        box = [[GGClearDataCompletionBox alloc] init];
+        box.completion = completion;
+        context = (__bridge_retained void *)box;
+        callback = GGClearDataDidFinish;
+    }
+
     GGGeckoResult result = GGGeckoRuntimeClearBaseDomainData(
         _runtime,
         baseDomain.UTF8String,
-        GGGeckoClearDataCookies);
-    if (completion) { completion(result == GGGeckoResultOK); }
+        GGGeckoClearDataCookies,
+        _sessionContextId.length ? _sessionContextId.UTF8String : nullptr,
+        context,
+        callback);
+    if (result != GGGeckoResultOK && context) {
+        CFBridgingRelease(context);
+        completion(NO);
+    }
+}
+
+- (void)migrateCookiesToShared:(BOOL)toShared
+                    contextIds:(NSArray<NSString *> *)contextIds
+                    completion:(void (^)(BOOL))completion {
+    if (!_runtime || contextIds.count != 2 ||
+        ![contextIds[0] isKindOfClass:NSString.class] ||
+        ![contextIds[1] isKindOfClass:NSString.class]) {
+        if (completion) { completion(NO); }
+        return;
+    }
+
+    GGClearDataCompletionBox *box = [[GGClearDataCompletionBox alloc] init];
+    box.completion = completion;
+    void *context = (__bridge_retained void *)box;
+    GGGeckoResult result = GGGeckoRuntimeMigrateCookies(
+        _runtime,
+        contextIds[0].UTF8String,
+        contextIds[1].UTF8String,
+        toShared,
+        context,
+        GGClearDataDidFinish);
+    if (result != GGGeckoResultOK) {
+        CFBridgingRelease(context);
+        if (completion) { completion(NO); }
+    }
 }
 
 - (void)setDiskCacheSmartSizeEnabled:(BOOL)enabled
@@ -294,6 +419,7 @@ static void GGClearDataDidFinish(void *context, bool success) {
     }
     _nativeView = nil;
     _currentURL = nil;
+    _sessionContextId = nil;
     self.progressHandler = nil;
     _jitState = GeminiGeckoJITStateUnresolved;
     _jitReason = 0;

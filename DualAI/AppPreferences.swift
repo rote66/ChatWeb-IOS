@@ -14,6 +14,19 @@ final class AppPreferences {
         static let lastSafeGeminiURL = "lastSafeGeminiURL"
         static let geckoDiskCacheSmartSizeEnabled = "geckoDiskCacheSmartSizeEnabled"
         static let geckoDiskCacheCapacityKB = "geckoDiskCacheCapacityKB"
+        static let shareGeckoLoginCookies = "shareGeckoLoginCookies"
+        static let didSanitizeIsolatedGPTIdentityCookiesV1 = "didSanitizeIsolatedGPTIdentityCookiesV1"
+        static let didSeedIsolatedCookieContexts = "didSeedIsolatedCookieContexts"
+    }
+
+    var didSanitizeIsolatedGPTIdentityCookiesV1: Bool {
+        get { defaults.bool(forKey: Key.didSanitizeIsolatedGPTIdentityCookiesV1) }
+        set { defaults.set(newValue, forKey: Key.didSanitizeIsolatedGPTIdentityCookiesV1) }
+    }
+
+    var didSeedIsolatedCookieContexts: Bool {
+        get { defaults.bool(forKey: Key.didSeedIsolatedCookieContexts) }
+        set { defaults.set(newValue, forKey: Key.didSeedIsolatedCookieContexts) }
     }
 
     private let defaults: UserDefaults
@@ -68,6 +81,18 @@ final class AppPreferences {
         }
         set {
             defaults.set(newValue, forKey: Key.geckoDiskCacheSmartSizeEnabled)
+        }
+    }
+
+    var shareGeckoLoginCookies: Bool {
+        get {
+            guard defaults.object(forKey: Key.shareGeckoLoginCookies) != nil else {
+                return true
+            }
+            return defaults.bool(forKey: Key.shareGeckoLoginCookies)
+        }
+        set {
+            defaults.set(newValue, forKey: Key.shareGeckoLoginCookies)
         }
     }
 
