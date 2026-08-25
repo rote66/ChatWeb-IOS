@@ -10,7 +10,7 @@ ChatWeb 是一个面向 iOS 13+ 的 UIKit 网页客户端，工程目标和 IPA 
 Firefox tag:    FIREFOX_153_0_4_RELEASE
 Firefox commit: c178247e1dfea52241a6b18b18cf3a00f8da935c
 Target:         arm64 / iOS 13+
-Configuration:  Release + ThinLTO
+Configuration:  Release + cross-language ThinLTO
 Content model:  UIKit single-process Gecko
 ```
 
@@ -20,9 +20,28 @@ Gecko 端的完整源码修改集中在一份
 `GeckoPrebuilt/GeckoCore-ios-arm64.zip`，因此修改 Swift/UIKit 层时不需要重新
 编译 Firefox/XUL。
 
-当前测试版本为 `1.0.15 (89)`。Build 89 在 Build 88 的用户代理切换之上，新增
-按服务重置网站权限、网页文字大小、自动播放/后台媒体策略和三级隐私保护设置。
-这些设置同时支持运行时切换和下次冷启动恢复。
+当前测试版本为 `1.0.15 (98)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
+`OpenerPolicy`：UIKit 单进程网络路径绕过 `DocumentChannel` 后，仍把仅适用于专用
+COOP/COEP remote type 和 browsing-context group 的 `require-corp` 组合策略写入
+当前 context，第二次刷新发生策略切换时被 Gecko 的 `CanSet` 校验拒绝。Build 97
+在 `MOZ_WIDGET_UIKIT` 下保留普通 `same-origin` COOP 和独立的 COEP 子资源限制，
+但不再宣称当前单进程 context 可跨源隔离；其他平台保持 Firefox 原有行为。缓存
+清理成功后会直接执行一次忽略缓存的刷新，不再采用先导航 `about:blank` 再恢复
+URL 的临时规避流程。
+
+Build 97 Release IPA 为 `36583075` B，SHA-256 为
+`fc523523b35bb5994b58a0faf92e9f7b39731736f0222763cadb08393f909ebf`；
+IPA 内 strip 并重签后的 XUL 为 `63448176` B。
+
+Build 98 不删除新的网页能力，改用跨 C/C++ 与 Rust 的 ThinLTO 重新构建 XUL，
+让最终链接器删除 UIKit embedding 不可达的 Rust C ABI 路径，并验证完整安装
+体积能否从 Build 97 的 `70540268` B 降至约 65 MB。JIT/Wasm、DOM/CSS、
+网络/TLS、Cookie/站点存储、Service Worker、WebGPU/WebGL、媒体解码、文件上传、
+CJK 排版和 WebSpeech 均继续保留。16 GiB Mac 上的完整源码构建耗时 25 分 05 秒，
+构建成功并产生 198 个既有/第三方 warning，swap-in 约 22 GB；`MOZ_LTO_RUST_CROSS`
+确认为 `thin`。同条件 strip 后 XUL 为 `63306264` B，相对 Build 97 的
+`63395592` B 只减少 `89328` B，因此单靠跨语言 ThinLTO 无法达到 65 MB。
+Build 98 的 prebuilt 和 IPA 尚未导出；Build 97 的上段数据仍是当前发布基线。
 
 ## 当前结构
 
@@ -237,8 +256,8 @@ GECKO_BUILD_JOBS=4 \
 bash GeckoPort/build_gecko.sh build/firefox-src
 ```
 
-2026-08-24 在 16 GiB Mac 上从空 `objdir`、空 `~/.mozbuild` 实测（4 jobs、
-未启用 SCCache）：
+2026-08-24 在 16 GiB Mac 上从空 `objdir`、空 `~/.mozbuild` 实测旧的普通
+ThinLTO 配置（4 jobs、未启用 SCCache）：
 
 - `mach build`：32 分 09 秒，成功完成 Release + ThinLTO；
 - Firefox 浅克隆工作树：约 5.6 GB，其中 `.git` 约 1.1 GB；
@@ -249,6 +268,28 @@ bash GeckoPort/build_gecko.sh build/firefox-src
 源码克隆和 bootstrap 的下载时间取决于网络，不包含在 32 分 09 秒内。本次完整
 源码树（含 objdir）最终约 25 GB；构建曾产生较多 swap I/O，16 GiB 内存机器不要
 提高默认的 4 jobs，也应预留额外磁盘空间给链接临时文件。
+
+Build 90 的 Release-only 日志裁剪不删除网页功能模块：JIT/Wasm、DOM/CSS、
+网络/TLS、存储、Service Worker、WebGPU/WebGL、媒体解码、上传和 WebSpeech 均
+保留。未 strip XUL 从 `134656928` B 降到 `132475632` B；按 IPA 相同的
+`strip -S -x -N` 与 16 KiB 签名页处理后，从 `66060672` B 降到
+`64270848` B（`64.271 MB` / `61.293 MiB`）。代价是 Release XUL 不能再通过
+`MOZ_LOG` 环境变量采集 Gecko 内部模块日志；需要排障时应使用 Debug Gecko。
+
+Build 91 继续使用 Release + ThinLTO，并增加锁定 Firefox 153 已验证的
+`--disable-webdriver`、`--disable-ctypes` 和 `--disable-webspeechtestbackend`。
+UIKit 源码 overlay 同时不再编译没有随包词典的 Hunspell 后端，并从 RLBox 输入
+列表移除 Hunspell；Graphite、Ogg、Expat、WOFF2 沙箱继续保留。未 strip XUL 从
+`132475632` B 降到 `130855480` B，IPA 内 strip/签名后的 XUL 从 `64270848` B
+降到 `63448176` B。Build 91 IPA 为 `36578297` B，解包常规文件为
+`70539691` B。网页不可访问的 js-ctypes、远程 WebDriver 和测试假语音后端不再
+提供；正式 WebSpeech、编辑器/IME、JIT/Wasm、网络/TLS、存储、媒体和上传保留。
+
+Build 92 不增加新的功能裁剪。Gecko iOS 的显式全局缓存清理现在同时驱逐普通
+与 pinned HTTP 缓存，并通过 `asyncGetDiskConsumption` 等待 cache I/O 队列完成
+后才向 UIKit 回报成功。未 strip XUL 为 `130855568` B；IPA 内
+strip/签名后的 XUL 仍为 `63448176` B。普通 HTTP 磁盘缓存默认关闭 Smart Size，
+硬上限为 32768 KiB；pinned 条目可绕过该容量限制，但现在也会被用户主动清理。
 
 默认 objdir：
 
@@ -389,14 +430,18 @@ git apply --check GeckoPort/DualAI-Gecko.patch
 压缩包包含 `Runtime/`、`include/` 和同一份 `MANIFEST.lock`。
 `prepare_gecko_prebuilt.sh` 会校验结构、manifest 和 XUL arm64 架构。
 
-Build 89 使用的 Gecko runtime 最终以
-`GeckoPrebuilt/MANIFEST.lock` 为准）：
+Build 97 使用的 Gecko runtime 最终以
+`GeckoPrebuilt/MANIFEST.lock` 为准：
 
 ```text
-XUL bytes:     134656928
-XUL SHA256:    8eec8fb63c853fbd49a931e4d21b8e33efa32d5396767e7d00d29e3bdab35929
+XUL bytes:     130855568
+XUL SHA256:    0edc149a606bc373402f68ac1d285ecd057224ac5b93db140edbd0db806b5337
 Runtime files: 12
 ```
+
+Build 98 完成 IPA 真机验证后才会用新的跨语言 ThinLTO 产物刷新该 manifest、
+prebuilt zip 和本节尺寸/hash；在此之前，从 prebuilt 构建仍明确对应上面的
+Build 97 runtime。
 
 ## 运行模型与 JIT
 
@@ -417,7 +462,20 @@ SpiderMonkey JIT 保留。目标真机使用 TrollStore 的 JIT 启动路径；A
 - 数据备份：可导出密码加密的单个 `.dualaibackup` 文件，包含逻辑 Cookie、
   持久站点数据和 App 设置，并排除 `cache2`、`startupCache` 等可重建缓存；
   导入后在下一次 Gecko 启动前恢复。服务端已撤销或过期的登录令牌不能靠本地
-  备份重新激活。
+  备份重新激活。分享完成或取消后会删除 `tmp` 中的导出文件；App 下次启动或
+  再次导出时也会补删异常退出遗留的 DualAI 临时备份。
+- 缓存：Smart Size 默认关闭，普通 HTTP 磁盘缓存默认硬上限为 32768 KiB。
+  “清理缓存”会全局清除普通与 pinned `cache2` 条目，等待 Gecko 确认磁盘回收
+  完成，并另行清理当前服务的 IndexedDB/Cache API 等离线数据；成功后当前页面
+  会直接忽略缓存刷新，不会先导航到 `about:blank`，也不会主动清除 Cookie。
+  当前唯一活动目录为 Application Support 下的
+  `GeminiGeckoProfile`，其中 `cache2` 空目录和索引壳会由 Gecko 保留并继续
+  复用。早期测试版可能在 `Library/Application Support`、`Library` 或
+  `Library/Caches` 遗留 `GeckoProfile/profile`、
+  `GeckoProfile/profile/profile`，也可能遗留 `ChatGPTGeckoProfile`。这些旧目录
+  已经不再引用，App 启动时也不会扫描或删除。关闭“共用登录 Cookie”时，
+  GPT/Gemini 仍通过当前 `GeminiGeckoProfile` 内不同的 `sessionContextId` 隔离
+  Cookie、站点存储和权限，不依赖这些旧目录。
 - 用户代理：设置中可全局切换默认 iPhone Gecko、Android Firefox（Reynard
   兼容）、macOS Firefox、Windows Firefox 和 iOS Firefox（FxiOS/Safari）五个
   档位。UA、`navigator.platform`、`navigator.appVersion`、`navigator.oscpu` 与

@@ -22,7 +22,10 @@ ac_add_options --disable-jxl
 ac_add_options --enable-optimize=-Oz
 ac_add_options --enable-release
 ac_add_options --enable-rust-simd
-ac_add_options --enable-lto
+# Let the final XUL link see Rust and C/C++ bitcode together. This preserves the
+# retained web platform while allowing LLVM to discard Rust C-ABI entry points
+# that are not reachable from the UIKit Gecko embedding.
+ac_add_options --enable-lto=cross,thin
 ac_add_options --disable-debug
 ac_add_options --disable-tests
 
