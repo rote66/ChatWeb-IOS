@@ -45,12 +45,14 @@ final class AppDataBackupManager {
     private let minimumSupportedFormatVersion = 1
     private let kdfRounds = 80_000
     private let maximumArchiveBytes = 256 * 1024 * 1024
-    private let profileNames = ["GeminiGeckoProfile", "ChatGPTGeckoProfile"]
+    private let profileNames = ["GeminiGeckoProfile"]
+    private let temporaryBackupPrefix = "DualAI-Backup-"
 
     private init() {}
 
     func createEncryptedBackup(password: String, cookieSnapshot: Data) throws -> URL {
         guard password.utf8.count >= 8 else { throw AppDataBackupError.passwordTooShort }
+        removeStaleTemporaryBackups()
         let archive = try makeArchive(cookieSnapshot: cookieSnapshot)
         let archiveData = try PropertyListSerialization.data(
             fromPropertyList: archive,
@@ -86,6 +88,24 @@ final class AppDataBackupManager {
         let url = fileManager.temporaryDirectory.appendingPathComponent(filename)
         try output.write(to: url, options: .atomic)
         return url
+    }
+
+    func removeTemporaryBackup(at url: URL) {
+        guard isManagedTemporaryBackup(url) else { return }
+        try? fileManager.removeItem(at: url)
+    }
+
+    func removeStaleTemporaryBackups() {
+        let temporaryDirectory = fileManager.temporaryDirectory
+        guard let urls = try? fileManager.contentsOfDirectory(
+            at: temporaryDirectory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return }
+
+        for url in urls where isManagedTemporaryBackup(url) {
+            try? fileManager.removeItem(at: url)
+        }
     }
 
     func stageRestore(from sourceURL: URL, password: String) throws {
@@ -268,6 +288,17 @@ final class AppDataBackupManager {
             throw AppDataBackupError.unavailableContainer
         }
         return url
+    }
+
+    private func isManagedTemporaryBackup(_ url: URL) -> Bool {
+        let parent = url.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath()
+        let temporaryDirectory = fileManager.temporaryDirectory
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        return url.isFileURL &&
+            parent == temporaryDirectory &&
+            url.pathExtension == Self.backupFileExtension &&
+            url.lastPathComponent.hasPrefix(temporaryBackupPrefix)
     }
 
     private func shouldSkip(relativePath: String) -> Bool {

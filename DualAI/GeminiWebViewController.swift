@@ -19,8 +19,8 @@ class GeminiWebViewController: UIViewController, WebContentController {
     private let networkMonitor = NetworkMonitor()
     private let embedding = GeminiGeckoEmbedding()
     private lazy var engine: GeckoEngine = {
-        let profileName = service == .chatGPT ? "ChatGPTGeckoProfile" : "GeminiGeckoProfile"
-        let profile = (try? GeckoEngine.defaultProfileDirectory(named: profileName)) ??
+        let profileName = "GeminiGeckoProfile"
+        let profile = (try? GeckoEngine.defaultGeminiProfileDirectory()) ??
             FileManager.default.temporaryDirectory.appendingPathComponent(profileName)
         let sessionContextId: String?
         if preferences.shareGeckoLoginCookies {
@@ -426,22 +426,18 @@ class GeminiWebViewController: UIViewController, WebContentController {
     }
 
     func clearCache(completion: @escaping (Bool) -> Void) {
-        let restoreURL = currentSafeURL
         let baseDomain = service == .chatGPT ? "chatgpt.com" : "google.com"
-        NSLog("[GeminiGecko][Storage] prepare-clear service=%@ base=%@ restore=%@",
+        NSLog("[GeminiGecko][Storage] prepare-clear service=%@ base=%@",
               service == .chatGPT ? "ChatGPT" : "Gemini",
-              baseDomain,
-              restoreURL.absoluteString)
-        engine.stopLoading()
-        engine.load(URL(string: "about:blank")!)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-            guard let self else { return }
-            self.engine.clearCache(baseDomain: baseDomain) { [weak self] success in
-                guard let self else { return }
-                NSLog("[GeminiGecko][Storage] restore-after-clear success=%d url=%@",
-                      success ? 1 : 0,
-                      restoreURL.absoluteString)
-                self.engine.load(restoreURL)
+              baseDomain)
+        engine.clearCache(baseDomain: baseDomain) { [weak self] success in
+            DispatchQueue.main.async {
+                if success {
+                    NSLog("[GeminiGecko][Storage] clear-finished success=1 reload=ignoring-cache")
+                    self?.reloadIgnoringCache()
+                } else {
+                    NSLog("[GeminiGecko][Storage] clear-finished success=0 reload=skipped")
+                }
                 completion(success)
             }
         }

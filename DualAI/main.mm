@@ -12,6 +12,8 @@
 
 static volatile sig_atomic_t gGGHandlingFatalSignal = 0;
 
+extern "C" const char *gMozCrashReason;
+
 extern "C" void *__mmap(void *addr,
                          size_t len,
                          int prot,
@@ -100,6 +102,11 @@ static void GGFatalSignalHandler(int signalNumber, siginfo_t *info, void *contex
     }
     gGGHandlingFatalSignal = 1;
 
+    const char *reason = gMozCrashReason;
+    syslog(LOG_ERR,
+           "[GeminiGecko][Crash] reason=%s",
+           reason ? reason : "(none)");
+
     void *frames[64] = {};
     const int frameCount = backtrace(frames, 64);
     syslog(LOG_ERR,
@@ -126,6 +133,7 @@ static void GGFatalSignalHandler(int signalNumber, siginfo_t *info, void *contex
 
 static void GGInstallFatalSignalDiagnostics(void) {
     openlog("DualAI", LOG_PID | LOG_NDELAY, LOG_USER);
+    syslog(LOG_NOTICE, "[GeminiGecko][Crash] moz-crash-reason-symbol=linked");
 
     struct sigaction action = {};
     action.sa_sigaction = GGFatalSignalHandler;
@@ -151,7 +159,7 @@ static void GGApplyPendingBackupRestore(NSURL *applicationSupportURL) {
     GGGeckoStartupTrace("main.backup-restore-found");
     NSURL *profilesRoot = [pending URLByAppendingPathComponent:@"Profiles"
                                              isDirectory:YES];
-    NSArray<NSString *> *profileNames = @[@"GeminiGeckoProfile", @"ChatGPTGeckoProfile"];
+    NSArray<NSString *> *profileNames = @[@"GeminiGeckoProfile"];
     BOOL success = YES;
 
     for (NSString *profileName in profileNames) {

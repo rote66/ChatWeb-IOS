@@ -633,9 +633,15 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
                         cookieSnapshot: cookieSnapshot
                     )
                     DispatchQueue.main.async {
-                        guard let self else { return }
+                        guard let self else {
+                            AppDataBackupManager.shared.removeTemporaryBackup(at: url)
+                            return
+                        }
                         progress?.dismiss(animated: true) {
                             let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                            activity.completionWithItemsHandler = { _, _, _, _ in
+                                AppDataBackupManager.shared.removeTemporaryBackup(at: url)
+                            }
                             activity.popoverPresentationController?.sourceView = self.view
                             activity.popoverPresentationController?.sourceRect = CGRect(
                                 x: self.view.bounds.midX,
@@ -781,19 +787,33 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
         )
         confirm.addAction(UIAlertAction(title: "取消", style: .cancel))
         confirm.addAction(UIAlertAction(title: "清除", style: .destructive) { [weak self, weak controller] _ in
-            controller?.clearCache { success in
-                guard let self else { return }
-                if success {
-                    NSLog("[GeminiGecko][Storage] cache clear completed; page restored")
-                    let alert = UIAlertController(
-                        title: "已完成",
-                        message: "缓存和离线网站数据已清除。iOS“储存空间”里的数据大小统计可能不会立即刷新。",
-                        preferredStyle: .alert
-                    )
-                    alert.addAction(UIAlertAction(title: "好", style: .default))
-                    self.present(alert, animated: true)
-                } else {
-                    self.showStorageResult(title: "清除缓存", success: false)
+            guard let self, let controller else { return }
+            let progress = UIAlertController(
+                title: "正在清理缓存",
+                message: "正在等待 Gecko 删除磁盘缓存和离线网站数据…",
+                preferredStyle: .alert
+            )
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                self.present(progress, animated: true) {
+                    controller.clearCache { [weak self, weak progress] success in
+                        guard let self else { return }
+                        DispatchQueue.main.async {
+                            progress?.dismiss(animated: true) {
+                                if success {
+                                    NSLog("[GeminiGecko][Storage] cache clear completed; page retained")
+                                    let alert = UIAlertController(
+                                        title: "已完成",
+                                        message: "磁盘缓存和离线网站数据已清除。cache2 目录会保留供 Gecko 复用，但其中旧缓存文件已经删除。iOS“储存空间”的统计可能不会立即刷新。",
+                                        preferredStyle: .alert
+                                    )
+                                    alert.addAction(UIAlertAction(title: "好", style: .default))
+                                    self.present(alert, animated: true)
+                                } else {
+                                    self.showStorageResult(title: "清除缓存", success: false)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         })

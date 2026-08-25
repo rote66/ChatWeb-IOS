@@ -30,6 +30,7 @@
 		AB0000000000000000000025 /* GeckoEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000025 /* GeckoEngine.swift */; };
 		AB0000000000000000000026 /* GeminiGeckoEmbedding.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000026 /* GeminiGeckoEmbedding.swift */; };
 		AB0000000000000000000027 /* AppDataBackupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000027 /* AppDataBackupManager.swift */; };
+		AB0000000000000000000028 /* libmozglue.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000028 /* libmozglue.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,13 +71,17 @@
 		AA0000000000000000000025 /* GeckoEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeckoPrototype/GeckoEngine.swift; sourceTree = SOURCE_ROOT; };
 		AA0000000000000000000026 /* GeminiGeckoEmbedding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeckoPrototype/GeminiGeckoEmbedding.swift; sourceTree = SOURCE_ROOT; };
 		AA0000000000000000000027 /* AppDataBackupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDataBackupManager.swift; sourceTree = "<group>"; };
+		AA0000000000000000000028 /* libmozglue.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = GeckoPrebuilt/Runtime/libmozglue.dylib; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		CC0000000000000000000003 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
-			files = (AB0000000000000000000022 /* XUL in Frameworks */,);
+			files = (
+				AB0000000000000000000022 /* XUL in Frameworks */,
+				AB0000000000000000000028 /* libmozglue.dylib in Frameworks */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		CC0000000000000000000005 /* Frameworks */ = {
@@ -142,6 +147,7 @@
 			children = (
 				AA0000000000000000000017 /* XCTest.framework */,
 				AA0000000000000000000022 /* XUL */,
+				AA0000000000000000000028 /* libmozglue.dylib */,
 				AA0000000000000000000021 /* GeminiGeckoCAPI.mm */,
 				AA0000000000000000000023 /* GeminiGeckoBridge.mm */,
 				AA0000000000000000000024 /* WebEngine.swift */,
@@ -333,7 +339,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 89;
+				CURRENT_PROJECT_VERSION = 97;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
@@ -344,6 +350,7 @@
 				);
 				INFOPLIST_FILE = DualAI/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/GeckoPrebuilt/Runtime";
 				MARKETING_VERSION = 1.0.15;
 				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.DualAI;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -362,7 +369,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 89;
+				CURRENT_PROJECT_VERSION = 97;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
@@ -373,6 +380,7 @@
 				);
 				INFOPLIST_FILE = DualAI/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/GeckoPrebuilt/Runtime";
 				MARKETING_VERSION = 1.0.15;
 				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.DualAI;
 				PRODUCT_NAME = "$(TARGET_NAME)";
