@@ -34,11 +34,12 @@ ac_add_options --disable-tests
 # Keep the full feature set but optimize Rust code for binary size as well.
 export RUSTC_OPT_LEVEL="z"
 
-# Let the Mach-O linker discard unreferenced sections after LTO. This is
-# especially useful for the dedicated UIKit runtime because Firefox product
-# surfaces are intentionally omitted while the core Gecko libraries remain
-# large archives.
-export LDFLAGS="-Wl,-dead_strip -Wl,-no_function_starts -Wl,--icf=safe"
+# Let the Mach-O linker discard unreferenced sections and merge functions with
+# identical machine-code behavior after LTO. This is especially useful for the
+# dedicated UIKit runtime because Firefox product surfaces are intentionally
+# omitted while the core Gecko libraries remain large archives. Keep safe ICF;
+# address-significant functions must remain distinct.
+export LDFLAGS="-Wl,-dead_strip -Wl,-no_function_starts -Wl,--icf=safe -Wl,-mllvm,-enable-merge-functions"
 
 # SpiderMonkey JIT is intentionally not disabled. Production readiness requires
 # the iOS child process to report a working executable-memory/JIT path.

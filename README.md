@@ -33,15 +33,16 @@ Build 97 Release IPA 为 `36583075` B，SHA-256 为
 `fc523523b35bb5994b58a0faf92e9f7b39731736f0222763cadb08393f909ebf`；
 IPA 内 strip 并重签后的 XUL 为 `63448176` B。
 
-Build 98 不删除新的网页能力，改用跨 C/C++ 与 Rust 的 ThinLTO 重新构建 XUL，
-让最终链接器删除 UIKit embedding 不可达的 Rust C ABI 路径，并验证完整安装
-体积能否从 Build 97 的 `70540268` B 降至约 65 MB。JIT/Wasm、DOM/CSS、
+Build 98 不删除新的网页能力，改用跨 C/C++ 与 Rust 的 ThinLTO，并启用 LLVM
+MergeFunctions 合并机器码完全相同的函数。JIT/Wasm、DOM/CSS、
 网络/TLS、Cookie/站点存储、Service Worker、WebGPU/WebGL、媒体解码、文件上传、
-CJK 排版和 WebSpeech 均继续保留。16 GiB Mac 上的完整源码构建耗时 25 分 05 秒，
-构建成功并产生 198 个既有/第三方 warning，swap-in 约 22 GB；`MOZ_LTO_RUST_CROSS`
-确认为 `thin`。同条件 strip 后 XUL 为 `63306264` B，相对 Build 97 的
-`63395592` B 只减少 `89328` B，因此单靠跨语言 ThinLTO 无法达到 65 MB。
-Build 98 的 prebuilt 和 IPA 尚未导出；Build 97 的上段数据仍是当前发布基线。
+CJK 排版和 WebSpeech 均继续保留。16 GiB Mac 上的正式重建耗时 25 分 06 秒，
+构建成功并产生 198 个既有/第三方 warning，swap-in 约 21.5 GB；
+`MOZ_LTO_RUST_CROSS` 确认为 `thin`。同条件 strip 后 XUL 为 `63044120` B，
+打包签名后为 `63185520` B。最终 IPA 为 `36490620` B，SHA-256 为
+`24fca137f0a68284682b3cd091d29992f28d50d428daf08c9811de88e1650493`，
+解包完整安装常规文件为 `70277613` B；相对 Build 97 只减少 `262655` B，
+离十进制 65 MB 仍差 `5277613` B，因此保留全部上述能力时无法达到目标。
 
 ## 当前结构
 
@@ -430,18 +431,18 @@ git apply --check GeckoPort/DualAI-Gecko.patch
 压缩包包含 `Runtime/`、`include/` 和同一份 `MANIFEST.lock`。
 `prepare_gecko_prebuilt.sh` 会校验结构、manifest 和 XUL arm64 架构。
 
-Build 97 使用的 Gecko runtime 最终以
+Build 98 使用的 Gecko runtime 最终以
 `GeckoPrebuilt/MANIFEST.lock` 为准：
 
 ```text
-XUL bytes:     130855568
-XUL SHA256:    0edc149a606bc373402f68ac1d285ecd057224ac5b93db140edbd0db806b5337
+XUL bytes:     126211712
+XUL SHA256:    b9030a0c7c375a94030153618e782c1c734dcc41a8813d8a0e52f1096dce26a8
 Runtime files: 12
 ```
 
-Build 98 完成 IPA 真机验证后才会用新的跨语言 ThinLTO 产物刷新该 manifest、
-prebuilt zip 和本节尺寸/hash；在此之前，从 prebuilt 构建仍明确对应上面的
-Build 97 runtime。
+对应 prebuilt zip 为 `48075339` B。从 prebuilt 构建与上面的完整源码构建均使用
+同一份 Build 98 XUL manifest；源码构建还会从 `GeckoPort/mozconfig.ios13-arm64`
+读取 cross-language ThinLTO、safe ICF 和 MergeFunctions 参数。
 
 ## 运行模型与 JIT
 
