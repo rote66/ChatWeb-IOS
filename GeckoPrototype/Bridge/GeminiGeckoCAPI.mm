@@ -1586,7 +1586,7 @@ GGGeckoResult GGGeckoRuntimeClearData(GGGeckoRuntime *runtime,
         // the one-shot completion without risking a double callback if Gecko
         // eventually responds later.
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW,
-                                     (int64_t)(8 * NSEC_PER_SEC)),
+                                     (int64_t)(60 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
             if (eventCallback.completion) {
                 NSLog(@"[GeminiGecko][Storage] direct-clear callback timeout");

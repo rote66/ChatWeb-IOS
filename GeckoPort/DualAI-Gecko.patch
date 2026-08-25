@@ -96802,6 +96802,21 @@ index f8040c897304dcd80f2b10f412a3457e82033316..ee75e8a52ec8f42a8dced52a2466672f
  
    // If we didn't find any origins for this host in the poermissions database,
    // we can insert the default http:// and https:// permissions into the
+diff --git a/extensions/spellcheck/moz.build b/extensions/spellcheck/moz.build
+index 02fd925374ce5ad91ba4408125a1528421290ccf..7e42a87104671d38aea87b0ea8006fb134d53fe6 100644
+--- a/extensions/spellcheck/moz.build
++++ b/extensions/spellcheck/moz.build
+@@ -4,8 +4,8 @@
+ 
+ DIRS += ["idl", "ipc", "src"]
+ 
+-if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
+-    # GeckoView disables hunspell spellchecker.
++if CONFIG["MOZ_WIDGET_TOOLKIT"] not in ("android", "uikit"):
++    # Mobile GeckoView embeddings do not ship Hunspell dictionaries.
+     DIRS += ["hunspell", "locales"]
+ 
+ MOCHITEST_CHROME_MANIFESTS += ["tests/chrome/chrome.toml"]
 diff --git a/gfx/2d/2D.h b/gfx/2d/2D.h
 index 787bf60e149058ef69aabdfdb0e9867aac9d0b19..c431d767fd93ea58214b151f8f3a997364e97149 100644
 --- a/gfx/2d/2D.h
@@ -107025,10 +107040,10 @@ index 1575183eb4e327e37f5f7e26e7921e3ed43bc8ba..10f6b6e7fdcd89401d418860184bfaed
  
    getPromptType() {
 diff --git a/mobile/shared/components/geckoview/GeckoViewStartup.sys.mjs b/mobile/shared/components/geckoview/GeckoViewStartup.sys.mjs
-index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..6d1c97861b7492b5989ad249d610146cffca8dec 100644
+index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..1418da95464649f78eca72ebab12e30c14aa86a3 100644
 --- a/mobile/shared/components/geckoview/GeckoViewStartup.sys.mjs
 +++ b/mobile/shared/components/geckoview/GeckoViewStartup.sys.mjs
-@@ -19,6 +19,557 @@ ChromeUtils.defineESModuleGetters(lazy, {
+@@ -19,6 +19,581 @@ ChromeUtils.defineESModuleGetters(lazy, {
  
  const { debug, warn } = GeckoViewUtils.initLogging("Startup");
  
@@ -107486,8 +107501,32 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..6d1c97861b7492b5989ad249d610146c
 +        // googleusercontent.com, so clearing only google.com leaves most of
 +        // cache2 behind. Clear the disposable HTTP disk cache globally while
 +        // leaving cookies and quota-managed site data to their separate paths.
-+        Services.cache2.clear();
-+        trace("network-done");
++        // clear() queues cache2 eviction on Gecko's cache I/O thread. Root a
++        // consumption observer and wait for it: CacheIndex deliberately holds
++        // this callback until every queued context has been removed from disk.
++        // Reporting success before this point makes the UIKit client reload the
++        // page while old files are still present and can leave cache2 looking
++        // unchanged to the user.
++        let cacheConsumptionObserver = null;
++        const diskConsumption = await new Promise((resolve, reject) => {
++          cacheConsumptionObserver = {
++            onNetworkCacheDiskConsumption(consumption) {
++              resolve(consumption);
++            },
++            QueryInterface: ChromeUtils.generateQI([
++              "nsICacheStorageConsumptionObserver",
++              "nsISupportsWeakReference",
++            ]),
++          };
++          try {
++            Services.cache2.clear();
++            Services.cache2.asyncGetDiskConsumption(cacheConsumptionObserver);
++          } catch (error) {
++            reject(error);
++          }
++        });
++        cacheConsumptionObserver = null;
++        trace("network-done", { diskConsumption });
 +      }
 +
 +      if (flags & (1 << 2)) {
@@ -107586,7 +107625,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..6d1c97861b7492b5989ad249d610146c
  function InitLater(fn, object, name) {
    return DelayedInit.schedule(fn, object, name, 15000 /* 15s max wait */);
  }
-@@ -113,6 +664,77 @@ export class GeckoViewStartup {
+@@ -113,6 +688,77 @@ export class GeckoViewStartup {
      switch (aTopic) {
        case "content-process-ready-for-script":
        case "app-startup": {
@@ -107664,7 +107703,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..6d1c97861b7492b5989ad249d610146c
          GeckoViewUtils.addLazyGetter(this, "GeckoViewConsole", {
            module: "resource://gre/modules/GeckoViewConsole.sys.mjs",
          });
-@@ -128,6 +750,8 @@ export class GeckoViewStartup {
+@@ -128,6 +774,8 @@ export class GeckoViewStartup {
              "GeckoView:GetPermissionsByURI",
              "GeckoView:SetPermission",
              "GeckoView:SetPermissionByURI",
@@ -107673,7 +107712,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..6d1c97861b7492b5989ad249d610146c
              "GeckoView:GetCookieBannerModeForDomain",
              "GeckoView:SetCookieBannerModeForDomain",
              "GeckoView:RemoveCookieBannerModeForDomain",
-@@ -174,51 +798,55 @@ export class GeckoViewStartup {
+@@ -174,51 +822,55 @@ export class GeckoViewStartup {
              ],
            });
  
@@ -107773,7 +107812,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..6d1c97861b7492b5989ad249d610146c
  
            GeckoViewUtils.addLazyGetter(this, "ChildCrashHandler", {
              module: "resource://gre/modules/ChildCrashHandler.sys.mjs",
-@@ -236,73 +864,85 @@ export class GeckoViewStartup {
+@@ -236,73 +888,85 @@ export class GeckoViewStartup {
            ]);
          }
  
@@ -107912,7 +107951,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..6d1c97861b7492b5989ad249d610146c
  
          // Initialize the cookie service early so the DB is loaded by
          // the time we make the first HTTP request. Skip in xpcshell tests,
-@@ -312,10 +952,12 @@ export class GeckoViewStartup {
+@@ -312,10 +976,12 @@ export class GeckoViewStartup {
            Services.cookies;
          }
  
@@ -107929,7 +107968,7 @@ index 3d46ebea915427baa16edfd3e91f2edfb1a20d97..6d1c97861b7492b5989ad249d610146c
  
          // Listen for global EventDispatcher messages
          lazy.EventDispatcher.instance.registerListener(this, [
-@@ -328,7 +970,9 @@ export class GeckoViewStartup {
+@@ -328,7 +994,9 @@ export class GeckoViewStartup {
          Services.obs.addObserver(this, "browser-idle-startup-tasks-finished");
          Services.obs.addObserver(this, "handlersvc-store-initialized");
  
@@ -112480,6 +112519,26 @@ index 9c6bc65494eb75113ef00876d1daaa53b988572f..a24c84661e960dc2639dcf3ed7737675
  elif buildconfig.substs['OS_ARCH'] == 'Linux':
      link_service = {
          'type': 'nsNetworkLinkService',
+diff --git a/netwerk/cache2/CacheStorageService.cpp b/netwerk/cache2/CacheStorageService.cpp
+index 355db7092fb88c000d66a1cbff24bb14c3c2e5af..da3b4a1a3808dfeeef95e866c9071d6523363acb 100644
+--- a/netwerk/cache2/CacheStorageService.cpp
++++ b/netwerk/cache2/CacheStorageService.cpp
+@@ -698,6 +698,15 @@ NS_IMETHODIMP CacheStorageService::Clear() {
+   rv = CacheFileIOManager::EvictByContext(nullptr, false, u""_ns);
+   NS_ENSURE_SUCCESS(rv, rv);
+ 
++#ifdef XP_IOS
++  // DualAI's explicit cache action also clears offline/pinned HTTP entries.
++  // Pinned storage bypasses the configured disk capacity and the normal clear
++  // path deliberately preserves it, which otherwise lets cache2 remain far
++  // above the app's user-selected limit after a successful clear operation.
++  rv = CacheFileIOManager::EvictByContext(nullptr, true, u""_ns);
++  NS_ENSURE_SUCCESS(rv, rv);
++#endif
++
+   return NS_OK;
+ }
+ 
 diff --git a/netwerk/dns/TRRServiceParent.cpp b/netwerk/dns/TRRServiceParent.cpp
 index 4b51d04b5458dacb989e77b897256bdefe3428a1..d3ec1c08e2bc3b6e743aee96cf2cc99fa53af582 100644
 --- a/netwerk/dns/TRRServiceParent.cpp
@@ -112509,7 +112568,7 @@ index fb0a509b37ae45d8c5439ef09ddbf9273d2e8e6b..f7f193da07e73770806733fe92c63eb3
      return false;
    }
 diff --git a/netwerk/protocol/http/HttpBaseChannel.cpp b/netwerk/protocol/http/HttpBaseChannel.cpp
-index f338a4c0022821f5c8f76eba4b419779dfd3eb01..6e1607d7315f6f017144fba8f2acb613fed2d6b9 100644
+index f338a4c0022821f5c8f76eba4b419779dfd3eb01..afe704801bbe4804e1e1e0281f6d00d0974e5635 100644
 --- a/netwerk/protocol/http/HttpBaseChannel.cpp
 +++ b/netwerk/protocol/http/HttpBaseChannel.cpp
 @@ -33,7 +33,9 @@
@@ -112533,6 +112592,27 @@ index f338a4c0022821f5c8f76eba4b419779dfd3eb01..6e1607d7315f6f017144fba8f2acb613
  
    const bool shouldFilter =
        ShouldFilterOpaqueResponse(OpaqueResponseFilterFetch::BlockedByORB);
+@@ -6604,6 +6608,12 @@ NS_IMETHODIMP HttpBaseChannel::ComputeCrossOriginOpenerPolicy(
+   } else if (openerPolicy.EqualsLiteral("same-origin-allow-popups")) {
+     policy = nsILoadInfo::OPENER_POLICY_SAME_ORIGIN_ALLOW_POPUPS;
+   }
++  // UIKit loads web content in a parent-process docshell and deliberately
++  // bypasses DocumentChannel, so it cannot switch to the dedicated remote type
++  // and BrowsingContextGroup required for cross-origin isolation. Keep the
++  // same-origin COOP policy, but do not mark this context as potentially
++  // cross-origin isolated. COEP is still parsed and enforced independently.
++#ifndef MOZ_WIDGET_UIKIT
+   if (policy == nsILoadInfo::OPENER_POLICY_SAME_ORIGIN) {
+     nsILoadInfo::CrossOriginEmbedderPolicy coep =
+         nsILoadInfo::EMBEDDER_POLICY_NULL;
+@@ -6637,6 +6647,7 @@ NS_IMETHODIMP HttpBaseChannel::ComputeCrossOriginOpenerPolicy(
+           nsILoadInfo::OPENER_POLICY_SAME_ORIGIN_EMBEDDER_POLICY_REQUIRE_CORP;
+     }
+   }
++#endif
+ 
+   *aOutPolicy = policy;
+   return NS_OK;
 diff --git a/netwerk/protocol/http/HttpConnectionMgrChild.cpp b/netwerk/protocol/http/HttpConnectionMgrChild.cpp
 index f48d028668b7f055289d855fb0c364fdd4f0c829..fe5eeb76133443dd0f37b85e48f7ac92b51d74da 100644
 --- a/netwerk/protocol/http/HttpConnectionMgrChild.cpp
@@ -130004,6 +130084,23 @@ index 0000000000000000000000000000000000000000..b861cd32bac008de301f2121601baf19
 +}
 +
 +}  // namespace mozilla
+diff --git a/xpcom/base/Logging.h b/xpcom/base/Logging.h
+index d2049e074989ef6f304b7a6e305a77ca9483958a..aa24fda6e28d9fc652d3c81829db685e8b728083 100644
+--- a/xpcom/base/Logging.h
++++ b/xpcom/base/Logging.h
+@@ -18,7 +18,11 @@
+ 
+ #include "fmt/format.h"
+ 
+-#define MOZ_LOGGING_ENABLED 1
++#if defined(XP_IOS) && !defined(DEBUG)
++#  define MOZ_LOGGING_ENABLED 0
++#else
++#  define MOZ_LOGGING_ENABLED 1
++#endif
+ 
+ // The mandatory extension we add to log files.  Note that rotate will append
+ // the file piece number still at the end.
 diff --git a/xpcom/base/MemoryPressureLevelIOS.h b/xpcom/base/MemoryPressureLevelIOS.h
 new file mode 100644
 index 0000000000000000000000000000000000000000..bf78116191f0e1ea393ac4ef4c19a70607c092fd

@@ -20,9 +20,9 @@ Gecko 端的完整源码修改集中在一份
 `GeckoPrebuilt/GeckoCore-ios-arm64.zip`，因此修改 Swift/UIKit 层时不需要重新
 编译 Firefox/XUL。
 
-当前测试版本为 `1.0.15 (88)`。Build 88 在 Build 87 的登录 Cookie 隔离、加密
-数据备份/恢复和 safe-logout 处理之上，增加了全局用户代理切换，并修正默认
-iPhone Gecko UA 缺少 `Mobile` 标记的问题。
+当前测试版本为 `1.0.15 (89)`。Build 89 在 Build 88 的用户代理切换之上，新增
+按服务重置网站权限、网页文字大小、自动播放/后台媒体策略和三级隐私保护设置。
+这些设置同时支持运行时切换和下次冷启动恢复。
 
 ## 当前结构
 
@@ -389,12 +389,12 @@ git apply --check GeckoPort/DualAI-Gecko.patch
 压缩包包含 `Runtime/`、`include/` 和同一份 `MANIFEST.lock`。
 `prepare_gecko_prebuilt.sh` 会校验结构、manifest 和 XUL arm64 架构。
 
-Build 88 继续使用当前已验证的 Gecko runtime（最终以
+Build 89 使用的 Gecko runtime 最终以
 `GeckoPrebuilt/MANIFEST.lock` 为准）：
 
 ```text
 XUL bytes:     134656928
-XUL SHA256:    2fa1a035222b35ce17b38fbd3d8bb967e2105d4177bdadfde45389ac4d9b1e7c
+XUL SHA256:    8eec8fb63c853fbd49a931e4d21b8e33efa32d5396767e7d00d29e3bdab35929
 Runtime files: 12
 ```
 
@@ -422,6 +422,15 @@ SpiderMonkey JIT 保留。目标真机使用 TrollStore 的 JIT 启动路径；A
   兼容）、macOS Firefox、Windows Firefox 和 iOS Firefox（FxiOS/Safari）五个
   档位。UA、`navigator.platform`、`navigator.appVersion`、`navigator.oscpu` 与
   mobile/desktop viewport 会成组切换，已打开的 GPT/Gemini 页面随即重新加载。
+- 网站权限：可按当前服务和当前 `sessionContextId` 重置麦克风、摄像头、位置、
+  通知、自动播放等权限决定；不会删除 Cookie、登录状态或站点数据。
+- 网页文字：可全局选择 `80%`、`100%`、`120%`、`140%`、`160%`，通过
+  Gecko `BrowsingContext.textZoom` 只缩放网页文字，默认 `100%`。
+- 媒体：自动播放可选择“阻止有声（默认）”“允许”或“阻止所有”；另有独立
+  开关决定 GPT/Gemini 页面非活动或 App 进入后台时是否暂停媒体，默认开启。
+- 隐私保护：标准（默认）启用跟踪保护并分区第三方 Cookie；兼容关闭跟踪保护
+  并接受第三方 Cookie；严格启用严格跟踪列表并阻止第三方 Cookie。该设置与
+  “GPT/Gemini 共用登录 Cookie”相互独立。
 - ChatGPT 退出：`/auth/logout` 在当前单进程 docshell 中触发安全脱离页面、清理
   当前 context Cookie 并回到首页，避免在退出脚本仍运行时直接清 Cookie。
 - 前进/后退：由 Gecko `PageStart/PageStop` 同步历史状态。

@@ -6,6 +6,12 @@ ac_add_options --enable-ios-target=13.0
 ac_add_options --disable-webrtc
 ac_add_options --disable-crashreporter
 ac_add_options --disable-printing
+ac_add_options --disable-webdriver
+ac_add_options --disable-ctypes
+# Keep RLBox for retained parsers/codecs, excluding the omitted Hunspell backend.
+ac_add_options --with-wasm-sandboxed-libraries=graphite,ogg,expat,woff2
+# Keep the Web Speech API and UIKit backend, but omit its test-only fake backend.
+ac_add_options --disable-webspeechtestbackend
 ac_add_options --disable-backgroundtasks
 ac_add_options --disable-accessibility
 ac_add_options --disable-ffmpeg
