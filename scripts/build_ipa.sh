@@ -170,5 +170,14 @@ PACKAGED_ENTITLEMENTS="$(/usr/bin/codesign -d --entitlements :- "$VERIFY_ROOT/Pa
 echo "$PACKAGED_ENTITLEMENTS" | /usr/bin/grep -q '<key>get-task-allow</key>' \
     || fail "packaged app lost get-task-allow"
 
+# IPA compression is not the number shown by iOS after installation. Report
+# the sum of regular files in the signed payload so size work has a stable,
+# reproducible installed-size baseline as well.
+INSTALLED_BYTES="$(/usr/bin/find "$VERIFY_ROOT/Payload/DualAI.app" -type f -print0 \
+    | /usr/bin/xargs -0 /usr/bin/stat -f '%z' \
+    | /usr/bin/awk '{ total += $1 } END { printf "%.0f", total }')"
+[ -n "$INSTALLED_BYTES" ] || fail "failed to measure packaged app files"
+
 echo "Created: $IPA_PATH"
 echo "Validated: Payload/DualAI.app, Info.plist, arm64 executable, stripped/signed Gecko Mach-O, get-task-allow"
+echo "Installed regular-file size: $INSTALLED_BYTES bytes"
