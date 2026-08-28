@@ -8,10 +8,12 @@ ac_add_options --disable-crashreporter
 ac_add_options --disable-printing
 ac_add_options --disable-webdriver
 ac_add_options --disable-ctypes
-# Keep RLBox for retained parsers/codecs, excluding the omitted Hunspell backend.
-ac_add_options --with-wasm-sandboxed-libraries=graphite,ogg,expat,woff2
+# Graphite shaping is disabled for UIKit below, so do not generate its wasm2c
+# sandbox. Keep RLBox isolation for every parser that remains reachable.
+ac_add_options --with-wasm-sandboxed-libraries=ogg,expat,woff2
 # Keep the Web Speech API and UIKit backend, but omit its test-only fake backend.
 ac_add_options --disable-webspeechtestbackend
+ac_add_options --disable-real-time-tracing
 ac_add_options --disable-backgroundtasks
 ac_add_options --disable-accessibility
 ac_add_options --disable-ffmpeg
