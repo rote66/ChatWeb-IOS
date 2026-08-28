@@ -28,6 +28,7 @@ protocol WebContentController: AnyObject {
     func migrateLoginCookies(toShared: Bool, completion: @escaping (Bool) -> Void)
     func exportCookieSnapshot(completion: @escaping (Data?) -> Void)
     func applyUserAgentProfile(_ profile: WebUserAgentProfile) -> Bool
+    func reloadAfterUserAgentChange()
     func applyContentConfiguration(_ configuration: WebContentConfiguration,
                                    completion: @escaping (Bool) -> Void)
     func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void)

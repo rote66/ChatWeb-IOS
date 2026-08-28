@@ -364,6 +364,13 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
         }
         preferences.userAgentProfile = profile
         NSLog("[GeminiGecko][UA] persisted profile=%@", profile.displayName)
+        // Let both GeckoView:UpdateSettings events finish before either
+        // session reloads. This also matches the proven manual-refresh path.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.chatGPTViewController.reloadAfterUserAgentChange()
+            self.geminiViewController.reloadAfterUserAgentChange()
+        }
     }
 
     private func showWebTextSizeMenu() {

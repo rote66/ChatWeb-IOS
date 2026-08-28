@@ -20,7 +20,7 @@ Gecko 端的完整源码修改集中在一份
 `GeckoPrebuilt/GeckoCore-ios-arm64.zip`，因此修改 Swift/UIKit 层时不需要重新
 编译 Firefox/XUL。
 
-当前测试版本为 `1.0.15 (98)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
+当前测试版本为 `1.0.15 (106)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
 `OpenerPolicy`：UIKit 单进程网络路径绕过 `DocumentChannel` 后，仍把仅适用于专用
 COOP/COEP remote type 和 browsing-context group 的 `require-corp` 组合策略写入
 当前 context，第二次刷新发生策略切换时被 Gecko 的 `CanSet` 校验拒绝。Build 97
@@ -43,6 +43,247 @@ CJK 排版和 WebSpeech 均继续保留。16 GiB Mac 上的正式重建耗时 25
 `24fca137f0a68284682b3cd091d29992f28d50d428daf08c9811de88e1650493`，
 解包完整安装常规文件为 `70277613` B；相对 Build 97 只减少 `262655` B，
 离十进制 65 MB 仍差 `5277613` B，因此保留全部上述能力时无法达到目标。
+
+Build 99 验证了关闭 Rust 显式 SIMD 的尺寸实验，但结果是负优化：未 strip XUL
+从 Build 98 的 `126211712` B 降到 `124865536` B，strip 并签名后却增至
+`64058032` B；IPA 为 `36689043` B，SHA-256 为
+`f282a7f448b9df6024baf0f0a612898b57555c349c3cbafa57722c6f1623e59e`，完整
+安装常规文件增至 `71150125` B。因此正式配置继续启用 Rust SIMD，Build 99
+不作为发布基线。该实验同时发现自动更新的 Rust stable 已使用 LLVM 22.1.6，
+无法与 Firefox bootstrap 的 LLVM 21.1.8 进行 cross-language ThinLTO；源码
+构建现锁定 Firefox 153 CI 使用的 Rust 1.94.1，以保证两侧 LLVM 版本一致。
+
+随后用固定 Rust 1.94.1 恢复 Rust SIMD 并从源码重建，耗时 28 分 31 秒；未
+strip XUL 为 `124869728` B，最终 IPA 为 `36692219` B，完整安装常规文件为
+`71150107` B。它与关闭 SIMD 的 Build 99 安装体积仅差 18 B，也无法复现旧构建
+缓存下 Build 98 的 `70277613` B。因此后续尺寸对比统一以固定工具链的
+`71150107` B 为可复现基线，不能再把 Build 98 的偶然结果当作当前基线。
+
+Graphite 阶段的中间尺寸基线在 UIKit 下关闭不可到达的 Graphite 字体整形和对应 wasm2c
+沙箱，但继续保留 HarfBuzz/OpenType/CJK、Ogg/Expat/WOFF2 的 RLBox 隔离以及全部
+媒体解码路径。固定 Rust 1.94.1 的完整 Release 源码构建耗时 26 分 00 秒，产生
+198 个既有/第三方 warning；未 strip XUL 为 `121109424` B，IPA 内 strip 并签名
+后为 `61935600` B。Release IPA 为 `35563547` B，SHA-256 为
+`c0fc4385aebf91786fcbeaba1e34623cb4cd5083be8b3ad3f21a3230fff68187`，完整安装
+常规文件为 `69027693` B，离十进制 65 MB 仍差 `4027693` B。该 XUL 已导出为
+prebuilt，并通过 `make ipa` 验证预编译构建路径。
+
+Graphite 基线之后的一轮工作树继续移除了 UIKit 不使用的 Glean JavaScript 指标/
+ping 名称查询表，并将仅供 Firefox 桌面动态指标注册使用的 JOG 改为空实现；同时在
+iOS Release 中关闭 Gecko 内存 profiler、Rust profiler marker 和实时音频回调追踪。
+这些修改不关闭 Web API 性能计时，不影响 WebRender 使用的原生 Rust metrics，也不
+改变 JIT/Wasm、Service Worker、Safe Browsing、HSTS、RLBox、Cookie/站点存储、
+WebGL/WebGPU 和媒体解码能力。最新一次增量 Release 构建耗时 6 分 22 秒且无 warning，
+未 strip XUL 为 `119336024` B，临时 strip 并签名后为 `60818560` B；按 Graphite
+IPA 的其余文件不变估算，完整安装常规文件为 `67910653` B，离十进制 65 MB 仍差
+`2910653` B。该数字只是中间实验结果：当前正式
+`GeckoPrebuilt/GeckoCore-ios-arm64.zip` 和 `dist/DualAI.ipa` 仍是上一段的 Graphite
+基线，尚未用此工作树重新导出，不能把旧 IPA 当作这一轮裁剪的验证产物。
+
+下一轮 UIKit 尺寸实验关闭 AVIF 图片和通用媒体模块的软件 AV1 解码，并从 XUL
+链接输入中移除 dav1d；PNG/JPEG/GIF/WebP、H.264/HEVC/VP8/VP9、音频解码及
+Apple VideoToolbox 路径不变，AOM 的 AV1 MIME/OBU/`av1C` 格式解析也继续保留。
+Firefox 153 当前在 iOS 分支不会注册 supplemental AV1 硬解，所以这项取舍意味着
+AVIF 图片不再显示，且没有系统 AV1 硬解的设备无法再播放 AV1 视频。增量 Release
+构建耗时 5 分 17 秒，出现 10 条 Apple VideoToolbox SDK 可用性既有 warning；
+未 strip XUL 为 `118296488` B，strip 并签名后为 `60112256` B，raw XUL 中已无
+dav1d/AVIF 解码符号。按同一基线估算，完整安装常规文件为 `67204349` B，离十进制
+65 MB 仍差 `2204349` B。`libgkcodecs.dylib` 仍为 `2073976` B，说明本轮尚未消除
+其中由 libaom 软件解码导出保留的代码；正式 prebuilt 与 IPA 同样尚未刷新。
+
+作为下一候选项，UIKit 工作树还暂时排除了 Firefox 153 新增的 Rust
+content-classifier/adblock 规则引擎，但继续保留经典 URL Classifier、Safe Browsing
+数据库/更新器及其频道拦截流程。该实验的 Release 重建耗时 9 分 33 秒，未 strip
+XUL 为 `118005696` B，strip 并签名后为 `59964192` B；完整安装估算为
+`67056285` B，仍超十进制 65 MB `2056285` B。相对上一项只减少 `148064` B，
+功能收益比很低，当时仅作为未提交实验。为达到本轮 65 MB 目标，下面的最终测试
+配置暂时保留了这项取舍；后续若继续从其他不可达代码取得空间，应优先恢复这一层
+隐私分类能力。
+
+为达到 62-65 MB 的第一版测试配置曾从 UIKit 内核排除 Rust SWGL 软件光栅器和
+C++ SWGL compositor，只保留极小的 `wr_swgl_*` ABI 失败桩；硬件 WebRender、
+EAGL GLES3/GLES2、WebGL/WebGPU 和 Apple VideoToolbox 保持启用。ffvpx 只编译
+音频实现，libaom/dav1d 软件 AV1 与 AVIF 不再进入 UIKit 产物，libvpx 的 VP8/VP9
+解码仍保留。iOS 默认不会启用 `gfx.webrender.program-binary-disk`，因此该构建也
+不再链接其 shader 序列化/磁盘读写实现和仅供开发诊断的 `wr-capture` 文件导出；
+这不关闭进程内 shader/program cache 或正常 shader 编译。
+
+UIKit 的 ffvpx encoder 模块已经关闭，最终 XUL 只导入 Opus 解码 API；
+`libgkcodecs.dylib` 因此不再导出无调用者的 Opus 单流/多流 encoder，从 raw
+`823704` B 降到 `650008` B，strip 并签名后为 `497344` B。Opus/Vorbis/Ogg
+播放和 VP8/VP9 解码仍保留，但该构建不提供基于 ffvpx/Opus 的网页媒体录制编码。
+最后一次只重链 gkcodecs/XUL 的无 SWGL Release 构建耗时 4 分 57 秒，compiler
+warning 为 0；raw XUL 为 `116551240` B，IPA 内 strip 并签名后为 `58978800` B，
+`omni.ja` 为 `2005783` B。最终 IPA 为 `33721594` B，SHA-256 为
+`e06cb10cdf9e85a92b322f64ff98f1c34ebf9f6d649409289b2ae880333b34fd`；解包
+完整安装常规文件为 `64967850` B，低于十进制 65 MB `32150` B。该配置仍包含
+上一段所述的 content-classifier 取舍；经典 URL Classifier、Safe Browsing 和
+远程安全状态数据未移除。
+
+无 SWGL 版本在 iOS 15.5 上出现启动后页面不加载、卡住并退出。系统生成的
+`stacks` IPS 明确记录 `0x8badf00d`、`WatchdogEvent: scene-update` 和 10 秒前台
+scene 更新超时，`memoryPressure=false`，并非 Jetsam；累计 CPU 主要集中在
+MainThread、Compositor 和 Renderer。为做最小对照，当前测试配置只恢复完整的 Rust
+SWGL、`sw_compositor` feature、C++ SWGL compositor 和 Native SWGL 实现；program
+binary 磁盘缓存、`wr-capture`、content-classifier 和媒体精简均保持不变。
+
+补齐 Native SWGL 后的最终 Release 重链耗时 4 分 59 秒且报告 0 compiler warning；
+raw XUL 为 `117922048` B，IPA 内 strip 并签名后为 `59914704` B。当前 IPA 为
+`34168515` B，SHA-256 为
+`b7b0d993f0ca5dc33df5a955311258a16edb2b10debb2575f82dfc9103bd25cf`；解包
+完整安装常规文件为 `65903754` B，超过十进制 65 MB `903754` B。该版本以恢复
+iOS 15.5 软件渲染回退并验证 watchdog 回归为优先目标，暂不把 65 MB 作为已达成
+状态。
+
+Build 100 尝试修复恢复 SWGL 后发现的两个回归。UIKit 单进程真实 HTTPS 页面没有
+`PageStart`、`LocationChange` 和 `PageStop`，导致顶部加载条不出现或刷新后停在起点；
+该版改为监听当前 docshell，但真机日志证明 docshell 同样没有转发这条直接 channel
+导航，因此这项加载条修复未生效，Build 101 已撤回该监听改动。WebSpeech 崩溃已由
+同版本未 strip XUL 精确定位到 `SpeechRecognition.cpp:402`：
+`SFSpeechRecognizer` 在 `endAudio()` 后仍可返回最后一条 partial result，通用状态机
+却在 `STATE_WAITING_FOR_RESULT` 对该事件执行 `MOZ_CRASH()`；UIKit 路径现将它作为
+有效 intermediate result 分发，并继续等待 final result。
+
+本轮增量 Release 构建耗时 5 分 03 秒且报告 0 compiler warning；raw XUL 仍为
+`117922048` B，SHA-256 为
+`f8791ce32517ceb4527633b6067a9688ad46e3795e9b87d1f2ec1c5a488f047a`，IPA 内 strip
+并签名后仍为 `59914704` B。Build 100 IPA 为 `34168685` B，SHA-256 为
+`93b4019dc73d767cab6546400fe711861d26393685e209e08ec0bd56fea4c71d`；解包完整安装
+常规文件为 `65904037` B，超过十进制 65 MB `904037` B。本轮目标是加载进度和语音
+稳定性修复，没有新增尺寸裁剪。
+
+Build 101 尝试改用 GeckoView 已有的内容 actor 生命周期事件恢复 UIKit 单进程加载
+进度，但真机日志证明父进程内容 docshell 没有把 `DOMContentLoaded`、
+`MozAfterPaint` 和 `pageshow` 送达该 JSWindowActor；因此顶部只显示 UIKit 在发送
+加载命令时设置的 `0.05`，没有真实进度更新或完成事件。Bridge 同时忽略初始化
+`about:blank` 的人工 `PageStart/PageStop`，避免它在真实加载前把顶部进度条提前隐藏。
+语音路径保留 Build 100 的迟到 partial-result 防崩处理，
+并取消等待较高输入峰值后才创建 `SFSpeechRecognizer` 的门槛，从第一段 PCM 就启动
+识别，避免安静设备上短句开头被丢弃。真机 Build 100 日志已确认按钮点击后 17 ms
+内进入 Speech 初始化、麦克风权限为已授权且 RemoteIO 正常启动，问题不是触摸事件
+丢失或权限拒绝。
+
+Build 101 Gecko 增量 Release 构建耗时 5 分 11 秒且报告 0 compiler warning；raw
+XUL 为 `117922048` B，SHA-256 为
+`c992803524a0f446e04c8c94a465fab8d9f0a55dc3f725fc435d1cf03704d5b6`；IPA 内
+strip 并签名后的 XUL 为 `59914704` B，SHA-256 为
+`078de06e5513c4d2f23d2ab1d6cf324fbcc551ed51f0998a4509f32f125de63c`。
+Build 101 IPA 为 `34168250` B，SHA-256 为
+`f8c87e4b573b6fb771f0e098ae27dbac8c71be4df97947ccb30c73f768123b09`；解包完整安装
+常规文件为 `65903922` B，超过十进制 65 MB `903922` B。本轮只修复加载进度和语音
+交互，没有新增尺寸裁剪。
+
+Build 102 修复 listener 绑定时机：GeckoView browser 启动时先创建 remote placeholder，
+随后才切换为 UIKit `remote=0` 的父进程内容 docshell；之前的 web-progress listener
+仍留在已丢弃的 placeholder 上。现在 `DidChangeBrowserRemoteness` 触发
+`onInitBrowser()` 后会把 progress 和 navigation listener 重新绑定到新 docshell；
+同时在非远程 `<browser>` 上直接捕获真实 `DOMContentLoaded`、`MozAfterPaint` 和
+`pageshow` 作为第二条真实生命周期路径，不使用定时器模拟进度。新版本增加
+`progress-attach` 与 `progress-content-*` 日志，后续真机日志可直接确认绑定来源和
+每个内容事件。Gecko 增量 Release 构建耗时 5 分 01 秒且报告 0 compiler warning；
+raw XUL 为 `117922048` B，SHA-256 为
+`0311e124a48b3801034a968a706c887c1a1525dbf2ecdfd881704cb5a27482a1`；IPA 内
+strip 并签名后的 XUL 为 `59914704` B，SHA-256 为
+`b1e3c0eb0140c90c48afeae30a77b90c8ae07694cf830165c94409f343a2ff52`。
+Build 102 IPA 为 `34168993` B，SHA-256 为
+`bbb0c9cdfe7333edcbb2ff6ff93351519e33f84eec412bf373ef0171ff588845`；解包完整安装
+常规文件为 `65904595` B，超过十进制 65 MB `904595` B。
+
+Build 102 真机日志仍只有初始化 `about:blank` 的人工 `PageStart`、
+`LocationChange` 和 `PageStop`；Gemini、ChatGPT 以及两次刷新均成功进入
+`remote=0` 的导航代码，但没有任何真实页面进度事件，也没有预期的
+`progress-attach` 或 `progress-content-*`。这证明进度模块在 `_fireInitialLoad()`
+之后、监听器完成绑定之前就停止初始化；原实现先绑定 web-progress，再注册 DOM
+生命周期监听，前一步任意异常都会使两条真实进度路径同时失效，顶部最终只剩 UIKit
+发送加载命令时设置的起点值。
+
+Build 103 将真实 `DOMContentLoaded`、`load`、`MozAfterPaint` 和 `pageshow`
+监听提前注册，并把 browser-status-filter 创建、filter listener 绑定、docshell 绑定和
+`<browser>` 回退全部改为彼此隔离的容错步骤。docshell 绑定失败时会继续尝试
+`browser.addProgressListener`，不会再中断整个模块；DOM 原始事件会记录 URI 和是否为
+顶层文档，只有真实生命周期事件才推进到 15/55/80/100 并结束进度，不加入定时器模拟。
+新增的 `progress-enable`、`progress-filter-*`、`progress-attach-*`、
+`progress-dom-*` 和 `progress-content-*` 日志可直接确定真机事件停在哪一步。
+
+Build 103 Gecko 增量 Release 构建耗时 5 分 05 秒且报告 0 compiler warning；raw
+XUL 为 `117922048` B，SHA-256 为
+`9d5f2970c5fd115d236fab5dd40dcf7062a087897faa704aaae3561283ff6340`；IPA 内
+strip 并签名后的 XUL 为 `59914704` B，SHA-256 为
+`18c8ccb8e0dfba6902428e448e4c214a8928e17ba6f2182079cbd573631c5ed5`。
+精简 `omni.ja` 为 `2007046` B。Build 103 IPA 为 `34169481` B，SHA-256 为
+`4f20cccd599e1d3e06d8431d236f4d6f679ade55f6f7ab223a572f7d3b799332`；解包
+完整安装常规文件为 `65905018` B，超过十进制 65 MB `905018` B。对应 prebuilt
+zip 为 `45142697` B，SHA-256 为
+`66b634dd33e93488f5969f6be473c3a8b870417e621ab4ec09ddd6e07c6db1cf`；canonical
+patch SHA-256 为
+`b6324788aaea173a74aaac8a4b1ee7e3ce4b4ac27a858010e97888fa3d44b89c`。
+
+Build 103 真机日志把中断点进一步收窄：两个 session 都依次出现
+`progress-init-browser`、`progress-attach-skipped` 和 `progress-enable`，但没有紧随其后的
+任何 DOM listener、filter 或 attach 记录。`onEnable()` 在 enable trace 后首先构造
+`ProgressTracker`，其中会访问 Glean page-load 指标并读取 progressbar pref；UIKit
+精简内核不提供完整遥测运行时，因此 tracker 构造异常才是模块一直停在人工
+`about:blank` 事件之后的实际原因，之前继续调整 docshell 监听无法触及这个故障点。
+
+Build 104 将三个 Glean stopwatch 改为独立的可降级计时器：指标创建或后续
+start/finish/cancel 失败只产生 `progress-telemetry-*` 诊断，不再阻断页面进度；
+`page_load.progressbar_completion` 缺失时使用 GeckoView 的兼容默认值 2，站点来源
+telemetry 同样隔离。真实 `DOMContentLoaded`、`load`、`MozAfterPaint` 和 `pageshow`
+现在同时监听 `<browser>` 与父进程 `contentWindow`，跨 remoteness 切换会重新绑定，
+并记录 `progress-trackers-created` 后的完整初始化序列。终止事件按 URI 去重，避免
+`load` 和 `pageshow` 为同一页面重复开始、结束进度。
+
+Build 104 Gecko 增量 Release 构建耗时 5 分 05 秒且报告 0 compiler warning；raw
+XUL 为 `117922048` B，SHA-256 为
+`1aea8d9d75f358601d19d8992fcedb8db739c5947a3b5448847e2ad37dfe21d6`；IPA 内
+strip 并签名后的 XUL 为 `59914704` B，SHA-256 为
+`44a0a94b7b27a8ef7e88264511f13148a3bdffbad6b328f322caeb05877ae250`。
+精简 `omni.ja` 为 `2007398` B。Build 104 IPA 为 `34169850` B，SHA-256 为
+`fb83bad88603c4b13e80d8b9317048b5e15148d815d852353c945c2dae7fa594`；解包
+完整安装常规文件为 `65905370` B，超过十进制 65 MB `905370` B。对应 prebuilt
+zip 为 `45143059` B，SHA-256 为
+`187e816a202a2646a74a52b5053f0306084d0ccc9b4932fcf54a8d32c0a94a83`；canonical
+patch SHA-256 为
+`a42b5ff2722604271f48b440281a7665d9808b58305001d485a003f4d0411ad1`。
+
+Build 104 真机日志确认真实进度链已经恢复，但暴露了完成后的状态机错误。ChatGPT 在
+`00:51:20.524` 收到顶层 `load`，随即发送 100% 和 `PageStop`；96 ms 后页面持续
+绘制产生新的 `MozAfterPaint`，fallback 在没有活动 tracker 时错误地把任意内容事件
+都当成新导航，又发送一次 `PageStart` 并推进到 first-paint 的 80%。这轮伪导航没有
+第二个 `load`，因此顶部再次出现并永久停住；Gemini 日志出现了相同序列。重复的
+browser/content-window/actor paint 也造成大量无意义诊断输出。
+
+Build 105 收紧内容事件状态机：`MozAfterPaint` 只能推进已存在且 URI 匹配的加载，
+永远不能创建 fallback；只有 `DOMContentLoaded` 可以补建正常 fallback，`load` 或
+`pageshow` 仅在缺少 start 时执行一次立即完成兜底。完成后的同 URI paint 直接忽略，
+同一加载的 first-paint 只记录一次，从而保留真实的 15/55/80/100 进度序列，同时杜绝
+真实 `PageStop` 后重新跑到 80% 的第二轮进度。
+
+Build 105 Gecko 增量 Release 构建耗时 5 分 04 秒且报告 0 compiler warning；raw
+XUL 为 `117922048` B，SHA-256 为
+`e149ea0e5d27216e3965c420698952e3743f23cd3360844f459b347ab3b8290c`；IPA 内
+strip 并签名后的 XUL 为 `59914704` B，SHA-256 为
+`406e804e215ed0a63e9eb337a146b05feb6cb3e741a93ae595ba7e468514eb1d`。
+精简 `omni.ja` 为 `2007489` B。Build 105 IPA 为 `34169956` B，SHA-256 为
+`2ba7f59365e9a5970a1274da68d1155fece7343735a1716e76cd58520489da26`；解包
+完整安装常规文件为 `65905461` B，超过十进制 65 MB `905461` B。对应 prebuilt
+zip 为 `45142665` B，SHA-256 为
+`ac6a45bd9bd51352ceba45b9774e17c3d6ad59924df52eeeb2ed69a5f9e67963`；canonical
+patch SHA-256 为
+`c7566f57ecf4eecd4534c084894445a12a73d142978d439b30fafd99d010b875`。
+
+Build 106 修复运行中切换用户代理后的不完整页面：旧流程对 ChatGPT 和 Gemini
+先后发送 `GeckoView:UpdateSettings` 后，在同一 UIKit action 回调里立即并发执行
+`LOAD_FLAGS_BYPASS_CACHE` reload；真机日志显示 UA 已生效，但 ChatGPT 的首次刷新
+没有完成，随后手动普通刷新才恢复。新流程先原子地更新两边设置并持久化，在下一次
+主线程事件循环再让两页走与刷新按钮相同的标准 reload，保留当前 URL、历史、Cookie
+和 session，同时避免双 session 的绕缓存导航竞争。本轮不修改 Gecko 源码，raw XUL、
+canonical patch、lock、prebuilt 及 manifest 均继续沿用 Build 105。使用 prebuilt 的
+Release 构建已通过，包内 XUL 仍为 `59914704` B，SHA-256 仍为
+`406e804e215ed0a63e9eb337a146b05feb6cb3e741a93ae595ba7e468514eb1d`；Build 106 IPA
+为 `34170258` B，SHA-256 为
+`960d6eb2c3ef4d8e29323ee707308dcb3993c434947d24763840fc795a0beb10`，解包完整安装
+常规文件为 `65905461` B。
 
 ## 当前结构
 
@@ -229,6 +470,32 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 `Failed to find an adequate linker`。工具链会保存在 `~/.mozbuild`，清理该目录
 后需要重新 bootstrap。
 
+Firefox 153 的 Taskcluster 配置锁定 Rust 1.94.1；它使用 LLVM 21.1.8，与上述
+bootstrap 下载的 Mozilla clang/lld 一致。不要让构建直接跟随会自动升级的
+`stable`。安装固定工具链及 iOS target：
+
+```bash
+rustup toolchain install 1.94.1 \
+  --profile minimal \
+  --target aarch64-apple-darwin,aarch64-apple-ios
+```
+
+`GeckoPort/build_gecko.sh` 默认通过 `GECKO_RUST_TOOLCHAIN=1.94.1` 选择这套
+工具链，在每次 build 前重新 configure，并在工具链或 `aarch64-apple-ios`
+target 缺失时立即退出。脚本还会在 objdir 记录 Rust/LLVM 指纹；指纹变化时只
+清理 Cargo 的 target/host `release` 目录，保留 C/C++ 对象，防止 Make 静默
+复用其他 Rust 版本生成的 `libgkrust.a`。可用下面的命令核对 LLVM 版本；
+输出应包含 `release: 1.94.1` 和
+`LLVM version: 21.1.8`：
+
+```bash
+rustup run 1.94.1 rustc --version --verbose
+```
+
+Rust 1.97.1 已切换到 LLVM 22.1.6；若与 Mozilla LLVM 21.1.8 混用
+cross-language ThinLTO，最终链接 XUL 会报 `Unknown attribute kind`，不能作为
+可复现源码构建工具链。
+
 ### 3. 应用 canonical patch
 
 应用 DualAI 唯一 Gecko patch：
@@ -291,6 +558,13 @@ Build 92 不增加新的功能裁剪。Gecko iOS 的显式全局缓存清理现�
 后才向 UIKit 回报成功。未 strip XUL 为 `130855568` B；IPA 内
 strip/签名后的 XUL 仍为 `63448176` B。普通 HTTP 磁盘缓存默认关闭 Smart Size，
 硬上限为 32768 KiB；pinned 条目可绕过该容量限制，但现在也会被用户主动清理。
+
+当前体积目标配置在 UIKit 下固定使用 HarfBuzz/OpenType 字体整形，不再保留
+Graphite shaping；普通 OpenType、WOFF/WOFF2 和 CJK 排版不受影响，少数依赖
+Graphite 智能字体规则的网页字体会按 HarfBuzz/OpenType 规则回退。Graphite 不再
+生成不可到达的 wasm2c 沙箱副本；仍会参与网页处理的 Ogg、Expat、WOFF2 解析器
+继续使用 RLBox 隔离。JIT/Wasm、UTF-8 与旧编码探测、Cookie/站点存储、HTTP
+认证、上传下载、媒体与 WebSpeech 路径继续保留。
 
 默认 objdir：
 
@@ -431,17 +705,19 @@ git apply --check GeckoPort/DualAI-Gecko.patch
 压缩包包含 `Runtime/`、`include/` 和同一份 `MANIFEST.lock`。
 `prepare_gecko_prebuilt.sh` 会校验结构、manifest 和 XUL arm64 架构。
 
-Build 98 使用的 Gecko runtime 最终以
+当前 Gecko runtime 最终以
 `GeckoPrebuilt/MANIFEST.lock` 为准：
 
 ```text
-XUL bytes:     126211712
-XUL SHA256:    b9030a0c7c375a94030153618e782c1c734dcc41a8813d8a0e52f1096dce26a8
+XUL bytes:     117922048
+XUL SHA256:    e149ea0e5d27216e3965c420698952e3743f23cd3360844f459b347ab3b8290c
 Runtime files: 12
 ```
 
-对应 prebuilt zip 为 `48075339` B。从 prebuilt 构建与上面的完整源码构建均使用
-同一份 Build 98 XUL manifest；源码构建还会从 `GeckoPort/mozconfig.ios13-arm64`
+对应 prebuilt zip 为 `45142665` B，SHA-256 为
+`ac6a45bd9bd51352ceba45b9774e17c3d6ad59924df52eeeb2ed69a5f9e67963`。从 prebuilt
+构建与上面的完整源码构建均使用同一份 XUL manifest；源码构建还会从
+`GeckoPort/mozconfig.ios13-arm64`
 读取 cross-language ThinLTO、safe ICF 和 MergeFunctions 参数。
 
 ## 运行模型与 JIT

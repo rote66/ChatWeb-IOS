@@ -522,10 +522,14 @@ class GeminiWebViewController: UIViewController, WebContentController {
         NSLog("[GeminiGecko][UA] service=%@ profile=%@",
               service == .chatGPT ? "ChatGPT" : "Gemini",
               profile.displayName)
-        if didStart {
-            reloadIgnoringCache()
-        }
         return true
+    }
+
+    func reloadAfterUserAgentChange() {
+        guard didStart else { return }
+        NSLog("[GeminiGecko][UA] reload service=%@ mode=standard",
+              service == .chatGPT ? "ChatGPT" : "Gemini")
+        reload()
     }
 
     func applyContentConfiguration(_ configuration: WebContentConfiguration,
