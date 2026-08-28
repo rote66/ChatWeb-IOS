@@ -4,7 +4,7 @@ FIREFOX_TAG=FIREFOX_153_0_4_RELEASE
 FIREFOX_COMMIT=c178247e1dfea52241a6b18b18cf3a00f8da935c
 REFERENCE_PATCHSET_COMMIT=a0794ff252c5c52040bb4f7419dba110233d4102
 CANONICAL_PATCH=DualAI-Gecko.patch
-CANONICAL_PATCH_SHA256=80e85a91209115fb133164e936745095134f97ea980e6939f44fbaccd2972959
+CANONICAL_PATCH_SHA256=c7566f57ecf4eecd4534c084894445a12a73d142978d439b30fafd99d010b875
 
 # The reference repository is an audit/input source only. The shipping project
 # does not embed its browser shell. DualAI-Gecko.patch is the single canonical

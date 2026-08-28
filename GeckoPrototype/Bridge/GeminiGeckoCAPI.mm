@@ -533,6 +533,7 @@ struct GGGeckoSession {
     __strong id<GeckoViewWindow> window;
     bool canGoBack;
     bool canGoForward;
+    bool hasNonBlankPageLoadInProgress;
 };
 
 static NSDictionary *GGUserAgentSettingsDictionary(
@@ -1206,6 +1207,7 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
     session->dispatcher = [[GGHostEventDispatcher alloc] init];
     session->canGoBack = false;
     session->canGoForward = false;
+    session->hasNonBlankPageLoadInProgress = false;
 
     GGGeckoSession *rawSession = session.get();
     session->dispatcher.messageHandler = ^id(NSString *type,
@@ -1236,11 +1238,13 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
             NSLog(@"[GeminiGecko][Nav] page-start uri=%@ back=%d forward=%d",
                   pageURI, rawSession->canGoBack, rawSession->canGoForward);
             if (pageURI.length && ![pageURI isEqualToString:@"about:blank"]) {
+                rawSession->hasNonBlankPageLoadInProgress = true;
                 GGSendUTF8(rawSession->callbacks.did_commit_url,
                            rawSession->callbacks.context,
                            pageURI);
             }
-            if (rawSession->callbacks.did_change_progress) {
+            if (rawSession->hasNonBlankPageLoadInProgress &&
+                rawSession->callbacks.did_change_progress) {
                 rawSession->callbacks.did_change_progress(rawSession->callbacks.context, 0.0);
             }
             return nil;
@@ -1257,9 +1261,11 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
                            rawSession->callbacks.context,
                            pageURI);
             }
-            if (rawSession->callbacks.did_change_progress) {
+            if (rawSession->hasNonBlankPageLoadInProgress &&
+                rawSession->callbacks.did_change_progress) {
                 rawSession->callbacks.did_change_progress(rawSession->callbacks.context, 1.0);
             }
+            rawSession->hasNonBlankPageLoadInProgress = false;
             return nil;
         }
         if ([type isEqualToString:@"GeckoView:PageTitleChanged"]) {

@@ -39,10 +39,11 @@ index 793924355917c7ca4319f9ac3ff35948aa174655..07023ba4f1c7fc0ccf8419aa223fe08a
          enable=["-fno-omit-frame-pointer", "-funwind-tables"],
          disable=["-fomit-frame-pointer", "-funwind-tables"],
 diff --git a/config/external/gkcodecs/gkcodecs.symbols b/config/external/gkcodecs/gkcodecs.symbols
-index ad67794ee3a6fc91af408af0fe918a5eb860710a..faba461608520ae52aeb42d7ee70a8b166b6c939 100644
+index ad67794ee3a6fc91af408af0fe918a5eb860710a..8622e8889f349e4c5952e1a8ea9ccabe921ab4a7 100644
 --- a/config/external/gkcodecs/gkcodecs.symbols
 +++ b/config/external/gkcodecs/gkcodecs.symbols
-@@ -1,5 +1,7 @@
+@@ -1,5 +1,8 @@
++#ifndef MOZ_WIDGET_UIKIT
  # libaom symbols
 +#ifndef MOZ_WIDGET_UIKIT
  aom_codec_av1_cx
@@ -50,7 +51,7 @@ index ad67794ee3a6fc91af408af0fe918a5eb860710a..faba461608520ae52aeb42d7ee70a8b1
  aom_codec_av1_dx
  aom_codec_build_config
  aom_codec_control
-@@ -7,29 +9,38 @@ aom_codec_dec_init_ver
+@@ -7,29 +10,39 @@ aom_codec_dec_init_ver
  aom_codec_decode
  aom_codec_destroy
  aom_codec_destroy
@@ -85,11 +86,12 @@ index ad67794ee3a6fc91af408af0fe918a5eb860710a..faba461608520ae52aeb42d7ee70a8b1
  #if defined(X86_WIN64)
  aom_winx64_fstcw
  #endif
++#endif
 +#ifndef MOZ_WIDGET_UIKIT
  av1_apply_encoding_flags
  av1_change_config
  av1_convert_sect5obus_to_annexb
-@@ -51,6 +62,7 @@ av1_set_active_map
+@@ -51,6 +64,7 @@ av1_set_active_map
  av1_set_internal_size
  av1_set_reference_enc
  av1_use_as_reference
@@ -97,7 +99,43 @@ index ad67794ee3a6fc91af408af0fe918a5eb860710a..faba461608520ae52aeb42d7ee70a8b1
  # libogg symbols
  ogg_calloc_func
  ogg_free_func
-@@ -119,6 +131,7 @@ vorbis_synthesis_init
+@@ -81,29 +95,35 @@ opus_decode
+ opus_decoder_create
+ opus_decoder_ctl
+ opus_decoder_destroy
++#ifndef MOZ_WIDGET_UIKIT
+ opus_encode
+ opus_encode_float
+ opus_encoder_create
+ opus_encoder_ctl
+ opus_encoder_destroy
++#endif
+ opus_get_version_string
+ opus_multistream_decode
+ opus_multistream_decode_float
+ opus_multistream_decoder_create
+ opus_multistream_decoder_ctl
+ opus_multistream_decoder_destroy
++#ifndef MOZ_WIDGET_UIKIT
+ opus_multistream_encode
+ opus_multistream_encoder_create
+ opus_multistream_encoder_ctl
+ opus_multistream_encoder_destroy
++#endif
+ opus_packet_get_nb_channels
+ opus_packet_get_nb_samples
+ opus_packet_get_nb_frames
+ opus_packet_get_samples_per_frame
+ opus_packet_parse
+ opus_strerror
++#ifndef MOZ_WIDGET_UIKIT
+ opus_multistream_encode_float
+ opus_multistream_surround_encoder_create
++#endif
+ vorbis_block_clear
+ vorbis_block_init
+ vorbis_comment_clear
+@@ -119,6 +139,7 @@ vorbis_synthesis_init
  vorbis_synthesis_pcmout
  vorbis_synthesis_read
  vorbis_synthesis_restart
@@ -105,7 +143,7 @@ index ad67794ee3a6fc91af408af0fe918a5eb860710a..faba461608520ae52aeb42d7ee70a8b1
  vorbis_encode_ctl
  vorbis_bitrate_addblock
  vorbis_analysis_buffer
-@@ -132,6 +145,7 @@ vorbis_encode_setup_managed
+@@ -132,6 +153,7 @@ vorbis_encode_setup_managed
  vorbis_comment_add_tag
  vorbis_bitrate_flushpacket
  vorbis_analysis_wrote
@@ -113,7 +151,7 @@ index ad67794ee3a6fc91af408af0fe918a5eb860710a..faba461608520ae52aeb42d7ee70a8b1
  # libvpx symbols
  #ifndef MOZ_SYSTEM_LIBVPX
  vpx_codec_build_config
-@@ -139,23 +153,31 @@ vpx_codec_control_
+@@ -139,23 +161,31 @@ vpx_codec_control_
  vpx_codec_dec_init_ver
  vpx_codec_decode
  vpx_codec_destroy
@@ -90919,7 +90957,7 @@ zc@{_q3xI|_bX%gQz5mdyrF%xka_EwyT;TQ`|LIQ`^wACAwK<lk=_;<)-gFDVxIcjE
 ouy+7Gz}sH05$L-ym)C1h<n+E`J)rjw67-K;NS9x)alQidZ!qaDdjJ3c
 
 diff --git a/config/external/moz.build b/config/external/moz.build
-index 961353353255ff20ab83050798fdb40c332629d9..973e3b51eaf306bad77a3646bd05c9fbc920c6e3 100644
+index 961353353255ff20ab83050798fdb40c332629d9..abf8efa67e7f0f34b274b25c9f467c51ae034f6b 100644
 --- a/config/external/moz.build
 +++ b/config/external/moz.build
 @@ -11,7 +11,7 @@ DIRS += [
@@ -90931,6 +90969,15 @@ index 961353353255ff20ab83050798fdb40c332629d9..973e3b51eaf306bad77a3646bd05c9fb
      DIRS += ["mozinference"]
  
  if CONFIG["MOZ_USING_WASM_SANDBOXING"]:
+@@ -41,7 +41,7 @@ if CONFIG["MOZ_VORBIS"]:
+ if not CONFIG["MOZ_SYSTEM_LIBVPX"]:
+     external_dirs += ["media/libvpx"]
+ 
+-if not CONFIG["MOZ_SYSTEM_AV1"]:
++if not CONFIG["MOZ_SYSTEM_AV1"] and CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
+     external_dirs += ["media/libaom"]
+     external_dirs += ["media/libdav1d"]
+ 
 diff --git a/config/recurse.mk b/config/recurse.mk
 index 0a112c3bbf2701cabbee3d39e48d9ad26944e0c1..fbec6838e8ac201e51de7cfa0f4565792311804b 100644
 --- a/config/recurse.mk
@@ -91982,10 +92029,41 @@ index a0fb5092f3f843aae89d9a251e12c6be28e66031..d4e1e47063caa0fddcbcbde2514ce298
  
  nsPresContext* Element::GetPresContext(PresContextFor aFor) const {
 diff --git a/dom/base/Navigator.cpp b/dom/base/Navigator.cpp
-index 079746f77996ca03464c8f30b00cd34817b8430d..9170c3f19a8ecb70fab26bdb4031851997e67bd4 100644
+index 079746f77996ca03464c8f30b00cd34817b8430d..01c7aabb9e611eca47446fb38ae4a63f8d242f21 100644
 --- a/dom/base/Navigator.cpp
 +++ b/dom/base/Navigator.cpp
-@@ -321,6 +321,19 @@ void Navigator::GetAppCodeName(nsAString& aAppCodeName, ErrorResult& aRv) {
+@@ -113,7 +113,9 @@
+ #include "mozilla/dom/HTMLMediaElement.h"
+ #include "mozilla/dom/WindowGlobalChild.h"
+ #include "mozilla/intl/LocaleService.h"
+-#include "mozilla/webgpu/Instance.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/Instance.h"
++#endif
+ 
+ namespace mozilla::dom {
+ 
+@@ -156,7 +158,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaSession)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAudioSession)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAddonManager)
++#ifndef MOZ_WIDGET_UIKIT
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebGpu)
++#endif
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLocks)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLogin)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mModelContext)
+@@ -247,7 +251,9 @@ void Navigator::Invalidate() {
+ 
+   mAddonManager = nullptr;
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   mWebGpu = nullptr;
++#endif
+ 
+   if (mLocks) {
+     // Unloading a page does not immediately destruct the lock manager actor,
+@@ -321,6 +327,19 @@ void Navigator::GetAppCodeName(nsAString& aAppCodeName, ErrorResult& aRv) {
  
  void Navigator::GetAppVersion(nsAString& aAppVersion, CallerType aCallerType,
                                ErrorResult& aRv) const {
@@ -92005,7 +92083,7 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..9170c3f19a8ecb70fab26bdb40318519
    nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
  
    nsresult rv = GetAppVersion(
-@@ -461,6 +474,19 @@ void Navigator::GetPlatform(nsAString& aPlatform, CallerType aCallerType,
+@@ -461,6 +480,19 @@ void Navigator::GetPlatform(nsAString& aPlatform, CallerType aCallerType,
  
  void Navigator::GetOscpu(nsAString& aOSCPU, CallerType aCallerType,
                           ErrorResult& aRv) const {
@@ -92025,7 +92103,7 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..9170c3f19a8ecb70fab26bdb40318519
    if (aCallerType != CallerType::System) {
      // If fingerprinting resistance is on, we will spoof this value. See
      // nsRFPService.h for details about spoofed values.
-@@ -2027,6 +2053,14 @@ void Navigator::ClearPlatformCache() {
+@@ -2027,6 +2059,14 @@ void Navigator::ClearPlatformCache() {
    Navigator_Binding::ClearCachedPlatformValue(this);
  }
  
@@ -92040,7 +92118,7 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..9170c3f19a8ecb70fab26bdb40318519
  void Navigator::ClearLanguageCache() {
    Navigator_Binding::ClearCachedLanguageValue(this);
    Navigator_Binding::ClearCachedLanguagesValue(this);
-@@ -2056,6 +2090,8 @@ nsresult Navigator::GetPlatform(nsAString& aPlatform, Document* aCallerDoc,
+@@ -2056,6 +2096,8 @@ nsresult Navigator::GetPlatform(nsAString& aPlatform, Document* aCallerDoc,
  #elif defined(XP_MACOSX)
    // Always return "MacIntel", even on ARM64 macOS like Safari does.
    aPlatform.AssignLiteral("MacIntel");
@@ -92049,11 +92127,38 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..9170c3f19a8ecb70fab26bdb40318519
  #elif defined(ANDROID)
    aPlatform.AssignLiteral("Linux armv81");
  #else
+@@ -2324,12 +2366,14 @@ AddonManager* Navigator::GetMozAddonManager(ErrorResult& aRv) {
+   return mAddonManager;
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ webgpu::Instance* Navigator::Gpu() {
+   if (!mWebGpu) {
+     mWebGpu = webgpu::Instance::Create(GetWindow()->AsGlobal());
+   }
+   return mWebGpu;
+ }
++#endif
+ 
+ dom::LockManager* Navigator::Locks() {
+   if (!mLocks) {
 diff --git a/dom/base/Navigator.h b/dom/base/Navigator.h
-index d303ab778fb5a4381d5f5b5db6288175538c2ab5..13e5e562ab9d25bc3ebdd35c9e261d087fcf3939 100644
+index d303ab778fb5a4381d5f5b5db6288175538c2ab5..ddbf029243e0c668e6fdfbf9bfeac1d9408d471d 100644
 --- a/dom/base/Navigator.h
 +++ b/dom/base/Navigator.h
-@@ -160,6 +160,10 @@ class Navigator final : public nsISupports, public nsWrapperCache {
+@@ -50,9 +50,11 @@ class HTMLMediaElement;
+ class AudioContext;
+ class WakeLockJS;
+ }  // namespace dom
++#ifndef MOZ_WIDGET_UIKIT
+ namespace webgpu {
+ class Instance;
+ }  // namespace webgpu
++#endif
+ }  // namespace mozilla
+ 
+ //*****************************************************************************
+@@ -160,6 +162,10 @@ class Navigator final : public nsISupports, public nsWrapperCache {
    // Navigator_Binding::ClearCachedPlatformValue(this);
    void ClearPlatformCache();
  
@@ -92064,6 +92169,26 @@ index d303ab778fb5a4381d5f5b5db6288175538c2ab5..13e5e562ab9d25bc3ebdd35c9e261d08
    // Clears the user agent cache by calling:
    // Navigator_Binding::ClearCachedUserAgentValue(this);
    void ClearUserAgentCache();
+@@ -218,7 +224,9 @@ class Navigator final : public nsISupports, public nsWrapperCache {
+ 
+   mozilla::dom::CredentialsContainer* Credentials();
+   dom::Clipboard* Clipboard();
++#ifndef MOZ_WIDGET_UIKIT
+   webgpu::Instance* Gpu();
++#endif
+   dom::LockManager* Locks();
+   NavigatorLogin* Login();
+   dom::ModelContext* ModelContext();
+@@ -320,7 +328,9 @@ class Navigator final : public nsISupports, public nsWrapperCache {
+   RefPtr<dom::MediaSession> mMediaSession;
+   RefPtr<dom::AudioSession> mAudioSession;
+   RefPtr<AddonManager> mAddonManager;
++#ifndef MOZ_WIDGET_UIKIT
+   RefPtr<webgpu::Instance> mWebGpu;
++#endif
+   RefPtr<Promise> mSharePromise;  // Web Share API related
+   RefPtr<LockManager> mLocks;
+   RefPtr<NavigatorLogin> mLogin;
 diff --git a/dom/base/ScreenOrientation.cpp b/dom/base/ScreenOrientation.cpp
 index ac29045d1564bc79aec823a3fce9ec9c5a3f8a61..a62f457134ced64ee4e4b24dc21f83878b166619 100644
 --- a/dom/base/ScreenOrientation.cpp
@@ -92079,14 +92204,18 @@ index ac29045d1564bc79aec823a3fce9ec9c5a3f8a61..a62f457134ced64ee4e4b24dc21f8387
    p->MaybeReject(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
    return p.forget();
 diff --git a/dom/bindings/Bindings.conf b/dom/bindings/Bindings.conf
-index 97c0cb0f57b32d3d60cf005be0e1499b8b574b97..71a6fadda80f7178c5e1387225048d70439a46cd 100644
+index 97c0cb0f57b32d3d60cf005be0e1499b8b574b97..3c6b2ae962f1bcca205d74643b77b8232ae79bd5 100644
 --- a/dom/bindings/Bindings.conf
 +++ b/dom/bindings/Bindings.conf
-@@ -1658,6 +1658,25 @@ DOMInterfaces = {
+@@ -1658,6 +1658,29 @@ DOMInterfaces = {
  
  }
  
 +if buildconfig.substs.get("MOZ_WIDGET_TOOLKIT") == "uikit":
++    for name in tuple(DOMInterfaces):
++        if name.startswith("GPU") or name == "WGSLLanguageFeatures":
++            DOMInterfaces.pop(name)
++
 +    for name in (
 +        "ExtensionBrowser",
 +        "ExtensionMockAPI",
@@ -92108,6 +92237,121 @@ index 97c0cb0f57b32d3d60cf005be0e1499b8b574b97..71a6fadda80f7178c5e1387225048d70
  if buildconfig.substs.get("MOZ_WEBRTC", False):
      DOMInterfaces.update({
  
+diff --git a/dom/canvas/CanvasRenderingContextHelper.cpp b/dom/canvas/CanvasRenderingContextHelper.cpp
+index 96a349316057ba0d4f0757276d89e0c9e73a655e..91a8aee75ffbfe3ba2453638e87600ef2d17c685 100644
+--- a/dom/canvas/CanvasRenderingContextHelper.cpp
++++ b/dom/canvas/CanvasRenderingContextHelper.cpp
+@@ -14,7 +14,9 @@
+ #include "mozilla/dom/CanvasRenderingContext2D.h"
+ #include "mozilla/dom/OffscreenCanvasRenderingContext2D.h"
+ #include "mozilla/glean/DomCanvasMetrics.h"
+-#include "mozilla/webgpu/CanvasContext.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/CanvasContext.h"
++#endif
+ #include "nsContentUtils.h"
+ #include "nsDOMJSUtils.h"
+ #include "nsIScriptContext.h"
+@@ -139,11 +141,12 @@ CanvasRenderingContextHelper::CreateContextHelper(
+       break;
+ 
+     case CanvasContextType::WebGPU:
++#ifndef MOZ_WIDGET_UIKIT
+       // TODO
+       // Telemetry::Accumulate(Telemetry::CANVAS_WEBGPU_USED, 1);
+ 
+       ret = new webgpu::CanvasContext();
+-
++#endif
+       break;
+ 
+     case CanvasContextType::ImageBitmap:
+diff --git a/dom/canvas/CanvasUtils.cpp b/dom/canvas/CanvasUtils.cpp
+index f68c6df761d35755be7b880b268283dc4bd53134..9520bff5f05e23dd1b02cd436944f93df5ba270b 100644
+--- a/dom/canvas/CanvasUtils.cpp
++++ b/dom/canvas/CanvasUtils.cpp
+@@ -26,7 +26,9 @@
+ #include "mozilla/dom/WorkerRunnable.h"
+ #include "mozilla/gfx/Matrix.h"
+ #include "mozilla/gfx/gfxVars.h"
+-#include "mozilla/webgpu/Instance.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/Instance.h"
++#endif
+ #include "nsContentUtils.h"
+ #include "nsGfxCIID.h"
+ #include "nsICanvasRenderingContextInternal.h"
+@@ -585,12 +587,14 @@ bool GetCanvasContextType(const nsAString& str,
+     }
+   }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   if (webgpu::Instance::PrefEnabled() && gfxVars::AllowWebGPU()) {
+     if (str.EqualsLiteral("webgpu")) {
+       *out_type = dom::CanvasContextType::WebGPU;
+       return true;
+     }
+   }
++#endif
+ 
+   if (str.EqualsLiteral("bitmaprenderer")) {
+     *out_type = dom::CanvasContextType::ImageBitmap;
+diff --git a/dom/canvas/OffscreenCanvas.cpp b/dom/canvas/OffscreenCanvas.cpp
+index 7234240711b5260b5356212572d5d1c049f9440b..6f8794a7792e06337fe2dc985737827e624f6a72 100644
+--- a/dom/canvas/OffscreenCanvas.cpp
++++ b/dom/canvas/OffscreenCanvas.cpp
+@@ -25,7 +25,9 @@
+ #include "mozilla/dom/WorkerRef.h"
+ #include "mozilla/dom/WorkerScope.h"
+ #include "mozilla/layers/ImageBridgeChild.h"
+-#include "mozilla/webgpu/CanvasContext.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/CanvasContext.h"
++#endif
+ #include "nsContentUtils.h"
+ #include "nsIPermissionManager.h"
+ #include "nsProxyRelease.h"
+@@ -198,9 +200,11 @@ void OffscreenCanvas::GetContext(
+     case OffscreenRenderingContextId::Webgl2:
+       contextType = CanvasContextType::WebGL2;
+       break;
++#ifndef MOZ_WIDGET_UIKIT
+     case OffscreenRenderingContextId::Webgpu:
+       contextType = CanvasContextType::WebGPU;
+       break;
++#endif
+     default:
+       MOZ_ASSERT_UNREACHABLE("Unhandled canvas type!");
+       aResult.SetNull();
+@@ -259,10 +263,12 @@ void OffscreenCanvas::GetContext(
+       aResult.SetValue().SetAsWebGLRenderingContext() = *webgl;
+       break;
+     }
++#ifndef MOZ_WIDGET_UIKIT
+     case CanvasContextType::WebGPU:
+       aResult.SetValue().SetAsGPUCanvasContext() =
+           *static_cast<webgpu::CanvasContext*>(mCurrentContext.get());
+       break;
++#endif
+     default:
+       MOZ_ASSERT_UNREACHABLE("Unhandled canvas type!");
+       aResult.SetNull();
+diff --git a/dom/canvas/OffscreenCanvas.h b/dom/canvas/OffscreenCanvas.h
+index 46f4376216bbbaad1d0d27c69244404d1c15a9fd..d12678499382ca84232d768c9444bc0c6a0fb906 100644
+--- a/dom/canvas/OffscreenCanvas.h
++++ b/dom/canvas/OffscreenCanvas.h
+@@ -37,7 +37,11 @@ class ImageBitmap;
+ struct ImageEncodeOptions;
+ 
+ using OwningOffscreenRenderingContext = class
++#ifdef MOZ_WIDGET_UIKIT
++    OwningOffscreenCanvasRenderingContext2DOrImageBitmapRenderingContextOrWebGLRenderingContextOrWebGL2RenderingContext;
++#else
+     OwningOffscreenCanvasRenderingContext2DOrImageBitmapRenderingContextOrWebGLRenderingContextOrWebGL2RenderingContextOrGPUCanvasContext;
++#endif
+ 
+ // This is helper class for transferring OffscreenCanvas to worker thread.
+ // Because OffscreenCanvas is not thread-safe. So we cannot pass Offscreen-
 diff --git a/dom/canvas/WebGLExtensions.cpp b/dom/canvas/WebGLExtensions.cpp
 index 0cd6f8726d01d140919831a53a75dd8e5cc05769..afafd80c008f5d58745ca4c809ef2cf6bee5889c 100644
 --- a/dom/canvas/WebGLExtensions.cpp
@@ -92818,6 +93062,62 @@ index 63dddd4de9e25b2d520b2a09bd81a69c8bf5aca6..df3cf42fbdaf8853c6adbe52d7d64cbd
  elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
      LOCAL_INCLUDES += [
          "/dom/system/windows/location",
+diff --git a/dom/html/HTMLCanvasElement.cpp b/dom/html/HTMLCanvasElement.cpp
+index 8c4a548eb6791e5dcbb29a9f811b3b22a7ca2830..c1c64512a38363b0de7ed780bc2f424be076f25b 100644
+--- a/dom/html/HTMLCanvasElement.cpp
++++ b/dom/html/HTMLCanvasElement.cpp
+@@ -39,7 +39,9 @@
+ #include "mozilla/layers/CanvasRenderer.h"
+ #include "mozilla/layers/WebRenderCanvasRenderer.h"
+ #include "mozilla/layers/WebRenderUserData.h"
+-#include "mozilla/webgpu/CanvasContext.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/CanvasContext.h"
++#endif
+ #include "nsAttrValueInlines.h"
+ #include "nsContentUtils.h"
+ #include "nsDOMJSUtils.h"
+@@ -1553,6 +1555,7 @@ ClientWebGLContext* HTMLCanvasElement::GetWebGLContext() {
+   return static_cast<ClientWebGLContext*>(GetCurrentContext());
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ webgpu::CanvasContext* HTMLCanvasElement::GetWebGPUContext() {
+   if (GetCurrentContextType() != CanvasContextType::WebGPU) {
+     return nullptr;
+@@ -1560,5 +1563,6 @@ webgpu::CanvasContext* HTMLCanvasElement::GetWebGPUContext() {
+ 
+   return static_cast<webgpu::CanvasContext*>(GetCurrentContext());
+ }
++#endif
+ 
+ }  // namespace mozilla::dom
+diff --git a/dom/html/HTMLCanvasElement.h b/dom/html/HTMLCanvasElement.h
+index bece069bafb97e2bf1f87f4dc67b8a8e62941099..b30e014604bca525f7e13b7487250cc565e7311d 100644
+--- a/dom/html/HTMLCanvasElement.h
++++ b/dom/html/HTMLCanvasElement.h
+@@ -43,9 +43,11 @@ class DrawTarget;
+ class SourceSurface;
+ class VRLayerChild;
+ }  // namespace gfx
++#ifndef MOZ_WIDGET_UIKIT
+ namespace webgpu {
+ class CanvasContext;
+ }  // namespace webgpu
++#endif
+ 
+ namespace dom {
+ class BlobCallback;
+@@ -347,7 +349,9 @@ class HTMLCanvasElement final : public nsGenericHTMLElement,
+ 
+  public:
+   ClientWebGLContext* GetWebGLContext();
++#ifndef MOZ_WIDGET_UIKIT
+   webgpu::CanvasContext* GetWebGPUContext();
++#endif
+ 
+   bool IsOffscreen() const { return !!mOffscreenCanvas; }
+   OffscreenCanvas* GetOffscreenCanvas() const { return mOffscreenCanvas; }
 diff --git a/dom/html/HTMLInputElement.cpp b/dom/html/HTMLInputElement.cpp
 index 45fa91a01ee24014c33396b4e057a797c72377b2..fbcd3b9db3ce15a7bf5fde6a8d6718f3100ddb7f 100644
 --- a/dom/html/HTMLInputElement.cpp
@@ -93909,6 +94209,18 @@ index 2aaa70c343e14533c0be9e9e5acf88814b834ffb..8f26235d7584829393fd0363757916b1
  }
  
  void GMPParent::GetCrashID(nsString& aResult) {
+diff --git a/dom/media/ipc/RemoteVideoDecoder.cpp b/dom/media/ipc/RemoteVideoDecoder.cpp
+index 49fc7ad852eb4aaffc584e068dcebcd6f32a095c..186760caa046cc7b5081015ac5072b21887bcdf3 100644
+--- a/dom/media/ipc/RemoteVideoDecoder.cpp
++++ b/dom/media/ipc/RemoteVideoDecoder.cpp
+@@ -4,7 +4,6 @@
+ #include "RemoteVideoDecoder.h"
+ 
+ #include "AOMDecoder.h"
+-#include "DAV1DDecoder.h"
+ #include "mozilla/layers/ImageDataSerializer.h"
+ #ifdef XP_WIN
+ #  include "WMFDecoderModule.h"
 diff --git a/dom/media/moz.build b/dom/media/moz.build
 index 28bbbf644297c5f13a5725bd27da9de0ee6e17be..976ad66d5bafaddf19b64ceb1fbdcfb0e61f9c76 100644
 --- a/dom/media/moz.build
@@ -93933,6 +94245,167 @@ index 28bbbf644297c5f13a5725bd27da9de0ee6e17be..976ad66d5bafaddf19b64ceb1fbdcfb0
  if CONFIG["MOZ_WEBSPEECH"]:
      DIRS += ["webspeech"]
  
+diff --git a/dom/media/platforms/agnostic/AOMDecoder.cpp b/dom/media/platforms/agnostic/AOMDecoder.cpp
+index d8e6c6ec728ee4c2ec6e21f5c2f3fa16c91bd5aa..82c8248619d2b62527633bb8100ded9f77c1d550 100644
+--- a/dom/media/platforms/agnostic/AOMDecoder.cpp
++++ b/dom/media/platforms/agnostic/AOMDecoder.cpp
+@@ -4,8 +4,10 @@
+ 
+ #include "AOMDecoder.h"
+ 
+-#include <aom/aom_image.h>
+-#include <aom/aomdx.h>
++#ifndef MOZ_WIDGET_UIKIT
++#  include <aom/aom_image.h>
++#  include <aom/aomdx.h>
++#endif
+ #include <stdint.h>
+ 
+ #include <algorithm>
+@@ -30,17 +32,19 @@
+ #define LOG(arg, ...)                                                  \
+   DDMOZ_LOG(sPDMLog, mozilla::LogLevel::Debug, "::%s: " arg, __func__, \
+             ##__VA_ARGS__)
+-#define LOG_RESULT(code, message, ...)                                        \
++#ifndef MOZ_WIDGET_UIKIT
++#  define LOG_RESULT(code, message, ...)                                      \
+   DDMOZ_LOG(sPDMLog, mozilla::LogLevel::Debug, "::%s: %s (code %d) " message, \
+             __func__, aom_codec_err_to_string(code), (int)code, ##__VA_ARGS__)
+-#define LOGEX_RESULT(_this, code, message, ...)         \
++#  define LOGEX_RESULT(_this, code, message, ...)       \
+   DDMOZ_LOGEX(_this, sPDMLog, mozilla::LogLevel::Debug, \
+               "::%s: %s (code %d) " message, __func__,  \
+               aom_codec_err_to_string(code), (int)code, ##__VA_ARGS__)
+-#define LOG_STATIC_RESULT(code, message, ...)                    \
++#  define LOG_STATIC_RESULT(code, message, ...)                  \
+   MOZ_LOG_FMT(sPDMLog, mozilla::LogLevel::Debug,                 \
+               "AOMDecoder::{}: {} (code {}) " message, __func__, \
+               aom_codec_err_to_string(code), (int)code, ##__VA_ARGS__)
++#endif
+ 
+ #define ASSERT_BYTE_ALIGNED(bitIO) MOZ_ASSERT((bitIO).BitCount() % 8 == 0)
+ 
+@@ -52,6 +56,7 @@ using gfx::CICP::ColourPrimaries;
+ using gfx::CICP::MatrixCoefficients;
+ using gfx::CICP::TransferCharacteristics;
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ static MediaResult InitContext(AOMDecoder& aAOMDecoder, aom_codec_ctx_t* aCtx,
+                                const VideoInfo& aInfo) {
+   aom_codec_iface_t* dx = aom_codec_av1_dx();
+@@ -309,6 +314,7 @@ RefPtr<MediaDataDecoder::DecodePromise> AOMDecoder::Drain() {
+     return DecodePromise::CreateAndResolve(DecodedData(), __func__);
+   });
+ }
++#endif
+ 
+ /* static */
+ bool AOMDecoder::IsAV1(const nsACString& aMimeType) {
+@@ -328,6 +334,11 @@ bool AOMDecoder::IsMainProfile(const MediaByteBuffer* aBox) {
+ 
+ /* static */
+ bool AOMDecoder::IsKeyframe(Span<const uint8_t> aBuffer) {
++#ifdef MOZ_WIDGET_UIKIT
++  // UIKit does not register an AV1 decoder. Avoid retaining libaom only for
++  // WebM keyframe probing of a codec that cannot be selected.
++  return false;
++#else
+   aom_codec_stream_info_t info;
+   PodZero(&info);
+ 
+@@ -340,10 +351,14 @@ bool AOMDecoder::IsKeyframe(Span<const uint8_t> aBuffer) {
+   }
+ 
+   return bool(info.is_kf);
++#endif
+ }
+ 
+ /* static */
+ gfx::IntSize AOMDecoder::GetFrameSize(Span<const uint8_t> aBuffer) {
++#ifdef MOZ_WIDGET_UIKIT
++  return gfx::IntSize();
++#else
+   aom_codec_stream_info_t info;
+   PodZero(&info);
+ 
+@@ -355,6 +370,7 @@ gfx::IntSize AOMDecoder::GetFrameSize(Span<const uint8_t> aBuffer) {
+   }
+ 
+   return gfx::IntSize(info.w, info.h);
++#endif
+ }
+ 
+ /* static */
+diff --git a/dom/media/platforms/agnostic/AOMDecoder.h b/dom/media/platforms/agnostic/AOMDecoder.h
+index ecc0cb6aed7471866e5d907b4ecb7006a6c09e37..678227d68951cf7969be5079229ae7fd7c64f89f 100644
+--- a/dom/media/platforms/agnostic/AOMDecoder.h
++++ b/dom/media/platforms/agnostic/AOMDecoder.h
+@@ -4,7 +4,9 @@
+ #if !defined(AOMDecoder_h_)
+ #  define AOMDecoder_h_
+ 
+-#  include <aom/aom_decoder.h>
++#  ifndef MOZ_WIDGET_UIKIT
++#    include <aom/aom_decoder.h>
++#  endif
+ #  include <stdint.h>
+ 
+ #  include "PerformanceRecorder.h"
+@@ -282,8 +284,10 @@ class AOMDecoder final : public MediaDataDecoder,
+   const RefPtr<layers::ImageContainer> mImageContainer;
+   const RefPtr<TaskQueue> mTaskQueue;
+ 
++#  ifndef MOZ_WIDGET_UIKIT
+   // AOM decoder state
+   aom_codec_ctx_t mCodec;
++#  endif
+ 
+   const VideoInfo mInfo;
+   const Maybe<TrackingId> mTrackingId;
+diff --git a/dom/media/platforms/agnostic/AgnosticDecoderModule.cpp b/dom/media/platforms/agnostic/AgnosticDecoderModule.cpp
+index 997aa0724f3f9a1a16436526c6db14e9caac52ce..8462f19abe10b88be2f8bc98b9a32e4e3ba42439 100644
+--- a/dom/media/platforms/agnostic/AgnosticDecoderModule.cpp
++++ b/dom/media/platforms/agnostic/AgnosticDecoderModule.cpp
+@@ -5,7 +5,9 @@
+ #include "AgnosticDecoderModule.h"
+ 
+ #include "AOMDecoder.h"
+-#include "DAV1DDecoder.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "DAV1DDecoder.h"
++#endif
+ #include "VPXDecoder.h"
+ #include "VideoUtils.h"
+ #include "mozilla/Logging.h"
+@@ -103,10 +105,12 @@ media::DecodeSupportSet AgnosticDecoderModule::Supports(
+   const nsACString& mimeType = trackInfo.mMimeType;
+ 
+   bool supports =
++#ifndef MOZ_WIDGET_UIKIT
+       // We remove support for decoding AV1 here if RDD is enabled so that
+       // decoding on the content process doesn't accidentally happen in case
+       // something goes wrong with launching the RDD process.
+       (AOMDecoder::IsAV1(mimeType) && IsAvailable(DecoderType::AV1)) ||
++#endif
+       (VPXDecoder::IsVPX(mimeType) && IsAvailable(DecoderType::VPX));
+   MOZ_LOG_FMT(
+       sPDMLog, LogLevel::Debug, "Agnostic decoder {} requested type '{}'",
+@@ -128,6 +132,7 @@ already_AddRefed<MediaDataDecoder> AgnosticDecoderModule::CreateVideoDecoder(
+   if (VPXDecoder::IsVPX(aParams.mConfig.mMimeType)) {
+     m = new VPXDecoder(aParams);
+   }
++#ifndef MOZ_WIDGET_UIKIT
+   // We remove support for decoding AV1 here if RDD is enabled so that
+   // decoding on the content process doesn't accidentally happen in case
+   // something goes wrong with launching the RDD process.
+@@ -140,6 +145,7 @@ already_AddRefed<MediaDataDecoder> AgnosticDecoderModule::CreateVideoDecoder(
+       m = new AOMDecoder(aParams);
+     }
+   }
++#endif
+ 
+   return m.forget();
+ }
 diff --git a/dom/media/platforms/apple/AppleDecoderModule.cpp b/dom/media/platforms/apple/AppleDecoderModule.cpp
 index 27c25b050d7e2c92e06d23d5c47bb125fd31da49..dd379444766c97d6a554622ca8c8265d491a30a7 100644
 --- a/dom/media/platforms/apple/AppleDecoderModule.cpp
@@ -93994,6 +94467,127 @@ index 9e343865ab3443eb059ff6ed3bc5cf444d2323f4..d6b597d8816db6ed34b1ab1f755417a0
    const void* outputValues[] = {IOSurfaceProperties, PixelFormatTypeNumber,
                                  kCFBooleanTrue};
    static_assert(std::size(outputKeys) == std::size(outputValues),
+diff --git a/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h b/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h
+index acda375b50a2ee014549fe983156ca4f0bebe8a8..374f65099e4a2db0d80b972c1f1f831db70151e0 100644
+--- a/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h
++++ b/dom/media/platforms/ffmpeg/FFmpegDecoderModule.h
+@@ -155,6 +155,9 @@ class FFmpegDecoderModule : public PlatformDecoderModule {
+ 
+   already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
+       const CreateDecoderParams& aParams) override {
++#ifdef MOZ_FFVPX_AUDIOONLY
++    return nullptr;
++#else
+     if (Supports(SupportDecoderParams(aParams), nullptr).isEmpty()) {
+       return nullptr;
+     }
+@@ -185,6 +188,7 @@ class FFmpegDecoderModule : public PlatformDecoderModule {
+       }
+     }
+     return decoder.forget();
++#endif
+   }
+ 
+   already_AddRefed<MediaDataDecoder> CreateAudioDecoder(
+@@ -220,6 +224,14 @@ class FFmpegDecoderModule : public PlatformDecoderModule {
+     // check.
+     const auto& trackInfo = aParams.mConfig;
+     const nsACString& mimeType = trackInfo.mMimeType;
++#ifdef MOZ_FFVPX_AUDIOONLY
++    AVCodecID codecId = FFmpegAudioDecoder<V>::GetCodecId(
++        mimeType,
++        trackInfo.GetAsAudioInfo() ? *trackInfo.GetAsAudioInfo() : AudioInfo());
++    if (codecId == AV_CODEC_ID_NONE) {
++      return media::DecodeSupportSet{};
++    }
++#else
+     if (VPXDecoder::IsVPX(mimeType) && trackInfo.GetAsVideoInfo()->HasAlpha()) {
+       MOZ_LOG_FMT(sPDMLog, LogLevel::Debug,
+                   "FFmpeg decoder rejects requested type '{}'",
+@@ -259,6 +271,7 @@ class FFmpegDecoderModule : public PlatformDecoderModule {
+     }
+     AVCodecID codecId =
+         audioCodec != AV_CODEC_ID_NONE ? audioCodec : videoCodec;
++#endif
+ 
+     media::DecodeSupportSet supports;
+     if (IsSWDecodingSupported(codecId)) {
+diff --git a/dom/media/platforms/ffmpeg/FFmpegEncoderModule.cpp b/dom/media/platforms/ffmpeg/FFmpegEncoderModule.cpp
+index 5e5c154ad914a506816baa62b437e53dbadee302..475d51c3a0df7d48f7a68d5d193aa644bf26e768 100644
+--- a/dom/media/platforms/ffmpeg/FFmpegEncoderModule.cpp
++++ b/dom/media/platforms/ffmpeg/FFmpegEncoderModule.cpp
+@@ -8,7 +8,9 @@
+ #include "FFmpegAudioEncoder.h"
+ #include "FFmpegLog.h"
+ #include "FFmpegUtils.h"
+-#include "FFmpegVideoEncoder.h"
++#ifndef MOZ_FFVPX_AUDIOONLY
++#  include "FFmpegVideoEncoder.h"
++#endif
+ 
+ #ifdef DEBUG
+ #  include "mozilla/AppShutdown.h"
+@@ -189,6 +191,9 @@ EncodeSupportSet FFmpegEncoderModule<V>::SupportsCodec(CodecType aCodec) const {
+ template <int V>
+ already_AddRefed<MediaDataEncoder> FFmpegEncoderModule<V>::CreateVideoEncoder(
+     const EncoderConfig& aConfig, const RefPtr<TaskQueue>& aTaskQueue) const {
++#ifdef MOZ_FFVPX_AUDIOONLY
++  return nullptr;
++#else
+   AVCodecID codecId = GetFFmpegEncoderCodecId<V>(aConfig.mCodec);
+   if (codecId == AV_CODEC_ID_NONE) {
+     FFMPEGV_LOG("No ffmpeg encoder for {}", EnumValueToString(aConfig.mCodec));
+@@ -201,6 +206,7 @@ already_AddRefed<MediaDataEncoder> FFmpegEncoderModule<V>::CreateVideoEncoder(
+               EnumValueToString(aConfig.mCodec),
+               encoder->GetDescriptionName().get());
+   return encoder.forget();
++#endif
+ }
+ 
+ template <int V>
+diff --git a/dom/media/platforms/ffmpeg/ffvpx/moz.build b/dom/media/platforms/ffmpeg/ffvpx/moz.build
+index 70b794e01a2418e123472de43d3d25c01487add6..4be0354cec68de2548dce58cc421f440d25bd1b6 100644
+--- a/dom/media/platforms/ffmpeg/ffvpx/moz.build
++++ b/dom/media/platforms/ffmpeg/ffvpx/moz.build
+@@ -15,9 +15,12 @@ UNIFIED_SOURCES += [
+     "../FFmpegDecoderModule.cpp",
+     "../FFmpegEncoderModule.cpp",
+     "../FFmpegUtils.cpp",
+-    "../FFmpegVideoDecoder.cpp",
+-    "../FFmpegVideoEncoder.cpp",
+ ]
++if not CONFIG["MOZ_FFVPX_AUDIOONLY"]:
++    UNIFIED_SOURCES += [
++        "../FFmpegVideoDecoder.cpp",
++        "../FFmpegVideoEncoder.cpp",
++    ]
+ SOURCES += [
+     "FFVPXRuntimeLinker.cpp",
+ ]
+diff --git a/dom/media/platforms/moz.build b/dom/media/platforms/moz.build
+index 1bd4af56f2a2b3b1670b76bfe14204bbb9895268..3b4ec6df608bb5271b6b39ddbc36125c88332b3f 100644
+--- a/dom/media/platforms/moz.build
++++ b/dom/media/platforms/moz.build
+@@ -64,12 +64,17 @@ if CONFIG["MOZ_FFMPEG"]:
+ 
+ EXPORTS += [
+     "agnostic/AOMDecoder.h",
+-    "agnostic/DAV1DDecoder.h",
+ ]
+ UNIFIED_SOURCES += [
+     "agnostic/AOMDecoder.cpp",
+-    "agnostic/DAV1DDecoder.cpp",
+ ]
++if CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
++    EXPORTS += [
++        "agnostic/DAV1DDecoder.h",
++    ]
++    UNIFIED_SOURCES += [
++        "agnostic/DAV1DDecoder.cpp",
++    ]
+ if CONFIG["MOZ_SYSTEM_AV1"]:
+     CXXFLAGS += CONFIG["MOZ_SYSTEM_LIBAOM_CFLAGS"]
+     CXXFLAGS += CONFIG["MOZ_SYSTEM_LIBDAV1D_CFLAGS"]
 diff --git a/dom/media/systemservices/CamerasChild.cpp b/dom/media/systemservices/CamerasChild.cpp
 index 44eb531576b52caa1a83486316c4c67b0681999a..59caa638539195659c80051132f9d29d6cc0b73a 100644
 --- a/dom/media/systemservices/CamerasChild.cpp
@@ -94663,6 +95257,90 @@ index 3c80514a1d51c10d677c971647eea6dbcf5d15c4..a5b20b4da1c22eefc2a5b50a23dd95d4
    for (uint32_t i = 0; i < mOutputBuffer.Length(); ++i) {
      double scalarMagnitude =
          fdlibm_hypot(mAnalysisBlock.RealData(i), mAnalysisBlock.ImagData(i)) *
+diff --git a/dom/media/webcodecs/VideoFrame.cpp b/dom/media/webcodecs/VideoFrame.cpp
+index 4ca2ea3a8995ab8d976ed01765ac506106769c2c..ae7f47c7eb80a0fe41d4050a0efc4bd2f5bdb6a4 100644
+--- a/dom/media/webcodecs/VideoFrame.cpp
++++ b/dom/media/webcodecs/VideoFrame.cpp
+@@ -37,7 +37,9 @@
+ #include "mozilla/gfx/2D.h"
+ #include "mozilla/gfx/Swizzle.h"
+ #include "mozilla/layers/LayersSurfaces.h"
+-#include "mozilla/webgpu/ExternalTexture.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/ExternalTexture.h"
++#endif
+ #include "nsIPrincipal.h"
+ #include "nsIURI.h"
+ #include "nsLayoutUtils.h"
+@@ -2064,12 +2066,14 @@ void VideoFrame::Close() {
+   mDisplaySize = gfx::IntSize();
+   mColorSpace = VideoColorSpaceInternal();
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   for (const auto& weakExternalTexture : mWebGPUExternalTextures) {
+     if (auto* externalTexture = weakExternalTexture.get()) {
+       externalTexture->Expire();
+     }
+   }
+   mWebGPUExternalTextures.Clear();
++#endif
+ 
+   StopAutoClose();
+ }
+@@ -2085,10 +2089,12 @@ already_AddRefed<layers::Image> VideoFrame::GetImage() const {
+   return do_AddRef(mResource->mImage);
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ void VideoFrame::TrackWebGPUExternalTexture(
+     WeakPtr<webgpu::ExternalTexture> aExternalTexture) {
+   mWebGPUExternalTextures.AppendElement(aExternalTexture);
+ }
++#endif
+ 
+ nsCString VideoFrame::ToString() const {
+   nsCString rv;
+diff --git a/dom/media/webcodecs/VideoFrame.h b/dom/media/webcodecs/VideoFrame.h
+index 1b5747e0a7f264895c97f4bcb98e132564ec789b..22a187a712470b61e44dfb632d54f5cc6eb0385e 100644
+--- a/dom/media/webcodecs/VideoFrame.h
++++ b/dom/media/webcodecs/VideoFrame.h
+@@ -52,9 +52,11 @@ struct VideoFrameInit;
+ 
+ }  // namespace dom
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ namespace webgpu {
+ class ExternalTexture;
+ }  // namespace webgpu
++#endif
+ 
+ }  // namespace mozilla
+ 
+@@ -195,10 +197,12 @@ class VideoFrame final : public nsISupports,
+   const gfx::IntRect& NativeVisibleRect() const { return mVisibleRect; }
+   already_AddRefed<layers::Image> GetImage() const;
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   // Track a WebGPU ExternalTexture as being imported from this video frame.
+   // This ensures it will be correctly expired when the video frame is closed.
+   void TrackWebGPUExternalTexture(
+       WeakPtr<webgpu::ExternalTexture> aExternalTexture);
++#endif
+ 
+   nsCString ToString() const;
+ 
+@@ -276,9 +280,11 @@ class VideoFrame final : public nsISupports,
+   // The following are used to help monitoring mResource release.
+   RefPtr<media::ShutdownWatcher> mShutdownWatcher = nullptr;
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   // WebGPU external textures that were imported from this video frame. We must
+   // call `Expire()` on them when the video frame is closed.
+   nsTArray<WeakPtr<webgpu::ExternalTexture>> mWebGPUExternalTextures;
++#endif
+ };
+ 
+ }  // namespace mozilla::dom
 diff --git a/dom/media/webrtc/MediaEngineFake.cpp b/dom/media/webrtc/MediaEngineFake.cpp
 index b87d8c5659dd175dd4e59f61278f7fea3bbfb9a1..30c026c3b11d855058559ef1288f1af521a9986d 100644
 --- a/dom/media/webrtc/MediaEngineFake.cpp
@@ -95253,7 +95931,7 @@ index 2ea501720536c6c52d780281035f79355842a468..5d427370785f292b6849a63098080e94
  #include <netdb.h>
  #endif
 diff --git a/dom/media/webspeech/recognition/SpeechRecognition.cpp b/dom/media/webspeech/recognition/SpeechRecognition.cpp
-index df163401e59df33b653d961a65248c42e89a1d83..fa817fe6139e5e9228052fc57e4e35a873d43584 100644
+index df163401e59df33b653d961a65248c42e89a1d83..bd6cebde3da6f40106bded222a214b29d9213134 100644
 --- a/dom/media/webspeech/recognition/SpeechRecognition.cpp
 +++ b/dom/media/webspeech/recognition/SpeechRecognition.cpp
 @@ -178,6 +178,15 @@ SpeechRecognition::SpeechRecognition(nsPIDOMWindowInner* aOwnerWindow)
@@ -95300,7 +95978,30 @@ index df163401e59df33b653d961a65248c42e89a1d83..fa817fe6139e5e9228052fc57e4e35a8
            break;
          case EVENT_START:
            SR_LOG("STATE_RECOGNIZING: Unhandled aEvent {}", GetName(aEvent));
-@@ -530,6 +556,15 @@ void SpeechRecognition::WaitForSpeechEnd(SpeechEvent* aEvent) {
+@@ -370,10 +396,22 @@ void SpeechRecognition::Transition(SpeechEvent* aEvent) {
+           AbortSilently(aEvent);
+           break;
+         case EVENT_START:
++          SR_LOG("STATE_WAITING_FOR_RESULT: Unhandled aEvent {}",
++                 GetName(aEvent));
++          MOZ_CRASH();
++#ifdef MOZ_WIDGET_UIKIT
++        case EVENT_RECOGNITIONSERVICE_INTERMEDIATE_RESULT:
++          // SFSpeechRecognizer can deliver one last partial result after
++          // endAudio(). It is still valid recognition output and must not hit
++          // the generic state machine's invalid-event crash path.
++          NotifyIntermediateResult(aEvent);
++          break;
++#else
+         case EVENT_RECOGNITIONSERVICE_INTERMEDIATE_RESULT:
+           SR_LOG("STATE_WAITING_FOR_RESULT: Unhandled aEvent {}",
+                  GetName(aEvent));
+           MOZ_CRASH();
++#endif
+         default:
+           MOZ_CRASH("Invalid event");
+       }
+@@ -530,6 +568,15 @@ void SpeechRecognition::WaitForSpeechEnd(SpeechEvent* aEvent) {
    SetState(STATE_RECOGNIZING);
  
    ProcessAudioSegment(aEvent->mAudioSegment, aEvent->mTrackRate);
@@ -95316,7 +96017,7 @@ index df163401e59df33b653d961a65248c42e89a1d83..fa817fe6139e5e9228052fc57e4e35a8
    if (mEndpointer.speech_input_complete()) {
      DispatchTrustedEvent(u"speechend"_ns);
  
-@@ -559,6 +594,20 @@ void SpeechRecognition::NotifyFinalResult(SpeechEvent* aEvent) {
+@@ -559,6 +606,20 @@ void SpeechRecognition::NotifyFinalResult(SpeechEvent* aEvent) {
    DispatchEvent(*event);
  }
  
@@ -95403,10 +96104,10 @@ index 0000000000000000000000000000000000000000..6039e54535bb749629dfe50a1f92f460
 +#endif  // mozilla_dom_UIKitSpeechRecognitionService_h
 diff --git a/dom/media/webspeech/recognition/UIKitSpeechRecognitionService.mm b/dom/media/webspeech/recognition/UIKitSpeechRecognitionService.mm
 new file mode 100644
-index 0000000000000000000000000000000000000000..753d59f0f307e98b4378f9cb38de2a7c5b264a82
+index 0000000000000000000000000000000000000000..25ca7bfb5b564de086bd64d7794f0438659cc34f
 --- /dev/null
 +++ b/dom/media/webspeech/recognition/UIKitSpeechRecognitionService.mm
-@@ -0,0 +1,557 @@
+@@ -0,0 +1,542 @@
 +/* This Source Code Form is subject to the terms of the Mozilla Public
 + * License, v. 2.0. If a copy of the MPL was not distributed with this file,
 + * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -95476,7 +96177,6 @@ index 0000000000000000000000000000000000000000..753d59f0f307e98b4378f9cb38de2a7c
 +  int32_t mLevelPeak = 0;
 +  double mLevelSumSquares = 0.0;
 +  bool mLoggedFirstLevel = false;
-+  bool mLoggedWaitingForSignal = false;
 +  uint32_t mNoSpeechRetries = 0;
 +  std::vector<PendingAudioChunk> mPendingAudio;
 +
@@ -95705,7 +96405,6 @@ index 0000000000000000000000000000000000000000..753d59f0f307e98b4378f9cb38de2a7c
 +                                   self->mState->mAudioFormatRate = 0;
 +                                   self->mState->mTaskStarted = false;
 +                                   self->mState->mLoggedFirstAudio = false;
-+                                   self->mState->mLoggedWaitingForSignal = false;
 +                                   self->mState->mPendingAudio.clear();
 +                                   return;
 +                                 }
@@ -95836,26 +96535,13 @@ index 0000000000000000000000000000000000000000..753d59f0f307e98b4378f9cb38de2a7c
 +  }
 +
 +  if (!mState->mTaskStarted || !mState->mRequest) {
-+    // Keep startup noise out of SFSpeechRecognizer. Build 57 measured the
-+    // RemoteIO startup floor at peak=15; require a materially stronger signal
-+    // before creating a recognition task so an initial silent task cannot end
-+    // the whole DOM recognition session before the user has spoken.
-+    if (peak < 512 && !mState->mAuthorizationPending) {
-+      if (!mState->mLoggedWaitingForSignal) {
-+        mState->mLoggedWaitingForSignal = true;
-+        NSLog(@"[GeminiGecko][Speech] waiting for non-silent PCM peak=%d",
-+              peak);
-+      }
-+      return;
-+    }
-+    // The system may still be displaying its one-time Speech permission
-+    // prompt. Keep the short Web Speech capture window instead of discarding
-+    // the first words the user speaks while authorization is pending.
++    // Start the recognizer with the first captured buffer. Waiting for a
++    // volume threshold can discard the beginning of a short utterance on
++    // devices whose microphone input is naturally quiet.
 +    PendingAudioChunk chunk;
 +    chunk.mSamples = std::move(aSamples);
 +    chunk.mSampleRate = aSampleRate;
 +    mState->mPendingAudio.emplace_back(std::move(chunk));
-+    mState->mLoggedWaitingForSignal = false;
 +    EnsureRecognitionTaskOnMainThread();
 +    return;
 +  }
@@ -96009,7 +96695,7 @@ index af2a85de614068133829c959cb4cc985c5bbf98f..44f86e1cf8bd763f8b3471ef601e4fe5
      UNIFIED_SOURCES += [
          "test/FakeSpeechRecognitionService.cpp",
 diff --git a/dom/moz.build b/dom/moz.build
-index 3ef0e0c76698c8414a69a745484a644e35a2b656..33a0e1b51e6adf8c161ac34fd4c0be12e7218357 100644
+index 3ef0e0c76698c8414a69a745484a644e35a2b656..02aeb0f8af3e1e669ed0615ce983d9e9a82cefea 100644
 --- a/dom/moz.build
 +++ b/dom/moz.build
 @@ -19,6 +19,16 @@ interfaces = [
@@ -96029,7 +96715,15 @@ index 3ef0e0c76698c8414a69a745484a644e35a2b656..33a0e1b51e6adf8c161ac34fd4c0be12
  DIRS += ["interfaces/" + i for i in interfaces]
  
  DIRS += [
-@@ -52,11 +62,9 @@ DIRS += [
+@@ -29,7 +39,6 @@ DIRS += [
+     "battery",
+     "cache",
+     "canvas",
+-    "webgpu",
+     "chrome-webidl",
+     "clients",
+     "closewatcher",
+@@ -52,11 +61,9 @@ DIRS += [
      "grid",
      "html",
      "jsurl",
@@ -96041,14 +96735,15 @@ index 3ef0e0c76698c8414a69a745484a644e35a2b656..33a0e1b51e6adf8c161ac34fd4c0be12
      "modelcontext",
      "notification",
      "power",
-@@ -113,7 +121,6 @@ DIRS += [
+@@ -113,6 +120,8 @@ DIRS += [
      "navigation",
  ]
  
--
++if CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
++    DIRS += ["webgpu"]
+ 
  TEST_DIRS += [
      "tests",
-     "imptests",
 diff --git a/dom/notification/NotificationParent.cpp b/dom/notification/NotificationParent.cpp
 index 210176d88d64b8d49e2b386151c7e3efacdc1db7..32b4794501a041da8899252dc655becdeb98f0e1 100644
 --- a/dom/notification/NotificationParent.cpp
@@ -96143,6 +96838,61 @@ index 7adcf382ac584a7b3ea93f0f2018ca2839828967..9ebc2a8ba1cb98ebe2964a5ebeee6d95
  }
  
  nsresult RemovePermission(nsIPrincipal* aPrincipal) {
+diff --git a/dom/promise/Promise.cpp b/dom/promise/Promise.cpp
+index b2d6bfbce2f08a13ff275bf19b7190362cedd0c5..294adf970a5cf4ad604727fff81ef08c0f583d34 100644
+--- a/dom/promise/Promise.cpp
++++ b/dom/promise/Promise.cpp
+@@ -34,7 +34,9 @@
+ #include "mozilla/dom/WorkerRunnable.h"
+ #include "mozilla/dom/WorkletGlobalScope.h"
+ #include "mozilla/dom/WorkletImpl.h"
+-#include "mozilla/webgpu/PipelineError.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/PipelineError.h"
++#endif
+ #include "nsContentUtils.h"
+ #include "nsCycleCollectionParticipant.h"
+ #include "nsDebug.h"
+@@ -733,11 +735,13 @@ void Promise::MaybeReject(const RefPtr<MediaStreamError>& aArg) {
+   MaybeSomething(aArg, &Promise::MaybeReject);
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ void Promise::MaybeReject(const RefPtr<webgpu::PipelineError>& aArg) {
+   NS_ASSERT_OWNINGTHREAD(Promise);
+ 
+   MaybeSomething(aArg, &Promise::MaybeReject);
+ }
++#endif
+ 
+ void Promise::MaybeRejectWithUndefined() {
+   NS_ASSERT_OWNINGTHREAD(Promise);
+diff --git a/dom/promise/Promise.h b/dom/promise/Promise.h
+index 172f03dfbe9ab682bc53d04dabb28de52d61dd18..ef091a69bfe0b35e7c259a155752162e908825e7 100644
+--- a/dom/promise/Promise.h
++++ b/dom/promise/Promise.h
+@@ -34,9 +34,11 @@ namespace JS {
+ class Value;
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ namespace mozilla::webgpu {
+ class PipelineError;
+ }
++#endif
+ 
+ namespace mozilla::dom {
+ 
+@@ -123,7 +125,9 @@ class Promise : public SupportsWeakPtr, public JSHolderBase {
+   }
+ 
+   void MaybeReject(const RefPtr<MediaStreamError>& aArg);
++#ifndef MOZ_WIDGET_UIKIT
+   void MaybeReject(const RefPtr<webgpu::PipelineError>& aArg);
++#endif
+ 
+   void MaybeRejectWithUndefined();
+ 
 diff --git a/dom/serviceworkers/ServiceWorkerOp.cpp b/dom/serviceworkers/ServiceWorkerOp.cpp
 index 93e3daa90f1e634732ce94f9b35eab64e48f0782..1c11e167d13db14529ff63c2299ee4ce17df26ee 100644
 --- a/dom/serviceworkers/ServiceWorkerOp.cpp
@@ -96511,10 +97261,20 @@ index 0000000000000000000000000000000000000000..7610b8bf3dcb0239592d81ba1cea0642
 +interface mixin ExtensionGlobalsMixin {
 +};
 diff --git a/dom/webidl/Navigator.webidl b/dom/webidl/Navigator.webidl
-index d586dc5e43881bae1aef0a9c62b7d2b47f3cac70..9138d90f6b0eef3ba68d278831c5382f2d6de596 100644
+index d586dc5e43881bae1aef0a9c62b7d2b47f3cac70..f181a5dbaa4ccfd15848eb98f0f7e2b783308d2b 100644
 --- a/dom/webidl/Navigator.webidl
 +++ b/dom/webidl/Navigator.webidl
-@@ -48,7 +48,7 @@ interface mixin NavigatorID {
+@@ -39,7 +39,9 @@ Navigator includes NavigatorStorageUtils;
+ Navigator includes NavigatorConcurrentHardware;
+ Navigator includes NavigatorStorage;
+ Navigator includes NavigatorAutomationInformation;
++#ifndef MOZ_WIDGET_UIKIT
+ Navigator includes NavigatorGPU;
++#endif
+ Navigator includes GlobalPrivacyControl;
+ 
+ interface mixin NavigatorID {
+@@ -48,7 +50,7 @@ interface mixin NavigatorID {
    readonly attribute DOMString appCodeName; // constant "Mozilla"
    [Constant, Cached]
    readonly attribute DOMString appName; // constant "Netscape"
@@ -96523,7 +97283,7 @@ index d586dc5e43881bae1aef0a9c62b7d2b47f3cac70..9138d90f6b0eef3ba68d278831c5382f
    readonly attribute DOMString appVersion;
    [Pure, Cached, Throws, NeedsCallerType]
    readonly attribute DOMString platform;
-@@ -175,7 +175,7 @@ partial interface Navigator {
+@@ -175,7 +177,7 @@ partial interface Navigator {
  };
  
  partial interface Navigator {
@@ -96532,19 +97292,66 @@ index d586dc5e43881bae1aef0a9c62b7d2b47f3cac70..9138d90f6b0eef3ba68d278831c5382f
    readonly attribute DOMString oscpu;
    // WebKit/Blink support this; Trident/Presto do not.
    readonly attribute DOMString vendor;
+diff --git a/dom/webidl/OffscreenCanvas.webidl b/dom/webidl/OffscreenCanvas.webidl
+index b998f4fff0250f769853c921efe82ee471b125dd..39728c1a83e1334d450df97452980fe028308600 100644
+--- a/dom/webidl/OffscreenCanvas.webidl
++++ b/dom/webidl/OffscreenCanvas.webidl
+@@ -6,14 +6,22 @@
+  * https://html.spec.whatwg.org/#the-offscreencanvas-interface
+  */
+ 
++#ifdef MOZ_WIDGET_UIKIT
++typedef (OffscreenCanvasRenderingContext2D or ImageBitmapRenderingContext or WebGLRenderingContext or WebGL2RenderingContext) OffscreenRenderingContext;
++#else
+ typedef (OffscreenCanvasRenderingContext2D or ImageBitmapRenderingContext or WebGLRenderingContext or WebGL2RenderingContext or GPUCanvasContext) OffscreenRenderingContext;
++#endif
+ 
+ dictionary ImageEncodeOptions {
+   DOMString type = "image/png";
+   unrestricted double quality;
+ };
+ 
++#ifdef MOZ_WIDGET_UIKIT
++enum OffscreenRenderingContextId { "2d", "bitmaprenderer", "webgl", "webgl2" };
++#else
+ enum OffscreenRenderingContextId { "2d", "bitmaprenderer", "webgl", "webgl2", "webgpu" };
++#endif
+ 
+ [Exposed=(Window,Worker)]
+ interface OffscreenCanvas : EventTarget {
+diff --git a/dom/webidl/WorkerNavigator.webidl b/dom/webidl/WorkerNavigator.webidl
+index 54f4b9cd81f1f8669a95ab77ed9744f83ed158df..b6b711138d2643302db5d7c171c5d80f469b3305 100644
+--- a/dom/webidl/WorkerNavigator.webidl
++++ b/dom/webidl/WorkerNavigator.webidl
+@@ -32,7 +32,9 @@ partial interface WorkerNavigator {
+ WorkerNavigator includes NavigatorLocks;
+ 
+ // https://gpuweb.github.io/gpuweb/#navigator-gpu
++#ifndef MOZ_WIDGET_UIKIT
+ WorkerNavigator includes NavigatorGPU;
++#endif
+ 
+ // https://w3c.github.io/permissions/#webidl-2112232240
+ [Exposed=(Worker)]
 diff --git a/dom/webidl/moz.build b/dom/webidl/moz.build
-index 35be78b5ef12c5018557d606da30cd6772501d17..d470d01bfae909a2dbfb5d99299866598c810d57 100644
+index 35be78b5ef12c5018557d606da30cd6772501d17..b3f5a0eb68a6e133cd40f2c8ecf4f8abb89fcc55 100644
 --- a/dom/webidl/moz.build
 +++ b/dom/webidl/moz.build
-@@ -418,6 +418,7 @@ GENERATED_WEBIDL_FILES = [
+@@ -418,9 +418,13 @@ GENERATED_WEBIDL_FILES = [
      "CSSStyleProperties.webidl",
  ]
  
 +
  PREPROCESSED_WEBIDL_FILES = [
++    "Navigator.webidl",
      "Node.webidl",
++    "OffscreenCanvas.webidl",
      "Window.webidl",
-@@ -827,7 +828,6 @@ WEBIDL_FILES = [
++    "WorkerNavigator.webidl",
+ ]
+ 
+ WEBIDL_FILES = [
+@@ -827,7 +831,6 @@ WEBIDL_FILES = [
      "MIDIPort.webidl",
      "MimeType.webidl",
      "MimeTypeArray.webidl",
@@ -96552,20 +97359,49 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..d470d01bfae909a2dbfb5d9929986659
      "ModelContext.webidl",
      "MouseEvent.webidl",
      "MouseScrollEvent.webidl",
-@@ -856,7 +856,6 @@ WEBIDL_FILES = [
+@@ -842,7 +845,6 @@ WEBIDL_FILES = [
+     "NavigationPrecommitController.webidl",
+     "NavigationPreloadManager.webidl",
+     "NavigationTransition.webidl",
+-    "Navigator.webidl",
+     "NetErrorInfo.webidl",
+     "NetworkInformation.webidl",
+     "NetworkOptions.webidl",
+@@ -854,9 +856,7 @@ WEBIDL_FILES = [
+     "NotificationEvent.webidl",
+     "NotifyPaintEvent.webidl",
      "OfflineAudioContext.webidl",
-     "OffscreenCanvas.webidl",
+-    "OffscreenCanvas.webidl",
      "OffscreenCanvasRenderingContext2D.webidl",
 -    "ONNX.webidl",
      "OscillatorNode.webidl",
      "PaintRequest.webidl",
      "PaintRequestList.webidl",
-@@ -1145,8 +1144,17 @@ WEBIDL_FILES = [
+@@ -1112,7 +1112,6 @@ WEBIDL_FILES = [
+     "WebAuthentication.webidl",
+     "WebGL2RenderingContext.webidl",
+     "WebGLRenderingContext.webidl",
+-    "WebGPU.webidl",
+     "WebSocket.webidl",
+     "WebTaskScheduling.webidl",
+     "WebTransport.webidl",
+@@ -1126,7 +1125,6 @@ WEBIDL_FILES = [
+     "WorkerDebuggerGlobalScope.webidl",
+     "WorkerGlobalScope.webidl",
+     "WorkerLocation.webidl",
+-    "WorkerNavigator.webidl",
+     "WorkerTestUtils.webidl",
+     "Worklet.webidl",
+     "WorkletGlobalScope.webidl",
+@@ -1145,8 +1143,20 @@ WEBIDL_FILES = [
      "XSLTProcessor.webidl",
  ]
  
 -# Native llama.cpp for ml engine.
 -if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
++if CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
++    WEBIDL_FILES += ["WebGPU.webidl"]
++
 +# MLS is outside the dedicated UIKit ChatGPT/Gemini surface.
 +# Keep normal Firefox builds unchanged while omitting its binding on UIKit.
 +if CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
@@ -96580,7 +97416,7 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..d470d01bfae909a2dbfb5d9929986659
      WEBIDL_FILES += [
          "LlamaRunner.webidl",
      ]
-@@ -1206,24 +1214,32 @@ WEBIDL_FILES += [
+@@ -1206,24 +1216,32 @@ WEBIDL_FILES += [
      "CustomEvent.webidl",
  ]
  
@@ -96631,7 +97467,25 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..d470d01bfae909a2dbfb5d9929986659
  
  # We only expose our prefable test interfaces in debug builds, just to be on
  # the safe side.
-@@ -1328,3 +1344,10 @@ if CONFIG["ACCESSIBILITY"]:
+@@ -1267,7 +1285,6 @@ GENERATED_EVENTS_WEBIDL_FILES = [
+     "GamepadAxisMoveEvent.webidl",
+     "GamepadButtonEvent.webidl",
+     "GamepadEvent.webidl",
+-    "GPUUncapturedErrorEvent.webidl",
+     "HashChangeEvent.webidl",
+     "ImageCaptureErrorEvent.webidl",
+     "MediaQueryListEvent.webidl",
+@@ -1306,6 +1323,9 @@ GENERATED_EVENTS_WEBIDL_FILES = [
+     "XRSessionEvent.webidl",
+ ]
+ 
++if CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
++    GENERATED_EVENTS_WEBIDL_FILES += ["GPUUncapturedErrorEvent.webidl"]
++
+ if CONFIG["MOZ_WEBRTC"]:
+     GENERATED_EVENTS_WEBIDL_FILES += [
+         "RTCDataChannelEvent.webidl",
+@@ -1328,3 +1348,10 @@ if CONFIG["ACCESSIBILITY"]:
      WEBIDL_FILES += [
          "AccessibleNode.webidl",
      ]
@@ -96642,6 +97496,93 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..d470d01bfae909a2dbfb5d9929986659
 +    WEBIDL_FILES += [
 +        "ONNX.webidl",
 +    ]
+diff --git a/dom/workers/WorkerNavigator.cpp b/dom/workers/WorkerNavigator.cpp
+index 519668019e4532e97231be959c69efd3ad3995d0..1d62353c9b05344a85dcccb0705ad1fd3094dc36 100644
+--- a/dom/workers/WorkerNavigator.cpp
++++ b/dom/workers/WorkerNavigator.cpp
+@@ -20,7 +20,9 @@
+ #include "mozilla/dom/WorkerNavigatorBinding.h"
+ #include "mozilla/dom/WorkerStatus.h"
+ #include "mozilla/dom/network/Connection.h"
+-#include "mozilla/webgpu/Instance.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/Instance.h"
++#endif
+ #include "nsCOMPtr.h"
+ #include "nsDebug.h"
+ #include "nsError.h"
+@@ -47,7 +49,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(WorkerNavigator)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStorageManager)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mConnection)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaCapabilities)
++#ifndef MOZ_WIDGET_UIKIT
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWebGpu)
++#endif
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLocks)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPermissions)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mServiceWorkerContainer)
+@@ -88,7 +92,9 @@ void WorkerNavigator::Invalidate() {
+ 
+   mMediaCapabilities = nullptr;
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   mWebGpu = nullptr;
++#endif
+ 
+   if (mLocks) {
+     mLocks->Shutdown();
+@@ -277,6 +283,7 @@ dom::MediaCapabilities* WorkerNavigator::MediaCapabilities() {
+   return mMediaCapabilities;
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ webgpu::Instance* WorkerNavigator::Gpu() {
+   if (!mWebGpu) {
+     WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+@@ -289,6 +296,7 @@ webgpu::Instance* WorkerNavigator::Gpu() {
+   }
+   return mWebGpu;
+ }
++#endif
+ 
+ dom::LockManager* WorkerNavigator::Locks() {
+   if (!mLocks) {
+diff --git a/dom/workers/WorkerNavigator.h b/dom/workers/WorkerNavigator.h
+index 2f9e06bcb087ca34ddf0a278245a745ff6c845c4..7d9efc743f6d14df6c4b49d5c05f51585ebb54bd 100644
+--- a/dom/workers/WorkerNavigator.h
++++ b/dom/workers/WorkerNavigator.h
+@@ -23,9 +23,11 @@
+ namespace mozilla {
+ class ErrorResult;
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ namespace webgpu {
+ class Instance;
+ }  // namespace webgpu
++#endif
+ namespace dom {
+ class StorageManager;
+ class MediaCapabilities;
+@@ -46,7 +48,9 @@ class WorkerNavigator final : public nsWrapperCache {
+   RefPtr<StorageManager> mStorageManager;
+   RefPtr<network::Connection> mConnection;
+   RefPtr<dom::MediaCapabilities> mMediaCapabilities;
++#ifndef MOZ_WIDGET_UIKIT
+   RefPtr<webgpu::Instance> mWebGpu;
++#endif
+   RefPtr<dom::LockManager> mLocks;
+   RefPtr<dom::Permissions> mPermissions;
+   RefPtr<ServiceWorkerContainer> mServiceWorkerContainer;
+@@ -115,7 +119,9 @@ class WorkerNavigator final : public nsWrapperCache {
+ 
+   dom::MediaCapabilities* MediaCapabilities();
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   webgpu::Instance* Gpu();
++#endif
+ 
+   dom::LockManager* Locks();
+ 
 diff --git a/dom/workers/WorkerPrivate.cpp b/dom/workers/WorkerPrivate.cpp
 index 3780f5747c0fd4ad9a87b9d60c16684ab9056a2d..6e2f472b62adff5e6f4e4027365d1641a359aa3f 100644
 --- a/dom/workers/WorkerPrivate.cpp
@@ -97307,6 +98248,165 @@ index ed26ae7b7cebbf3aa088f31da2f6b155da87745d..73a0a9486e474e5f34eee90b2faa6eef
  }
  
  }  // namespace gl
+diff --git a/gfx/ipc/CanvasManagerChild.cpp b/gfx/ipc/CanvasManagerChild.cpp
+index bcf4196c70525f246543c154d1b7fd37bb300778..f2d63c0195200938a5e3e627b1f208c6a470aa0a 100644
+--- a/gfx/ipc/CanvasManagerChild.cpp
++++ b/gfx/ipc/CanvasManagerChild.cpp
+@@ -14,7 +14,9 @@
+ #include "mozilla/layers/ActiveResource.h"
+ #include "mozilla/layers/CanvasChild.h"
+ #include "mozilla/layers/CompositorManagerChild.h"
+-#include "mozilla/webgpu/WebGPUChild.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/WebGPUChild.h"
++#endif
+ 
+ namespace mozilla::gfx {
+ 
+@@ -205,6 +207,7 @@ RefPtr<layers::CanvasChild> CanvasManagerChild::GetCanvasChild() {
+   return mCanvasChild;
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ RefPtr<webgpu::WebGPUChild> CanvasManagerChild::GetWebGPUChild() {
+   if (PWebGPUChild* actor = LoneManagedOrNullAsserts(ManagedPWebGPUChild())) {
+     return static_cast<webgpu::WebGPUChild*>(actor);
+@@ -216,6 +219,7 @@ RefPtr<webgpu::WebGPUChild> CanvasManagerChild::GetWebGPUChild() {
+   }
+   return actor;
+ }
++#endif
+ 
+ layers::ActiveResourceTracker* CanvasManagerChild::GetActiveResourceTracker() {
+   if (!mActiveResourceTracker) {
+@@ -228,7 +232,8 @@ layers::ActiveResourceTracker* CanvasManagerChild::GetActiveResourceTracker() {
+ already_AddRefed<DataSourceSurface> CanvasManagerChild::GetSnapshot(
+     uint32_t aManagerId, ActorId aProtocolId,
+     const Maybe<RemoteTextureOwnerId>& aOwnerId,
+-    const Maybe<RawId>& aCommandEncoderId, const Maybe<RawId>& aCommandBufferId,
++    const Maybe<uint64_t>& aCommandEncoderId,
++    const Maybe<uint64_t>& aCommandBufferId,
+     SurfaceFormat aFormat, bool aPremultiply, bool aYFlip) {
+   if (!CanSend()) {
+     return nullptr;
+diff --git a/gfx/ipc/CanvasManagerChild.h b/gfx/ipc/CanvasManagerChild.h
+index d0c71fb2878dd3ba22221ce7292adc4bc68bf495..1bd228c7b89980346f22f7244315f9a9cb6231e0 100644
+--- a/gfx/ipc/CanvasManagerChild.h
++++ b/gfx/ipc/CanvasManagerChild.h
+@@ -21,9 +21,11 @@ class CanvasChild;
+ class ActiveResourceTracker;
+ }  // namespace layers
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ namespace webgpu {
+ class WebGPUChild;
+ }  // namespace webgpu
++#endif
+ 
+ namespace gfx {
+ class DataSourceSurface;
+@@ -38,8 +40,8 @@ class CanvasManagerChild final : public PCanvasManagerChild {
+   already_AddRefed<DataSourceSurface> GetSnapshot(
+       uint32_t aManagerId, ActorId aProtocolId,
+       const Maybe<RemoteTextureOwnerId>& aOwnerId,
+-      const Maybe<RawId>& aCommandEncoderId,
+-      const Maybe<RawId>& aCommandBufferId, SurfaceFormat aFormat,
++      const Maybe<uint64_t>& aCommandEncoderId,
++      const Maybe<uint64_t>& aCommandBufferId, SurfaceFormat aFormat,
+       bool aPremultiply, bool aYFlip);
+   void ActorDestroy(ActorDestroyReason aReason) override;
+ 
+@@ -57,7 +59,9 @@ class CanvasManagerChild final : public PCanvasManagerChild {
+ 
+   RefPtr<layers::CanvasChild> GetCanvasChild();
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   RefPtr<webgpu::WebGPUChild> GetWebGPUChild();
++#endif
+ 
+   layers::ActiveResourceTracker* GetActiveResourceTracker();
+ 
+diff --git a/gfx/ipc/CanvasManagerParent.cpp b/gfx/ipc/CanvasManagerParent.cpp
+index 0bf46768c57550f7796ad11d830b7aea6d1f8e67..6e4c94604492e88e2f992d6fea42fa02ce7f8225 100644
+--- a/gfx/ipc/CanvasManagerParent.cpp
++++ b/gfx/ipc/CanvasManagerParent.cpp
+@@ -15,7 +15,9 @@
+ #include "mozilla/layers/SharedSurfacesParent.h"
+ #include "mozilla/StaticPrefs_gfx.h"
+ #include "mozilla/StaticPrefs_webgl.h"
+-#include "mozilla/webgpu/WebGPUParent.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/WebGPUParent.h"
++#endif
+ #include "nsIThread.h"
+ #include "nsThreadUtils.h"
+ 
+@@ -138,6 +140,7 @@ already_AddRefed<dom::PWebGLParent> CanvasManagerParent::AllocPWebGLParent() {
+   return MakeAndAddRef<dom::WebGLParent>(mSharedSurfacesHolder, mContentId);
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ already_AddRefed<webgpu::PWebGPUParent>
+ CanvasManagerParent::AllocPWebGPUParent() {
+   if (NS_WARN_IF(!gfxVars::AllowWebGPU())) {
+@@ -147,6 +150,7 @@ CanvasManagerParent::AllocPWebGPUParent() {
+ 
+   return MakeAndAddRef<webgpu::WebGPUParent>(mContentId);
+ }
++#endif
+ 
+ mozilla::ipc::IPCResult CanvasManagerParent::RecvInitialize(
+     const uint32_t& aId) {
+@@ -177,7 +181,8 @@ CanvasManagerParent::AllocPCanvasParent() {
+ mozilla::ipc::IPCResult CanvasManagerParent::RecvGetSnapshot(
+     const uint32_t& aManagerId, const ActorId& aProtocolId,
+     const Maybe<RemoteTextureOwnerId>& aOwnerId,
+-    const Maybe<RawId>& aCommandEncoderId, const Maybe<RawId>& aCommandBufferId,
++    const Maybe<uint64_t>& aCommandEncoderId,
++    const Maybe<uint64_t>& aCommandBufferId,
+     webgl::FrontBufferSnapshotIpc* aResult) {
+   if (!aManagerId) {
+     return IPC_FAIL(this, "invalid id");
+@@ -208,6 +213,7 @@ mozilla::ipc::IPCResult CanvasManagerParent::RecvGetSnapshot(
+         return rv;
+       }
+     } break;
++#ifndef MOZ_WIDGET_UIKIT
+     case ProtocolId::PWebGPUMsgStart: {
+       RefPtr<webgpu::WebGPUParent> webgpu =
+           static_cast<webgpu::WebGPUParent*>(actor);
+@@ -232,6 +238,7 @@ mozilla::ipc::IPCResult CanvasManagerParent::RecvGetSnapshot(
+       buffer.surfSize.y = static_cast<uint32_t>(size.height);
+       buffer.byteStride = stride;
+     } break;
++#endif
+     default:
+       return IPC_FAIL(this, "unsupported protocol");
+   }
+diff --git a/gfx/ipc/CanvasManagerParent.h b/gfx/ipc/CanvasManagerParent.h
+index 76aaba45edb50e5bd6c1599c55aefbe7d271db7e..e96ea349d5d2fee8cf3dde3188c5cb381f17cd7e 100644
+--- a/gfx/ipc/CanvasManagerParent.h
++++ b/gfx/ipc/CanvasManagerParent.h
+@@ -39,15 +39,17 @@ class CanvasManagerParent final : public PCanvasManagerParent {
+   void ActorDestroy(ActorDestroyReason aWhy) override;
+ 
+   already_AddRefed<dom::PWebGLParent> AllocPWebGLParent();
++#ifndef MOZ_WIDGET_UIKIT
+   already_AddRefed<webgpu::PWebGPUParent> AllocPWebGPUParent();
++#endif
+   already_AddRefed<layers::PCanvasParent> AllocPCanvasParent();
+ 
+   mozilla::ipc::IPCResult RecvInitialize(const uint32_t& aId);
+   mozilla::ipc::IPCResult RecvGetSnapshot(
+       const uint32_t& aManagerId, const ActorId& aProtocolId,
+       const Maybe<RemoteTextureOwnerId>& aOwnerId,
+-      const Maybe<RawId>& aCommandEncoderId,
+-      const Maybe<RawId>& aCommandBufferId,
++      const Maybe<uint64_t>& aCommandEncoderId,
++      const Maybe<uint64_t>& aCommandBufferId,
+       webgl::FrontBufferSnapshotIpc* aResult);
+ 
+   static mozilla::ipc::IProtocol* GetCanvasActor(
 diff --git a/gfx/ipc/CompositorSession.h b/gfx/ipc/CompositorSession.h
 index 178f19bdb5bc6486c5d5ab7059ed116dfe9bd7bd..ce36935f83fb02d98c9504637e22777e61829d02 100644
 --- a/gfx/ipc/CompositorSession.h
@@ -97520,6 +98620,54 @@ index 15a81dd75aff4ed0e68040ecc0b60a378c167b70..cb51f0a614becc494407887ff79ee65d
    if (mCompositorBridgeChild) {
      mCompositorBridgeChild->Destroy();
      mCompositorBridgeChild = nullptr;
+diff --git a/gfx/ipc/PCanvasManager.ipdl b/gfx/ipc/PCanvasManager.ipdl
+index 1322b2dc9a42b432471f1db6cee541a439221c66..bdbf982153418497d7853bf005f417d623bfc39c 100644
+--- a/gfx/ipc/PCanvasManager.ipdl
++++ b/gfx/ipc/PCanvasManager.ipdl
+@@ -5,12 +5,13 @@
+ include "mozilla/layers/LayersMessageUtils.h";
+ include protocol PCanvas;
+ include protocol PWebGL;
++#ifndef MOZ_WIDGET_UIKIT
+ include protocol PWebGPU;
++#endif
+ 
+ using mozilla::ipc::ActorId from "mozilla/ipc/ProtocolUtils.h";
+ using mozilla::layers::RemoteTextureOwnerId from "mozilla/layers/LayersTypes.h";
+ using mozilla::webgl::FrontBufferSnapshotIpc from "mozilla/dom/WebGLIpdl.h";
+-using mozilla::webgpu::RawId from "mozilla/webgpu/WebGPUTypes.h";
+ 
+ namespace mozilla {
+ namespace gfx {
+@@ -26,7 +27,9 @@ sync protocol PCanvasManager
+ {
+   manages PCanvas;
+   manages PWebGL;
++#ifndef MOZ_WIDGET_UIKIT
+   manages PWebGPU;
++#endif
+ 
+ parent:
+   async PCanvas();
+@@ -35,7 +38,9 @@ parent:
+   async PWebGL();
+ 
+   // Actor that represents one WebGPU context.
++#ifndef MOZ_WIDGET_UIKIT
+   async PWebGPU();
++#endif
+ 
+   // Set the local manager ID for the canvas manager.
+   async Initialize(uint32_t aManagerId);
+@@ -44,7 +49,7 @@ parent:
+   // intended to be used by the main thread in the content process to block
+   // reading without having to block on the worker thread that owns the context
+   // instance.
+-  sync GetSnapshot(uint32_t aManagerId, ActorId aProtocolId, RemoteTextureOwnerId? ownerId, RawId? commandEncoderId, RawId? commandBufferId) returns (FrontBufferSnapshotIpc ret);
++  sync GetSnapshot(uint32_t aManagerId, ActorId aProtocolId, RemoteTextureOwnerId? ownerId, uint64_t? commandEncoderId, uint64_t? commandBufferId) returns (FrontBufferSnapshotIpc ret);
+ };
+ 
+ } // gfx
 diff --git a/gfx/ipc/RemoteCompositorSession.cpp b/gfx/ipc/RemoteCompositorSession.cpp
 index 5dbdea7f3eeb76f179f22f769250da66f705bb92..b61b20e8442aa5052e5bca9d685b7f5bdd5beeab 100644
 --- a/gfx/ipc/RemoteCompositorSession.cpp
@@ -97562,6 +98710,23 @@ index 5dbdea7f3eeb76f179f22f769250da66f705bb92..b61b20e8442aa5052e5bca9d685b7f5b
 +#endif
    GPUProcessManager::Get()->UnregisterRemoteProcessSession(this);
  }
+ 
+diff --git a/gfx/ipc/moz.build b/gfx/ipc/moz.build
+index 94e458be40f564ba1c0c29c6272c8e93cf6ecdd6..549b09c4a0733cbc7b2040ae977ec4c5fc87ab2d 100644
+--- a/gfx/ipc/moz.build
++++ b/gfx/ipc/moz.build
+@@ -64,11 +64,11 @@ SOURCES += [
+ 
+ IPDL_SOURCES = [
+     "GraphicsMessages.ipdlh",
+-    "PCanvasManager.ipdl",
+     "PVsyncBridge.ipdl",
+ ]
+ 
+ PREPROCESSED_IPDL_SOURCES += [
++    "PCanvasManager.ipdl",
+     "PGPU.ipdl",
+ ]
  
 diff --git a/gfx/layers/NativeLayerCA.h b/gfx/layers/NativeLayerCA.h
 index 4714b8a1579197bc127f7b15c4db51fb81d485e5..03bce06ba60853234da59f07dab4759024c598f7 100644
@@ -97949,6 +99114,215 @@ index 731551b96d9fb176f1a8d49aab779d3bcbf598ab..9f80aa5409d40adf36e52499eb3e65a2
    if (!xpc::IsInAutomation()) {
      return IPC_FAIL(this, "Should only be called from automation.");
    }
+diff --git a/gfx/layers/RemoteTextureMap.cpp b/gfx/layers/RemoteTextureMap.cpp
+index ae65668d34f520b12b67aaf1914f7a5487077aff..1be76d8577f9ca0f1dbda6406d5d589939358549 100644
+--- a/gfx/layers/RemoteTextureMap.cpp
++++ b/gfx/layers/RemoteTextureMap.cpp
+@@ -20,7 +20,9 @@
+ #include "mozilla/layers/WebRenderTextureHost.h"
+ #include "mozilla/StaticPrefs_gfx.h"
+ #include "mozilla/StaticPrefs_webgl.h"
+-#include "mozilla/webgpu/SharedTexture.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/SharedTexture.h"
++#endif
+ #include "mozilla/webrender/RenderThread.h"
+ #include "SharedSurface.h"
+ 
+@@ -169,6 +171,7 @@ void RemoteTextureOwnerClient::PushTexture(
+       SharedResourceWrapper::SharedSurface(aSharedSurface));
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ void RemoteTextureOwnerClient::PushTexture(
+     const RemoteTextureId aTextureId, const RemoteTextureOwnerId aOwnerId,
+     const std::shared_ptr<webgpu::SharedTexture>& aSharedTexture,
+@@ -189,6 +192,7 @@ void RemoteTextureOwnerClient::PushTexture(
+       aTextureId, aOwnerId, mForPid, std::move(textureData), textureHost,
+       SharedResourceWrapper::SharedTexture(aSharedTexture));
+ }
++#endif
+ 
+ void RemoteTextureOwnerClient::PushDummyTexture(
+     const RemoteTextureId aTextureId, const RemoteTextureOwnerId aOwnerId) {
+@@ -266,6 +270,7 @@ RemoteTextureOwnerClient::GetRecycledSharedSurface(
+   return wrapper->mSharedSurface;
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ std::shared_ptr<webgpu::SharedTexture>
+ RemoteTextureOwnerClient::GetRecycledSharedTexture(
+     const gfx::IntSize& aSize, gfx::SurfaceFormat aFormat,
+@@ -279,6 +284,7 @@ RemoteTextureOwnerClient::GetRecycledSharedTexture(
+   MOZ_ASSERT(wrapper->mSharedTexture);
+   return wrapper->mSharedTexture;
+ }
++#endif
+ 
+ StaticAutoPtr<RemoteTextureMap> RemoteTextureMap::sInstance;
+ 
+@@ -493,7 +499,9 @@ void RemoteTextureMap::GetLatestBufferSnapshot(
+   // The compositable ref of remote texture should be updated in mMonitor lock.
+   CompositableTextureHostRef textureHostRef;
+   RefPtr<TextureHost> releasingTexture;  // Release outside the monitor
++#ifndef MOZ_WIDGET_UIKIT
+   std::shared_ptr<webgpu::SharedTexture> sharedTexture;
++#endif
+   {
+     MonitorAutoLock lock(mMonitor);
+ 
+@@ -522,16 +530,20 @@ void RemoteTextureMap::GetLatestBufferSnapshot(
+       MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+       return;
+     }
++#ifndef MOZ_WIDGET_UIKIT
+     if (holder->mResourceWrapper && holder->mResourceWrapper->mSharedTexture) {
+       // Increment compositable ref to prevent that TextureDataHolder is removed
+       // during memcpy.
+       textureHostRef = textureHost;
+       sharedTexture = holder->mResourceWrapper->mSharedTexture;
+-    } else if (textureHost->AsBufferTextureHost()) {
++    }
++#endif
++    if (!textureHostRef && textureHost->AsBufferTextureHost()) {
+       // Increment compositable ref to prevent that TextureDataHolder is removed
+       // during memcpy.
+       textureHostRef = textureHost;
+-    } else {
++    }
++    if (!textureHostRef) {
+       MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+       return;
+     }
+@@ -541,6 +553,8 @@ void RemoteTextureMap::GetLatestBufferSnapshot(
+     return;
+   }
+ 
++  bool copied = false;
++#ifndef MOZ_WIDGET_UIKIT
+   if (sharedTexture) {
+     const auto src_size = sharedTexture->GetSize();
+     // The size of the shared texture should match `textureHost->GetSize()`.
+@@ -549,7 +563,12 @@ void RemoteTextureMap::GetLatestBufferSnapshot(
+     MOZ_RELEASE_ASSERT(src_size == aDestSize);
+ 
+     sharedTexture->GetSnapshot(aDestShmem, aDestStride);
+-  } else if (auto* bufferTextureHost = textureHostRef->AsBufferTextureHost()) {
++    copied = true;
++  }
++#endif
++  if (!copied) {
++    auto* bufferTextureHost = textureHostRef->AsBufferTextureHost();
++    MOZ_RELEASE_ASSERT(bufferTextureHost);
+     const auto src_size = bufferTextureHost->GetSize();
+     // We already checked above that `textureHost->GetSize()` matches
+     // `aDestSize`.
+diff --git a/gfx/layers/RemoteTextureMap.h b/gfx/layers/RemoteTextureMap.h
+index abac9adb3d31285e775b195ec8cae9c3f9314324..e3ae3ad8c8e0cf6700bc0f2d0f9c10b83c6ee384 100644
+--- a/gfx/layers/RemoteTextureMap.h
++++ b/gfx/layers/RemoteTextureMap.h
+@@ -37,9 +37,11 @@ namespace gl {
+ class SharedSurface;
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ namespace webgpu {
+ class SharedTexture;
+ }
++#endif
+ 
+ namespace layers {
+ 
+@@ -78,7 +80,12 @@ struct RemoteTextureInfoList {
+ 
+ class SharedResourceWrapper {
+  public:
+-  enum class Tag { SharedSurface, SharedTexture };
++  enum class Tag {
++    SharedSurface,
++#ifndef MOZ_WIDGET_UIKIT
++    SharedTexture,
++#endif
++  };
+   const Tag mTag;
+ 
+   static UniquePtr<SharedResourceWrapper> SharedSurface(
+@@ -87,26 +94,32 @@ class SharedResourceWrapper {
+                                              aSharedSurface);
+   }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   static UniquePtr<SharedResourceWrapper> SharedTexture(
+       const std::shared_ptr<webgpu::SharedTexture>& aSharedTexture) {
+     return MakeUnique<SharedResourceWrapper>(Tag::SharedTexture,
+                                              aSharedTexture);
+   }
++#endif
+ 
+   SharedResourceWrapper(
+       const Tag aTag, const std::shared_ptr<gl::SharedSurface>& aSharedSurface)
+       : mTag(aTag), mSharedSurface(aSharedSurface) {
+     MOZ_ASSERT(mTag == Tag::SharedSurface);
+   }
++#ifndef MOZ_WIDGET_UIKIT
+   SharedResourceWrapper(
+       const Tag aTag,
+       const std::shared_ptr<webgpu::SharedTexture>& aSharedTexture)
+       : mTag(aTag), mSharedTexture(aSharedTexture) {
+     MOZ_ASSERT(mTag == Tag::SharedTexture);
+   }
++#endif
+ 
+   const std::shared_ptr<gl::SharedSurface> mSharedSurface;
++#ifndef MOZ_WIDGET_UIKIT
+   const std::shared_ptr<webgpu::SharedTexture> mSharedTexture;
++#endif
+ 
+   std::shared_ptr<gl::SharedSurface> SharedSurface() {
+     if (mTag == Tag::SharedSurface) {
+@@ -116,6 +129,7 @@ class SharedResourceWrapper {
+     return nullptr;
+   }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   std::shared_ptr<webgpu::SharedTexture> SharedTexture() {
+     if (mTag == Tag::SharedTexture) {
+       return mSharedTexture;
+@@ -123,6 +137,7 @@ class SharedResourceWrapper {
+     MOZ_ASSERT_UNREACHABLE("unexpected to be called");
+     return nullptr;
+   }
++#endif
+ };
+ 
+ class RemoteTextureRecycleBin final {
+@@ -228,11 +243,13 @@ class RemoteTextureOwnerClient final {
+                    const std::shared_ptr<gl::SharedSurface>& aSharedSurface,
+                    const gfx::IntSize& aSize, gfx::SurfaceFormat aFormat,
+                    const SurfaceDescriptor& aDesc);
++#ifndef MOZ_WIDGET_UIKIT
+   void PushTexture(const RemoteTextureId aTextureId,
+                    const RemoteTextureOwnerId aOwnerId,
+                    const std::shared_ptr<webgpu::SharedTexture>& aSharedTexture,
+                    const gfx::IntSize& aSize, gfx::SurfaceFormat aFormat,
+                    const SurfaceDescriptor& aDesc);
++#endif
+   void PushDummyTexture(const RemoteTextureId aTextureId,
+                         const RemoteTextureOwnerId aOwnerId);
+   void GetLatestBufferSnapshot(const RemoteTextureOwnerId aOwnerId,
+@@ -250,10 +267,12 @@ class RemoteTextureOwnerClient final {
+       const gfx::IntSize& aSize, gfx::SurfaceFormat aFormat,
+       SurfaceDescriptor::Type aType,
+       RemoteTextureOwnerId aOwnerId = RemoteTextureOwnerId());
++#ifndef MOZ_WIDGET_UIKIT
+   std::shared_ptr<webgpu::SharedTexture> GetRecycledSharedTexture(
+       const gfx::IntSize& aSize, gfx::SurfaceFormat aFormat,
+       SurfaceDescriptor::Type aType,
+       RemoteTextureOwnerId aOwnerId = RemoteTextureOwnerId());
++#endif
+ 
+   const base::ProcessId mForPid;
+ 
 diff --git a/gfx/layers/apz/src/AsyncPanZoomController.cpp b/gfx/layers/apz/src/AsyncPanZoomController.cpp
 index e0c930d19dded4515716963ce31cfa0a4bf86c09..c75449ed84e60727c800df4876931f0ad82d6623 100644
 --- a/gfx/layers/apz/src/AsyncPanZoomController.cpp
@@ -98356,10 +99730,18 @@ index 212594007ab3bb1ad986ed4328887321a310d005..96df56cb144f945d092555c7c31808d1
  };
  
 diff --git a/gfx/layers/moz.build b/gfx/layers/moz.build
-index dcee9ad9e38afc6a96f85b3a430aaf7d04b49891..f681304fe7ea51f49d28dbbca0722895725a5541 100644
+index dcee9ad9e38afc6a96f85b3a430aaf7d04b49891..1d0c9b8ad833b2cb19387d900a112ae1b6c6846b 100644
 --- a/gfx/layers/moz.build
 +++ b/gfx/layers/moz.build
-@@ -280,6 +280,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] in ("cocoa", "uikit"):
+@@ -266,7 +266,6 @@ if CONFIG["MOZ_WAYLAND"]:
+ 
+ if CONFIG["MOZ_WIDGET_TOOLKIT"] in ("cocoa", "uikit"):
+     EXPORTS.mozilla.layers += [
+-        "GpuFenceMTLSharedEvent.h",
+         "NativeLayerCA.h",
+         "NativeLayerMacSurfaceHandler.h",
+         "NativeLayerRemoteMac.h",
+@@ -280,6 +279,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] in ("cocoa", "uikit"):
      ]
      UNIFIED_SOURCES += [
          "NativeLayerCA.mm",
@@ -98367,6 +99749,25 @@ index dcee9ad9e38afc6a96f85b3a430aaf7d04b49891..f681304fe7ea51f49d28dbbca0722895
          "NativeLayerMacSurfaceHandler.mm",
          "NativeLayerRemoteMac.mm",
          "NativeLayerRootRemoteMacChild.mm",
+@@ -287,7 +287,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] in ("cocoa", "uikit"):
+         "SurfacePoolCA.mm",
+     ]
+     SOURCES += [
+-        "GpuFenceMTLSharedEvent.cpp",
+         "MacIOSurfaceHelpers.cpp",
+         "MacIOSurfaceImage.cpp",
+     ]
+@@ -295,6 +294,10 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] in ("cocoa", "uikit"):
+         "-framework IOSurface",
+     ]
+ 
++if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
++    EXPORTS.mozilla.layers += ["GpuFenceMTLSharedEvent.h"]
++    SOURCES += ["GpuFenceMTLSharedEvent.cpp"]
++
+ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
+     EXPORTS.mozilla.layers += [
+         "AndroidHardwareBuffer.h",
 diff --git a/gfx/layers/opengl/MacIOSurfaceTextureClientOGL.cpp b/gfx/layers/opengl/MacIOSurfaceTextureClientOGL.cpp
 index 448673da5f9dc1b8d5f332e2012f745be30f4c46..e4f5bfb3d02efe4f5df505f99b67da23b0017988 100644
 --- a/gfx/layers/opengl/MacIOSurfaceTextureClientOGL.cpp
@@ -98597,6 +99998,55 @@ index 802cb7cfa8e1df6e4fa444538895d01fb807b224..b386e350a777d1c5ece75eb12bed600e
          } else {
            gfxCriticalNote << "TOpAddFontDescriptor failed";
            success = false;
+diff --git a/gfx/layers/wr/WebRenderUserData.cpp b/gfx/layers/wr/WebRenderUserData.cpp
+index 6c52f63761aeccf97e346c21e604a335bcb63c73..5586309d65217e779bb3ecb93671a3a08b400ff7 100644
+--- a/gfx/layers/wr/WebRenderUserData.cpp
++++ b/gfx/layers/wr/WebRenderUserData.cpp
+@@ -13,7 +13,9 @@
+ #include "mozilla/layers/WebRenderMessages.h"
+ #include "mozilla/layers/IpcResourceUpdateQueue.h"
+ #include "mozilla/layers/SharedSurfacesChild.h"
+-#include "mozilla/webgpu/WebGPUChild.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/WebGPUChild.h"
++#endif
+ #include "nsDisplayListInvalidation.h"
+ #include "nsIFrame.h"
+ #include "WebRenderCanvasRenderer.h"
+diff --git a/gfx/layers/wr/WebRenderUserData.h b/gfx/layers/wr/WebRenderUserData.h
+index 38356b365a9a27032390921de2237bf50c80e93d..cb849d5508b62cae2ab3ddf06f0cee6f86ef9ade 100644
+--- a/gfx/layers/wr/WebRenderUserData.h
++++ b/gfx/layers/wr/WebRenderUserData.h
+@@ -23,9 +23,11 @@ namespace mozilla {
+ 
+ class nsDisplayItemGeometry;
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ namespace webgpu {
+ class WebGPUChild;
+ }
++#endif
+ 
+ namespace wr {
+ class IpcResourceUpdateQueue;
+diff --git a/gfx/moz.build b/gfx/moz.build
+index 853d8552a69b3adcbf3ef5ceeda96880dc4e23c6..ce677fb7b93507848e0bcfb05f1287d406fa9bb9 100644
+--- a/gfx/moz.build
++++ b/gfx/moz.build
+@@ -25,10 +25,12 @@ DIRS += [
+     "vr",
+     "config",
+     "webrender_bindings",
+-    "wgpu_bindings",
+     "skia",
+ ]
+ 
++if CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
++    DIRS += ["wgpu_bindings"]
++
+ TEST_DIRS += ["tests/gtest"]
+ 
+ if CONFIG["FUZZING_INTERFACES"]:
 diff --git a/gfx/ots/RLBoxWOFF2Host.cpp b/gfx/ots/RLBoxWOFF2Host.cpp
 index 071ead8746cdca8041aa8856a55a9221e0b4a86a..36ca0771a8189ab38ca13f34fdef49761d53dfb0 100644
 --- a/gfx/ots/RLBoxWOFF2Host.cpp
@@ -99496,10 +100946,26 @@ index 005688e3db9220dd248079f337747908fd1676b7..53476d1724d58e27cebcaae872410efb
      return;
    }
 diff --git a/gfx/thebes/gfxPlatform.cpp b/gfx/thebes/gfxPlatform.cpp
-index 2bfb6601831a668f4de32c6f91e8cffc2ca06ee5..0eb20e11c1b6362d1fcb5a44139a100c32273584 100644
+index 2bfb6601831a668f4de32c6f91e8cffc2ca06ee5..587eac0aa0d1d5b67cecc8fc842a408b8b6e642c 100644
 --- a/gfx/thebes/gfxPlatform.cpp
 +++ b/gfx/thebes/gfxPlatform.cpp
-@@ -3402,7 +3402,7 @@ void gfxPlatform::InitWebGPUConfig() {
+@@ -1862,9 +1862,15 @@ uint32_t gfxPlatform::WordCacheMaxEntries() {
+ }
+ 
+ bool gfxPlatform::UseGraphiteShaping() {
++#ifdef MOZ_WIDGET_UIKIT
++  // The UIKit embedding uses HarfBuzz/OpenType shaping. Avoid retaining the
++  // Graphite wasm2c/native implementation for the small set of Graphite fonts.
++  return false;
++#else
+   // Graphite shaping is only available on the main thread.
+   return StaticPrefs::gfx_font_rendering_graphite_enabled() &&
+          NS_IsMainThread();
++#endif
+ }
+ 
+ bool gfxPlatform::IsFontFormatSupported(
+@@ -3402,7 +3408,7 @@ void gfxPlatform::InitWebGPUConfig() {
      featureExternalTexture.Disable(FeatureStatus::Blocklisted, message.get(),
                                     failureId);
    }
@@ -99987,15 +101453,38 @@ index 6919fcff1cd3010c7c05697515b2da6b1241bf2f..4b5631db3e1efce815a11b445270cfc0
      ]
  elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
 diff --git a/gfx/webrender_bindings/Cargo.toml b/gfx/webrender_bindings/Cargo.toml
-index 766f82a5ee043944685922d20ac61d10aa29bedc..da6130f2cbb3c40e3d5bb043fa93d616bda4279b 100644
+index 766f82a5ee043944685922d20ac61d10aa29bedc..bb5d0ca3c39ff7269a97bf394e701467648858ea 100644
 --- a/gfx/webrender_bindings/Cargo.toml
 +++ b/gfx/webrender_bindings/Cargo.toml
-@@ -29,11 +29,17 @@ mozbuild = "0.1"
+@@ -5,7 +5,6 @@ authors = ["The Mozilla Project Developers"]
+ license = "MPL-2.0"
+ 
+ [dependencies]
+-dirs = "4"
+ rayon = "1"
+ num_cpus = "1.7.0"
+ tracy-rs = "0.1"
+@@ -14,7 +13,6 @@ app_units = "0.7"
+ gleam = "0.15.1"
+ log = "0.4"
+ nsstring = { path = "../../xpcom/rust/nsstring" }
+-bincode = "1.0"
+ uuid = { version = "1.0", features = ["v4"] }
+ rustc-hash = "2.1.1"
+ thin-vec = { version = "0.2.1", features = ["gecko-ffi"] }
+@@ -22,18 +20,28 @@ swgl = { path = "../wr/swgl" }
+ wr_malloc_size_of = { path = "../wr/wr_malloc_size_of" }
+ gecko-profiler = { path = "../../tools/profiler/rust-api" }
+ static_prefs = { path = "../../modules/libpref/init/static_prefs" }
+-remove_dir_all = "0.5.3"
+ mozbuild = "0.1"
+ 
+ [dependencies.webrender]
  path = "../wr/webrender"
  version = "0.62.0"
  default-features = false
 -features = ["capture", "serialize_program", "gecko", "sw_compositor"]
-+features = ["serialize_program", "gecko", "sw_compositor"]
++features = ["gecko", "sw_compositor"]
  
  [features]
  debugger = ["webrender/debugger"]
@@ -100004,12 +101493,17 @@ index 766f82a5ee043944685922d20ac61d10aa29bedc..da6130f2cbb3c40e3d5bb043fa93d616
 +path = "../wr/webrender"
 +version = "0.62.0"
 +default-features = false
-+features = ["capture"]
++features = ["capture", "serialize_program", "sw_compositor"]
++
++[target.'cfg(not(target_os = "ios"))'.dependencies]
++bincode = "1.0"
++dirs = "4"
++remove_dir_all = "0.5.3"
 +
  [target.'cfg(target_os = "windows")'.dependencies]
  dwrote = "0.11.5"
  winapi = "0.3"
-@@ -41,5 +47,6 @@ winapi = "0.3"
+@@ -41,5 +49,6 @@ winapi = "0.3"
  [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
  core-foundation = "0.9"
  core-graphics = "0.23"
@@ -100128,10 +101622,65 @@ index 1400db734e34390f2dbd25df43eb7fc032ba4eab..e479244e8e29fc3d3cc6d4dd48ff3576
    void DeleteFont(wr::FontKey aKey);
  
 diff --git a/gfx/webrender_bindings/src/bindings.rs b/gfx/webrender_bindings/src/bindings.rs
-index d3a3874d92233a102cd42fc9ad1a6ba6f357f8f2..a94848b72915a5df0b9eba3fd7300be01b84a41a 100644
+index d3a3874d92233a102cd42fc9ad1a6ba6f357f8f2..7f1d7cdd45c39a2e91e51ee114ce78b5d01194d7 100644
 --- a/gfx/webrender_bindings/src/bindings.rs
 +++ b/gfx/webrender_bindings/src/bindings.rs
-@@ -2825,7 +2825,12 @@ fn read_font_descriptor(bytes: &mut WrVecU8, index: u32) -> NativeFontHandle {
+@@ -2734,6 +2734,7 @@ pub extern "C" fn wr_resource_updates_add_raw_font(
+     txn.add_raw_font(key, bytes.flush_into_vec(), index);
+ }
+ 
++#[cfg(not(target_os = "ios"))]
+ fn generate_capture_path(moz_revision: *const c_char) -> Option<PathBuf> {
+     use std::fs::{create_dir_all, File};
+     use std::io::Write;
+@@ -2789,6 +2790,7 @@ fn generate_capture_path(moz_revision: *const c_char) -> Option<PathBuf> {
+ }
+ 
+ #[no_mangle]
++#[cfg(not(target_os = "ios"))]
+ pub extern "C" fn wr_api_capture(dh: &mut DocumentHandle, moz_revision: *const c_char, bits_raw: u32) {
+     if let Some(path) = generate_capture_path(moz_revision) {
+         let bits = CaptureBits::from_bits(bits_raw as _).unwrap();
+@@ -2797,6 +2799,11 @@ pub extern "C" fn wr_api_capture(dh: &mut DocumentHandle, moz_revision: *const c
+ }
+ 
+ #[no_mangle]
++#[cfg(target_os = "ios")]
++pub extern "C" fn wr_api_capture(_dh: &mut DocumentHandle, _moz_revision: *const c_char, _bits_raw: u32) {}
++
++#[no_mangle]
++#[cfg(not(target_os = "ios"))]
+ pub extern "C" fn wr_api_start_capture_sequence(dh: &mut DocumentHandle, moz_revision: *const c_char, bits_raw: u32) {
+     if let Some(path) = generate_capture_path(moz_revision) {
+         let bits = CaptureBits::from_bits(bits_raw as _).unwrap();
+@@ -2805,12 +2812,26 @@ pub extern "C" fn wr_api_start_capture_sequence(dh: &mut DocumentHandle, moz_rev
+ }
+ 
+ #[no_mangle]
++#[cfg(target_os = "ios")]
++pub extern "C" fn wr_api_start_capture_sequence(
++    _dh: &mut DocumentHandle,
++    _moz_revision: *const c_char,
++    _bits_raw: u32,
++) {
++}
++
++#[no_mangle]
++#[cfg(not(target_os = "ios"))]
+ pub extern "C" fn wr_api_stop_capture_sequence(dh: &mut DocumentHandle) {
+     let border = "--------------------------\n";
+     warn!("{} Stop capturing WR state\n{}", &border, &border);
+     dh.api.stop_capture_sequence();
+ }
+ 
++#[no_mangle]
++#[cfg(target_os = "ios")]
++pub extern "C" fn wr_api_stop_capture_sequence(_dh: &mut DocumentHandle) {}
++
+ #[cfg(target_os = "windows")]
+ fn read_font_descriptor(bytes: &mut WrVecU8, index: u32) -> NativeFontHandle {
+     let wchars: Vec<u16> = bytes
+@@ -2825,7 +2846,12 @@ fn read_font_descriptor(bytes: &mut WrVecU8, index: u32) -> NativeFontHandle {
  }
  
  #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -100145,7 +101694,7 @@ index d3a3874d92233a102cd42fc9ad1a6ba6f357f8f2..a94848b72915a5df0b9eba3fd7300be0
      // On macOS, the descriptor string is a concatenation of the PostScript name
      // and the font file path (to disambiguate cases where there are multiple
      // faces with the same psname present). The index is the length of the psname
-@@ -2835,6 +2840,8 @@ fn read_font_descriptor(bytes: &mut WrVecU8, index: u32) -> NativeFontHandle {
+@@ -2835,6 +2861,8 @@ fn read_font_descriptor(bytes: &mut WrVecU8, index: u32) -> NativeFontHandle {
      NativeFontHandle {
          name: String::from_utf8(chars[..index as usize].to_vec()).unwrap_or("".to_string()),
          path: String::from_utf8(chars[index as usize..].to_vec()).unwrap_or("".to_string()),
@@ -100154,7 +101703,7 @@ index d3a3874d92233a102cd42fc9ad1a6ba6f357f8f2..a94848b72915a5df0b9eba3fd7300be0
      }
  }
  
-@@ -2853,8 +2860,18 @@ pub extern "C" fn wr_resource_updates_add_font_descriptor(
+@@ -2853,8 +2881,18 @@ pub extern "C" fn wr_resource_updates_add_font_descriptor(
      key: WrFontKey,
      bytes: &mut WrVecU8,
      index: u32,
@@ -100175,10 +101724,18 @@ index d3a3874d92233a102cd42fc9ad1a6ba6f357f8f2..a94848b72915a5df0b9eba3fd7300be0
  }
  
 diff --git a/gfx/webrender_bindings/src/lib.rs b/gfx/webrender_bindings/src/lib.rs
-index 1a8e376583f2c8b673957844e5073d2b931d818b..c1f664c8ffa0a862c0390512ed5f7b05730ed6ef 100644
+index 1a8e376583f2c8b673957844e5073d2b931d818b..8916513611d1aa6cb48837d75fd5253f4923a921 100644
 --- a/gfx/webrender_bindings/src/lib.rs
 +++ b/gfx/webrender_bindings/src/lib.rs
-@@ -34,6 +34,8 @@ extern crate core_foundation;
+@@ -6,6 +6,7 @@
+ #![deny(warnings)]
+ 
+ extern crate app_units;
++#[cfg(not(target_os = "ios"))]
+ extern crate bincode;
+ extern crate euclid;
+ extern crate gecko_profiler;
+@@ -34,8 +35,14 @@ extern crate core_foundation;
  #[cfg(any(target_os = "macos", target_os = "ios"))]
  extern crate core_graphics;
  #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -100186,7 +101743,13 @@ index 1a8e376583f2c8b673957844e5073d2b931d818b..c1f664c8ffa0a862c0390512ed5f7b05
 +#[cfg(any(target_os = "macos", target_os = "ios"))]
  extern crate foreign_types;
  
++#[cfg(not(target_os = "ios"))]
++mod program_cache;
++#[cfg(target_os = "ios")]
++#[path = "program_cache_ios.rs"]
  mod program_cache;
+ 
+ #[allow(non_snake_case)]
 diff --git a/gfx/webrender_bindings/src/moz2d_renderer.rs b/gfx/webrender_bindings/src/moz2d_renderer.rs
 index c885ba051ebd806b2862f3cd913fa3f353e2aa06..efb18c235d7297318e41d71fddc225e0808ab796 100644
 --- a/gfx/webrender_bindings/src/moz2d_renderer.rs
@@ -100424,6 +101987,46 @@ index c885ba051ebd806b2862f3cd913fa3f353e2aa06..efb18c235d7297318e41d71fddc225e0
                  }
              }
          }
+diff --git a/gfx/webrender_bindings/src/program_cache_ios.rs b/gfx/webrender_bindings/src/program_cache_ios.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..9a719a3795d517adae3f5e4a023f328bcb110a3b
+--- /dev/null
++++ b/gfx/webrender_bindings/src/program_cache_ios.rs
+@@ -0,0 +1,34 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++use nsstring::nsAString;
++use rayon::ThreadPool;
++use std::io::Error;
++use std::rc::Rc;
++use std::sync::Arc;
++use webrender::ProgramCache;
++
++// iOS never enables gfx.webrender.program-binary-disk. Keep the in-memory
++// cache ABI used by the renderer without linking the disk serialization path.
++pub struct WrProgramCache {
++    pub program_cache: Rc<ProgramCache>,
++}
++
++impl WrProgramCache {
++    pub fn new(_prof_path: &nsAString, _workers: &Arc<ThreadPool>) -> Self {
++        WrProgramCache {
++            program_cache: ProgramCache::new(None),
++        }
++    }
++
++    pub fn rc_get(&self) -> &Rc<ProgramCache> {
++        &self.program_cache
++    }
++
++    pub fn try_load_startup_shaders_from_disk(&self) {}
++}
++
++pub fn remove_disk_cache(_prof_path: &nsAString) -> Result<(), Error> {
++    Ok(())
++}
 diff --git a/gfx/wgpu_bindings/Cargo.toml b/gfx/wgpu_bindings/Cargo.toml
 index f1dc13bf95d66b6f1c017a01b516d61a50b12ee8..19c01d864ecc3fe72a6789ac65bb034098f837bf 100644
 --- a/gfx/wgpu_bindings/Cargo.toml
@@ -101446,6 +103049,95 @@ index 0000000000000000000000000000000000000000..71d020cf693f5a4a326f5dbc1fbf8321
 +}
 +
 +}  // namespace mozilla::hal_impl
+diff --git a/image/DecoderFactory.cpp b/image/DecoderFactory.cpp
+index 06a4640d5f6b43a0d24f5a01a2bf53bf21a8e3e3..ed01380294ba94838e7ed795d1381dcc46b082c0 100644
+--- a/image/DecoderFactory.cpp
++++ b/image/DecoderFactory.cpp
+@@ -20,7 +20,10 @@
+ #include "nsICODecoder.h"
+ #include "nsIconDecoder.h"
+ #include "nsWebPDecoder.h"
+-#include "nsAVIFDecoder.h"
++
++#ifndef MOZ_WIDGET_UIKIT
++#  include "nsAVIFDecoder.h"
++#endif
+ 
+ #ifdef MOZ_JXL
+ #  include "nsJXLDecoder.h"
+@@ -83,9 +86,11 @@ DecoderType DecoderFactory::GetDecoderType(const char* aMimeType) {
+   } else if (!strcmp(aMimeType, IMAGE_WEBP)) {
+     type = DecoderType::WEBP;
+ 
+-    // AVIF
++#ifndef MOZ_WIDGET_UIKIT
++    // AVIF is omitted from the size-constrained UIKit runtime.
+   } else if (!strcmp(aMimeType, IMAGE_AVIF)) {
+     type = DecoderType::AVIF;
++#endif
+   }
+ #ifdef MOZ_JXL
+   else if (!strcmp(aMimeType, IMAGE_JXL) && StaticPrefs::image_jxl_enabled()) {
+@@ -132,9 +137,11 @@ already_AddRefed<Decoder> DecoderFactory::GetDecoder(DecoderType aType,
+     case DecoderType::WEBP:
+       decoder = new nsWebPDecoder(aImage);
+       break;
++#ifndef MOZ_WIDGET_UIKIT
+     case DecoderType::AVIF:
+       decoder = new nsAVIFDecoder(aImage);
+       break;
++#endif
+ #ifdef MOZ_JXL
+     case DecoderType::JXL:
+       decoder = new nsJXLDecoder(aImage);
+@@ -223,7 +230,10 @@ nsresult DecoderFactory::CreateAnimationDecoder(
+   }
+ 
+   MOZ_ASSERT(aType == DecoderType::GIF || aType == DecoderType::PNG ||
+-                 aType == DecoderType::WEBP || aType == DecoderType::AVIF
++                 aType == DecoderType::WEBP
++#ifndef MOZ_WIDGET_UIKIT
++                 || aType == DecoderType::AVIF
++#endif
+ #ifdef MOZ_JXL
+                  || aType == DecoderType::JXL
+ #endif
+@@ -282,7 +292,10 @@ already_AddRefed<Decoder> DecoderFactory::CloneAnimationDecoder(
+   // rediscover it is animated).
+   DecoderType type = aDecoder->GetType();
+   MOZ_ASSERT(type == DecoderType::GIF || type == DecoderType::PNG ||
+-                 type == DecoderType::WEBP || type == DecoderType::AVIF
++                 type == DecoderType::WEBP
++#ifndef MOZ_WIDGET_UIKIT
++                 || type == DecoderType::AVIF
++#endif
+ #ifdef MOZ_JXL
+                  || type == DecoderType::JXL
+ #endif
+diff --git a/image/decoders/moz.build b/image/decoders/moz.build
+index 70d6dbf024532d5ff5dee347c34d9c201d4487b3..68bead45f30ff2ffb02c20d4b3a19b829b861d12 100644
+--- a/image/decoders/moz.build
++++ b/image/decoders/moz.build
+@@ -19,7 +19,6 @@ elif toolkit == "android":
+ 
+ UNIFIED_SOURCES += [
+     "EXIF.cpp",
+-    "nsAVIFDecoder.cpp",
+     "nsBMPDecoder.cpp",
+     "nsGIFDecoder2.cpp",
+     "nsICODecoder.cpp",
+@@ -29,6 +28,11 @@ UNIFIED_SOURCES += [
+     "nsWebPDecoder.cpp",
+ ]
+ 
++if toolkit != "uikit":
++    UNIFIED_SOURCES += [
++        "nsAVIFDecoder.cpp",
++    ]
++
+ if CONFIG["MOZ_SYSTEM_AV1"]:
+     CXXFLAGS += CONFIG["MOZ_SYSTEM_LIBAOM_CFLAGS"]
+ 
 diff --git a/intl/icu/data_filter.json b/intl/icu/data_filter.json
 index 62782319e650f9c8c8a3048e93c080532b3afc5f..8f2bed39f76bc278757c7edad4d0d1bd85b416e2 100644
 --- a/intl/icu/data_filter.json
@@ -104684,6 +106376,33 @@ index a9a3af59a88193c5e9e67112ddb2a8d0d7035c4b..adb3ce13cbc61511e1567e5d37224abf
  
  if defined('MOZ_WEBSPEECH_TEST_BACKEND'):
      Classes += [
+diff --git a/layout/generic/nsHTMLCanvasFrame.cpp b/layout/generic/nsHTMLCanvasFrame.cpp
+index b6d6f6043c324fba37620f812b3762c20f155350..771f719de2ecba3371b143836e80ff1673f700f8 100644
+--- a/layout/generic/nsHTMLCanvasFrame.cpp
++++ b/layout/generic/nsHTMLCanvasFrame.cpp
+@@ -15,7 +15,9 @@
+ #include "mozilla/layers/RenderRootStateManager.h"
+ #include "mozilla/layers/WebRenderBridgeChild.h"
+ #include "mozilla/layers/WebRenderCanvasRenderer.h"
+-#include "mozilla/webgpu/CanvasContext.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/webgpu/CanvasContext.h"
++#endif
+ #include "nsDisplayList.h"
+ #include "nsLayoutUtils.h"
+ #include "nsStyleUtil.h"
+@@ -122,7 +124,11 @@ class nsDisplayCanvas final : public nsPaintedDisplayItem {
+       case CanvasContextType::Canvas2D:
+       case CanvasContextType::WebGL1:
+       case CanvasContextType::WebGL2:
++#ifndef MOZ_WIDGET_UIKIT
+       case CanvasContextType::WebGPU: {
++#else
++      {
++#endif
+         bool isRecycled;
+         RefPtr<WebRenderCanvasData> canvasData =
+             aManager->CommandBuilder()
 diff --git a/layout/generic/nsIFrame.cpp b/layout/generic/nsIFrame.cpp
 index d93bfcc9d57a343700b76810617f017524c7b6aa..dce6dfbfd099db06db7b16fdf140adc599560138 100644
 --- a/layout/generic/nsIFrame.cpp
@@ -111754,6 +113473,514 @@ index 0079aa60a1e9ef4eab9b810f373543b6b47b451f..dcc95451fd6654eb6a0c42e7ecb44798
          break;
        case "GeckoView:MediaSession:SkipAd":
          this.controller.skipAd();
+diff --git a/mobile/shared/modules/geckoview/GeckoViewNavigation.sys.mjs b/mobile/shared/modules/geckoview/GeckoViewNavigation.sys.mjs
+index f13150bc961c994dfab625be28e80864e08613a8..b0a99fd2d461dcce814969b2a198961327ef0a88 100644
+--- a/mobile/shared/modules/geckoview/GeckoViewNavigation.sys.mjs
++++ b/mobile/shared/modules/geckoview/GeckoViewNavigation.sys.mjs
+@@ -86,6 +86,34 @@ function convertFlags(aFlags) {
+ // active.
+ // Implements nsIBrowserDOMWindow.
+ export class GeckoViewNavigation extends GeckoViewModule {
++  _detachWebProgress() {
++    if (!this.webProgress || !this.progressFilter) {
++      return;
++    }
++    try {
++      this.webProgress.removeProgressListener(this.progressFilter);
++    } catch (_) {}
++    this.webProgress = null;
++  }
++
++  _attachWebProgress() {
++    this._detachWebProgress();
++    if (!this.progressFilter) {
++      return;
++    }
++
++    this.webProgress = this.browser;
++    if (!this.browser.isRemoteBrowser && this.browser.docShell) {
++      this.webProgress = this.browser.docShell.QueryInterface(
++        Ci.nsIWebProgress
++      );
++    }
++    this.webProgress.addProgressListener(
++      this.progressFilter,
++      this._progressListenerFlags
++    );
++  }
++
+   onInitBrowser() {
+     this.window.browserDOMWindow = this;
+ 
+@@ -108,6 +136,11 @@ export class GeckoViewNavigation extends GeckoViewModule {
+     // us to create a browser so it can set openWindowInfo, so allow them to do
+     // that now.
+     Services.obs.notifyObservers(this.window, "geckoview-window-created");
++    this._attachWebProgress();
++  }
++
++  onDestroyBrowser() {
++    this._detachWebProgress();
+   }
+ 
+   onInit() {
+@@ -655,12 +688,15 @@ export class GeckoViewNavigation extends GeckoViewModule {
+   onEnable() {
+     debug`onEnable`;
+ 
+-    const flags = Ci.nsIWebProgress.NOTIFY_LOCATION;
++    this._progressListenerFlags = Ci.nsIWebProgress.NOTIFY_LOCATION;
+     this.progressFilter = Cc[
+       "@mozilla.org/appshell/component/browser-status-filter;1"
+     ].createInstance(Ci.nsIWebProgress);
+-    this.progressFilter.addProgressListener(this, flags);
+-    this.browser.addProgressListener(this.progressFilter, flags);
++    this.progressFilter.addProgressListener(
++      this,
++      this._progressListenerFlags
++    );
++    this._attachWebProgress();
+   }
+ 
+   onDisable() {
+@@ -669,8 +705,9 @@ export class GeckoViewNavigation extends GeckoViewModule {
+     if (!this.progressFilter) {
+       return;
+     }
++    this._detachWebProgress();
+     this.progressFilter.removeProgressListener(this);
+-    this.browser.removeProgressListener(this.progressFilter);
++    this.progressFilter = null;
+   }
+ 
+   serializePermission({ type, capability, principal }) {
+diff --git a/mobile/shared/modules/geckoview/GeckoViewProgress.sys.mjs b/mobile/shared/modules/geckoview/GeckoViewProgress.sys.mjs
+index d2a252ac53d7d6e6c67bf608b6b74e2663b14ec9..4ed29483a5a64fe480b34a31160a6556187a01d9 100644
+--- a/mobile/shared/modules/geckoview/GeckoViewProgress.sys.mjs
++++ b/mobile/shared/modules/geckoview/GeckoViewProgress.sys.mjs
+@@ -199,20 +199,42 @@ class ProgressTracker extends Tracker {
+   constructor(aModule) {
+     super(aModule);
+ 
+-    this.pageLoadStopwatch = new lazy.GleanStopwatch(
+-      Glean.geckoview.pageLoadTime
+-    );
+-    this.pageReloadStopwatch = new lazy.GleanStopwatch(
+-      Glean.geckoview.pageReloadTime
+-    );
+-    this.pageLoadProgressStopwatch = new lazy.GleanStopwatch(
+-      Glean.geckoview.pageLoadProgressTime
++    this.pageLoadStopwatch = this._createStopwatch("pageLoadTime");
++    this.pageReloadStopwatch = this._createStopwatch("pageReloadTime");
++    this.pageLoadProgressStopwatch = this._createStopwatch(
++      "pageLoadProgressTime"
+     );
+ 
+     this.clear();
+     this._eventReceived = null;
+   }
+ 
++  _createStopwatch(aMetricName) {
++    try {
++      return new lazy.GleanStopwatch(Glean.geckoview[aMetricName]);
++    } catch (error) {
++      this._module._traceProgress("telemetry-disabled", {
++        metric: aMetricName,
++        error: this._module._progressError(error),
++      });
++      return null;
++    }
++  }
++
++  _runStopwatch(aStopwatch, aAction) {
++    if (!aStopwatch) {
++      return;
++    }
++    try {
++      aStopwatch[aAction]();
++    } catch (error) {
++      this._module._traceProgress("telemetry-error", {
++        action: aAction,
++        error: this._module._progressError(error),
++      });
++    }
++  }
++
+   start(aUri) {
+     debug`ProgressTracker start ${aUri}`;
+ 
+@@ -230,13 +252,21 @@ class ProgressTracker extends Tracker {
+       return;
+     }
+ 
+-    this.pageLoadProgressStopwatch.start();
++    this._runStopwatch(this.pageLoadProgressStopwatch, "start");
+ 
+     data.uri = aUri;
+     data.pageStart = true;
+     this.updateProgress();
+   }
+ 
++  isTracking(aUri) {
++    return !!this._eventReceived && this._data.uri === aUri;
++  }
++
++  hasReceived(aEventName) {
++    return !!this._eventReceived?.has(aEventName);
++  }
++
+   changeLocation(aUri) {
+     debug`ProgressTracker changeLocation ${aUri}`;
+ 
+@@ -254,9 +284,9 @@ class ProgressTracker extends Tracker {
+     }
+ 
+     if (aIsSuccess) {
+-      this.pageLoadProgressStopwatch.finish();
++      this._runStopwatch(this.pageLoadProgressStopwatch, "finish");
+     } else {
+-      this.pageLoadProgressStopwatch.cancel();
++      this._runStopwatch(this.pageLoadProgressStopwatch, "cancel");
+     }
+ 
+     const data = this._data;
+@@ -293,13 +323,13 @@ class ProgressTracker extends Tracker {
+       (aStateFlags & Ci.nsIWebProgressListener.STATE_REDIRECTING) != 0;
+ 
+     if (isStart) {
+-      stopwatch.start();
++      this._runStopwatch(stopwatch, "start");
+       this.start(displaySpec);
+     } else if (isStop && !aWebProgress.isLoadingDocument) {
+-      stopwatch.finish();
++      this._runStopwatch(stopwatch, "finish");
+       this.stop(aStatus == Cr.NS_OK);
+     } else if (isRedirecting) {
+-      stopwatch.start();
++      this._runStopwatch(stopwatch, "start");
+       this.start(displaySpec);
+     }
+ 
+@@ -396,7 +426,8 @@ class ProgressTracker extends Tracker {
+       completeProgress: false,
+     };
+     this._progressBarCompletion = Services.prefs.getIntPref(
+-      "page_load.progressbar_completion"
++      "page_load.progressbar_completion",
++      2
+     );
+   }
+ 
+@@ -478,10 +509,17 @@ class StateTracker extends Tracker {
+       success: aIsSuccess,
+     });
+ 
+-    lazy.BrowserTelemetryUtils.recordSiteOriginTelemetry(
+-      Services.wm.getEnumerator("navigator:geckoview"),
+-      true
+-    );
++    try {
++      lazy.BrowserTelemetryUtils.recordSiteOriginTelemetry(
++        Services.wm.getEnumerator("navigator:geckoview"),
++        true
++      );
++    } catch (error) {
++      this._module._traceProgress("telemetry-error", {
++        action: "recordSiteOriginTelemetry",
++        error: this._module._progressError(error),
++      });
++    }
+   }
+ 
+   onStateChange(aWebProgress, aRequest, aStateFlags, aStatus) {
+@@ -542,25 +580,185 @@ class SecurityTracker extends Tracker {
+ }
+ 
+ export class GeckoViewProgress extends GeckoViewModule {
++  _traceProgress(stage, data = {}) {
++    try {
++      this.eventDispatcher.sendRequest("GeminiGecko:NavTrace", {
++        stage: `progress-${stage}`,
++        remote: this.browser?.isRemoteBrowser ?? null,
++        remoteType: this.browser?.remoteType ?? null,
++        ...data,
++      });
++    } catch (error) {
++      console.error("Failed to send GeckoView progress trace", error);
++    }
++  }
++
++  _progressError(error) {
++    try {
++      return error?.message ?? String(error);
++    } catch (_) {
++      return "unknown error";
++    }
++  }
++
++  _detachWebProgress() {
++    if (!this.webProgress || !this.progressFilter) {
++      return;
++    }
++    try {
++      this.webProgress.removeProgressListener(this.progressFilter);
++    } catch (_) {}
++    this.webProgress = null;
++  }
++
++  _attachWebProgress() {
++    this._detachWebProgress();
++    if (!this.progressFilter) {
++      this._traceProgress("attach-skipped", { reason: "no-filter" });
++      return;
++    }
++
++    const candidates = [];
++    if (!this.browser.isRemoteBrowser && this.browser.docShell) {
++      try {
++        candidates.push({
++          source: "docshell",
++          webProgress: this.browser.docShell.QueryInterface(Ci.nsIWebProgress),
++        });
++      } catch (error) {
++        this._traceProgress("attach-candidate-error", {
++          source: "docshell",
++          error: this._progressError(error),
++        });
++      }
++    }
++    candidates.push({ source: "browser", webProgress: this.browser });
++
++    for (const { source, webProgress } of candidates) {
++      this._traceProgress("attach-attempt", { source });
++      try {
++        webProgress.addProgressListener(
++          this.progressFilter,
++          this._progressListenerFlags
++        );
++        this.webProgress = webProgress;
++        this._traceProgress("attach", { source });
++        return;
++      } catch (error) {
++        this._traceProgress("attach-error", {
++          source,
++          error: this._progressError(error),
++        });
++      }
++    }
++
++    this.webProgress = null;
++    this._traceProgress("attach-failed");
++  }
++
++  _setContentEventListeners(add) {
++    const events = ["DOMContentLoaded", "load", "MozAfterPaint", "pageshow"];
++    let targets = this._contentEventTargets ?? [];
++    if (add) {
++      targets = [{ source: "browser", target: this.browser }];
++      try {
++        const contentWindow = this.browser.contentWindow;
++        if (contentWindow) {
++          targets.push({ source: "content-window", target: contentWindow });
++        }
++      } catch (error) {
++        this._traceProgress("dom-target-error", {
++          source: "content-window",
++          error: this._progressError(error),
++        });
++      }
++      this._contentEventTargets = targets;
++    }
++
++    for (const { source, target } of targets) {
++      for (const event of events) {
++        try {
++          target[add ? "addEventListener" : "removeEventListener"](
++            event,
++            this,
++            true
++          );
++          this._traceProgress(`dom-listener-${add ? "add" : "remove"}`, {
++            event,
++            source,
++          });
++        } catch (error) {
++          this._traceProgress(`dom-listener-${add ? "add" : "remove"}-error`, {
++            event,
++            source,
++            error: this._progressError(error),
++          });
++        }
++      }
++    }
++
++    if (!add) {
++      this._contentEventTargets = null;
++    }
++  }
++
++  onInitBrowser() {
++    // UIKit first creates a remote placeholder, then swaps in the in-process
++    // docshell. Rebind after that swap instead of listening to the discarded
++    // placeholder for the lifetime of the session.
++    this._traceProgress("init-browser", {
++      hasFilter: !!this.progressFilter,
++      hasDocShell: !!this.browser.docShell,
++    });
++    if (this._progressTracker && !this._contentEventTargets) {
++      this._setContentEventListeners(true);
++    }
++    this._attachWebProgress();
++  }
++
++  onDestroyBrowser() {
++    if (this._contentEventTargets) {
++      this._setContentEventListeners(false);
++    }
++    this._detachWebProgress();
++  }
++
+   onEnable() {
+     debug`onEnable`;
+ 
+     this._fireInitialLoad();
++    this._traceProgress("enable");
+     this._initialAboutBlank = true;
+ 
+     this._progressTracker = new ProgressTracker(this);
+     this._securityTracker = new SecurityTracker(this);
+     this._stateTracker = new StateTracker(this);
++    this._traceProgress("trackers-created");
+ 
+-    const flags =
++    this._progressListenerFlags =
+       Ci.nsIWebProgress.NOTIFY_STATE_NETWORK |
+       Ci.nsIWebProgress.NOTIFY_SECURITY |
+       Ci.nsIWebProgress.NOTIFY_LOCATION;
+-    this.progressFilter = Cc[
+-      "@mozilla.org/appshell/component/browser-status-filter;1"
+-    ].createInstance(Ci.nsIWebProgress);
+-    this.progressFilter.addProgressListener(this, flags);
+-    this.browser.addProgressListener(this.progressFilter, flags);
++    this._setContentEventListeners(true);
++    try {
++      this.progressFilter = Cc[
++        "@mozilla.org/appshell/component/browser-status-filter;1"
++      ].createInstance(Ci.nsIWebProgress);
++      this._traceProgress("filter-created");
++      this.progressFilter.addProgressListener(
++        this,
++        this._progressListenerFlags
++      );
++      this._traceProgress("filter-listener-added");
++    } catch (error) {
++      this._traceProgress("filter-error", {
++        error: this._progressError(error),
++      });
++      this.progressFilter = null;
++    }
++    this._attachWebProgress();
++    this._contentEventFallbackActive = false;
++    this._lastCompletedContentURI = null;
+     Services.obs.addObserver(this, "oop-frameloader-crashed");
+     this.registerListener("GeckoView:GetQWACStatus");
+   }
+@@ -569,9 +767,13 @@ export class GeckoViewProgress extends GeckoViewModule {
+     debug`onDisable`;
+ 
+     if (this.progressFilter) {
++      this._detachWebProgress();
+       this.progressFilter.removeProgressListener(this);
+-      this.browser.removeProgressListener(this.progressFilter);
+     }
++    this._setContentEventListeners(false);
++    this.progressFilter = null;
++    this._contentEventFallbackActive = false;
++    this._lastCompletedContentURI = null;
+ 
+     Services.obs.removeObserver(this, "oop-frameloader-crashed");
+     this.unregisterListener("GeckoView:GetQWACStatus");
+@@ -580,12 +782,79 @@ export class GeckoViewProgress extends GeckoViewModule {
+   receiveMessage(aMsg) {
+     debug`receiveMessage: ${aMsg.name}`;
+ 
++    this._handleContentEvent(aMsg, "actor");
++  }
++
++  handleEvent(aEvent) {
++    const target = aEvent.originalTarget;
++    const contentWindow = target?.defaultView ?? target;
++    const isTopLevel =
++      !!contentWindow && contentWindow === this.browser.contentWindow;
++    let uri = null;
++    try {
++      uri = contentWindow?.location?.href ?? null;
++    } catch (_) {}
++    if (
++      aEvent.type !== "MozAfterPaint" ||
++      (this._progressTracker.isTracking(uri) &&
++        !this._progressTracker.hasReceived(aEvent.type))
++    ) {
++      this._traceProgress(`dom-${aEvent.type}`, {
++        isTopLevel,
++        listenerTarget:
++          aEvent.currentTarget === this.browser ? "browser" : "content-window",
++        uri,
++      });
++    }
++    if (!isTopLevel) {
++      return;
++    }
++
++    this._handleContentEvent({ name: aEvent.type, data: { uri } }, "browser");
++  }
++
++  _handleContentEvent(aMsg, source) {
++    debug`handleContentEvent: ${aMsg.name} source=${source}`;
++
+     switch (aMsg.name) {
+       case "DOMContentLoaded": // fall-through
++      case "load": // fall-through
+       case "MozAfterPaint": // fall-through
+       case "pageshow": {
++        const uri = aMsg.data?.uri;
++        const isTerminal = aMsg.name === "load" || aMsg.name === "pageshow";
++        const canStartFallback = aMsg.name === "DOMContentLoaded" || isTerminal;
++        if (
++          aMsg.name !== "MozAfterPaint" ||
++          (this._progressTracker.isTracking(uri) &&
++            !this._progressTracker.hasReceived(aMsg.name))
++        ) {
++          this._traceProgress(`content-${aMsg.name}`, { source, uri });
++        }
++        if (
++          canStartFallback &&
++          uri &&
++          uri !== "about:blank" &&
++          !this._progressTracker.isTracking(uri) &&
++          !(isTerminal && uri === this._lastCompletedContentURI)
++        ) {
++          if (this._contentEventFallbackActive) {
++            this._stateTracker.stop(/* isSuccess */ false);
++          }
++          this._progressTracker.start(uri);
++          this._stateTracker.start(uri);
++          this._contentEventFallbackActive = true;
++          this._lastCompletedContentURI = null;
++          this._initialAboutBlank = false;
++        }
+         this._progressTracker?.handleEvent(aMsg);
+-        if (aMsg.name === "pageshow") {
++        if (isTerminal) {
++          if (this._progressTracker.isTracking(uri)) {
++            this._progressTracker.stop(/* isSuccess */ true);
++            this._stateTracker.stop(/* isSuccess */ true);
++          }
++          this._contentEventFallbackActive = false;
++          this._lastCompletedContentURI = uri;
+           const nav = this.moduleManager._applinkNavigation;
+           if (nav) {
+             this.moduleManager._applinkNavigation = null;
 diff --git a/mobile/shared/modules/geckoview/GeckoViewSettings.sys.mjs b/mobile/shared/modules/geckoview/GeckoViewSettings.sys.mjs
 index 8fb59f0a7f72a12b5ceb81add1232e7ff7c6beff..b8e74cb8f30bb1d597e417b9244dfd64bfe0688e 100644
 --- a/mobile/shared/modules/geckoview/GeckoViewSettings.sys.mjs
@@ -113559,6 +115786,101 @@ index cf9881652efef241617e9ffc329e3d2b0fc5b748..00000000000000000000000000000000
 -
 -// static
 -bool nsINetworkLinkService::HasNonLocalIPv6Address() { return false; }
+diff --git a/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp b/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp
+index 654ecffedd29d42ca9bcc81d99b9f991cda44fff..fb4a00450c195f127a1854026dbbe80d615eea3b 100644
+--- a/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp
++++ b/netwerk/url-classifier/AsyncUrlChannelClassifier.cpp
+@@ -4,7 +4,9 @@
+ 
+ #include "ChannelClassifierService.h"
+ #include "Classifier.h"
+-#include "ContentClassifierService.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "ContentClassifierService.h"
++#endif
+ #include "HttpBaseChannel.h"
+ #include "mozilla/Components.h"
+ #include "mozilla/ErrorNames.h"
+@@ -967,6 +969,7 @@ nsresult AntiTrackingChannelClassifierUtils::CheckChannelHelper(
+     return NS_ERROR_FAILURE;
+   }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   Maybe<ContentClassifierRequest> contentClassifierRequest;
+   RefPtr<ContentClassifierService> contentClassifier =
+       ContentClassifierService::GetInstance();
+@@ -977,6 +980,11 @@ nsresult AntiTrackingChannelClassifierUtils::CheckChannelHelper(
+   if (!task && !(contentClassifier && contentClassifier->IsInitialized())) {
+     return NS_ERROR_FAILURE;
+   }
++#else
++  if (!task) {
++    return NS_ERROR_FAILURE;
++  }
++#endif
+ 
+   RefPtr<nsUrlClassifierDBServiceWorker> workerClassifier =
+       nsUrlClassifierDBService::GetWorker();
+@@ -1018,10 +1026,17 @@ nsresult AntiTrackingChannelClassifierUtils::CheckChannelHelper(
+ 
+   nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
+       "AntiTrackingChannelClassifierUtils::CheckChannelHelper",
+-      [aPerformAnnotations, aPerformBlocking, task, workerClassifier,
++      [
++#ifndef MOZ_WIDGET_UIKIT
++       aPerformAnnotations,
++#endif
++       aPerformBlocking, task, workerClassifier,
+        eventPriority, outerStartTime,
++#ifndef MOZ_WIDGET_UIKIT
+        contentClassifierRequest = std::move(contentClassifierRequest),
+-       contentClassifier, callbackFromFeature = std::move(callbackFromFeature),
++       contentClassifier,
++#endif
++       callbackFromFeature = std::move(callbackFromFeature),
+        channel = nsCOMPtr<nsIChannel>(aChannel)]() mutable -> void {
+         MOZ_ASSERT(!NS_IsMainThread());
+ 
+@@ -1034,6 +1049,7 @@ nsresult AntiTrackingChannelClassifierUtils::CheckChannelHelper(
+           workerStartTime = TimeStamp::Now();
+         }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+         ContentClassifierResult cancelResult;
+         ContentClassifierResult annotateResult;
+ 
+@@ -1048,6 +1064,7 @@ nsresult AntiTrackingChannelClassifierUtils::CheckChannelHelper(
+                 *contentClassifierRequest);
+           }
+         }
++#endif
+ 
+         if (task) {
+           task->DoLookup(workerClassifier);
+@@ -1067,10 +1084,13 @@ nsresult AntiTrackingChannelClassifierUtils::CheckChannelHelper(
+                 "AntiTrackingChannelClassifierUtils::CheckChannelHelper - "
+                 "return",
+                 [aPerformBlocking, task, channel, outerStartTime,
++#ifndef MOZ_WIDGET_UIKIT
+                  cancelResult = std::move(cancelResult),
+                  annotateResult = std::move(annotateResult),
+-                 callbackFromFeature = std::move(callbackFromFeature),
+-                 contentClassifier]() -> void {
++                 contentClassifier,
++#endif
++                 callbackFromFeature = std::move(callbackFromFeature)]() -> void {
++#ifndef MOZ_WIDGET_UIKIT
+                   if (contentClassifier) {
+                     ChannelBlockDecision cancelAction =
+                         contentClassifier->MaybeCancelChannel(channel,
+@@ -1081,6 +1101,7 @@ nsresult AntiTrackingChannelClassifierUtils::CheckChannelHelper(
+                                                               annotateResult);
+                     }
+                   }
++#endif
+                   if (aPerformBlocking) {
+                     TimeDuration checkChannelHelperDuration =
+                         TimeStamp::Now() - outerStartTime;
 diff --git a/parser/expat/moz.build b/parser/expat/moz.build
 index 8c1842d5a5d3d375d0ef027118f378f69abb167a..4bd05d07e8858109225c983321294f0a1baf476c 100644
 --- a/parser/expat/moz.build
@@ -114473,6 +116795,186 @@ index 5afb1e1e59acded32213c3ad2ab72241e804bc89..eaea87f0daf7d24873542ee18a70e1af
  
  IPDL_SOURCES += [
      "PExtensions.ipdl",
+diff --git a/toolkit/components/glean/bindings/Category.cpp b/toolkit/components/glean/bindings/Category.cpp
+index d2fc27194c222d2cf1afb1539db4d4bd94204296..b4e601443bf13e3e41b19f014acebf1391e516a4 100644
+--- a/toolkit/components/glean/bindings/Category.cpp
++++ b/toolkit/components/glean/bindings/Category.cpp
+@@ -31,6 +31,9 @@ already_AddRefed<GleanMetric> Category::NamedGetter(const nsAString& aName,
+ 
+   aFound = false;
+ 
++#ifdef MOZ_WIDGET_UIKIT
++  return nullptr;
++#else
+   nsCString metricName;
+   metricName.AppendASCII(mName);
+   metricName.AppendLiteral(".");
+@@ -48,11 +51,13 @@ already_AddRefed<GleanMetric> Category::NamedGetter(const nsAString& aName,
+ 
+   aFound = true;  // Should always be true (MOZ_ASSERT_UNREACHABLE-guarded).
+   return NewMetricFromId(metricIdx.value(), mParent);
++#endif
+ }
+ 
+ bool Category::NameIsEnumerable(const nsAString& aName) { return false; }
+ 
+ void Category::GetSupportedNames(nsTArray<nsString>& aNames) {
++#ifndef MOZ_WIDGET_UIKIT
+   JOG::GetMetricNames(mName, aNames);
+   if (!JOG::AreRuntimeMetricsComprehensive()) {
+     for (metric_entry_t entry : sMetricByNameLookupEntries) {
+@@ -71,6 +76,7 @@ void Category::GetSupportedNames(nsTArray<nsString>& aNames) {
+       }
+     }
+   }
++#endif
+ }
+ 
+ }  // namespace mozilla::glean
+diff --git a/toolkit/components/glean/bindings/Glean.cpp b/toolkit/components/glean/bindings/Glean.cpp
+index 8cfc1a41413c0c3d36f8798d84d5f3dae6562b3c..d04cf3ea40ee1b73d63ac39119e85ab8ba14e7a2 100644
+--- a/toolkit/components/glean/bindings/Glean.cpp
++++ b/toolkit/components/glean/bindings/Glean.cpp
+@@ -67,6 +67,10 @@ already_AddRefed<Category> Glean::NamedGetter(const nsAString& aName,
+   MOZ_ASSERT(NS_IsMainThread());
+   MOZ_ASSERT(IsCamelCase(aName), "NamedGetter expects CamelCase");
+ 
++#ifdef MOZ_WIDGET_UIKIT
++  aFound = false;
++  return nullptr;
++#else
+   JOG::EnsureRuntimeMetricsRegistered();
+ 
+   NS_ConvertUTF16toUTF8 categoryName(aName);
+@@ -92,11 +96,13 @@ already_AddRefed<Category> Glean::NamedGetter(const nsAString& aName,
+   aFound = true;
+   nsDependentCString name(GetCategoryName(categoryIdx.value()));
+   return MakeAndAddRef<Category>(std::move(name), mParent);
++#endif
+ }
+ 
+ bool Glean::NameIsEnumerable(const nsAString& aName) { return false; }
+ 
+ void Glean::GetSupportedNames(nsTArray<nsString>& aNames) {
++#ifndef MOZ_WIDGET_UIKIT
+   JOG::GetCategoryNames(aNames);
+   if (!JOG::AreRuntimeMetricsComprehensive()) {
+     for (category_entry_t entry : sCategoryByNameLookupEntries) {
+@@ -104,6 +110,7 @@ void Glean::GetSupportedNames(nsTArray<nsString>& aNames) {
+       aNames.AppendElement()->AssignASCII(categoryName);
+     }
+   }
++#endif
+ }
+ 
+ // static
+diff --git a/toolkit/components/glean/bindings/GleanJSLookupUIKit.cpp b/toolkit/components/glean/bindings/GleanJSLookupUIKit.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..acc04710be7d7372ae1be55b64b29e8d6993500f
+--- /dev/null
++++ b/toolkit/components/glean/bindings/GleanJSLookupUIKit.cpp
+@@ -0,0 +1,23 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#include "mozilla/glean/bindings/GleanJSMetricsLookup.h"
++
++namespace mozilla::glean {
++
++already_AddRefed<GleanMetric> NewMetricFromId(uint32_t aId,
++                                              nsISupports* aParent) {
++  return nullptr;
++}
++
++already_AddRefed<GleanMetric> NewSubMetricFromIds(uint32_t aParentTypeId,
++                                                  uint32_t aParentMetricId,
++                                                  const nsACString& aLabel,
++                                                  uint32_t* aSubmetricId,
++                                                  nsISupports* aParent) {
++  *aSubmetricId = 0;
++  return nullptr;
++}
++
++}  // namespace mozilla::glean
+diff --git a/toolkit/components/glean/bindings/GleanPings.cpp b/toolkit/components/glean/bindings/GleanPings.cpp
+index f4f83f5291cb686e2be84e2850ed23db97b49217..5955c1765db92913242b734a9a4cd20ed67f966b 100644
+--- a/toolkit/components/glean/bindings/GleanPings.cpp
++++ b/toolkit/components/glean/bindings/GleanPings.cpp
+@@ -57,6 +57,9 @@ already_AddRefed<GleanPing> GleanPings::NamedGetter(const nsAString& aName,
+                                                     bool& aFound) {
+   aFound = false;
+ 
++#ifdef MOZ_WIDGET_UIKIT
++  return nullptr;
++#else
+   NS_ConvertUTF16toUTF8 pingName(aName);
+ 
+   JOG::EnsureRuntimeMetricsRegistered();
+@@ -73,11 +76,13 @@ already_AddRefed<GleanPing> GleanPings::NamedGetter(const nsAString& aName,
+ 
+   aFound = true;
+   return MakeAndAddRef<GleanPing>(pingId.value());
++#endif
+ }
+ 
+ bool GleanPings::NameIsEnumerable(const nsAString& aName) { return false; }
+ 
+ void GleanPings::GetSupportedNames(nsTArray<nsString>& aNames) {
++#ifndef MOZ_WIDGET_UIKIT
+   JOG::GetPingNames(aNames);
+   if (!JOG::AreRuntimeMetricsComprehensive()) {
+     for (ping_entry_t entry : sPingByNameLookupEntries) {
+@@ -85,6 +90,7 @@ void GleanPings::GetSupportedNames(nsTArray<nsString>& aNames) {
+       aNames.AppendElement()->AssignASCII(pingName);
+     }
+   }
++#endif
+ }
+ 
+ }  // namespace mozilla::glean
+diff --git a/toolkit/components/glean/bindings/jog/JOGUIKit.cpp b/toolkit/components/glean/bindings/jog/JOGUIKit.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..0857168d551d138281b3dda1497fdefdef4d7d86
+--- /dev/null
++++ b/toolkit/components/glean/bindings/jog/JOGUIKit.cpp
+@@ -0,0 +1,36 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#include "mozilla/glean/bindings/jog/JOG.h"
++#include "nsString.h"
++
++namespace mozilla::glean {
++
++bool JOG::HasCategory(const nsACString&) { return false; }
++
++bool JOG::EnsureRuntimeMetricsRegistered(bool) { return false; }
++
++bool JOG::AreRuntimeMetricsComprehensive() { return false; }
++
++void JOG::GetCategoryNames(nsTArray<nsString>&) {}
++
++Maybe<uint32_t> JOG::GetMetric(const nsACString&) { return Nothing(); }
++
++Maybe<nsCString> JOG::GetMetricName(uint32_t) { return Nothing(); }
++
++void JOG::GetMetricNames(const nsACString&, nsTArray<nsString>&) {}
++
++Maybe<uint32_t> JOG::GetPing(const nsACString&) { return Nothing(); }
++
++void JOG::GetPingNames(nsTArray<nsString>&) {}
++
++}  // namespace mozilla::glean
++
++extern "C" NS_EXPORT void JOG_RegisterMetric(const nsACString&,
++                                             const nsACString&, uint32_t,
++                                             uint32_t) {}
++
++extern "C" NS_EXPORT void JOG_MaybeReload() {}
++
++extern "C" NS_EXPORT void JOG_RegisterPing(const nsACString&, uint32_t) {}
 diff --git a/toolkit/components/glean/bindings/private/FogUIKitNoop.h b/toolkit/components/glean/bindings/private/FogUIKitNoop.h
 new file mode 100644
 index 0000000000000000000000000000000000000000..5b09d58e8915c0bed568db817e5d2f621d76d101
@@ -114665,7 +117167,7 @@ index 127930c25c97cba6238ca99d9f37e1ff7a642975..d5ed339005e88fbc99b066c2d7614364
  """
  autogen_warning = """/* DO NOT MODIFY THIS MANUALLY! This file was generated using cbindgen. */"""
 diff --git a/toolkit/components/glean/moz.build b/toolkit/components/glean/moz.build
-index 22dfab5a45f4c039bf48f9c2d97622d311de2dc1..72945b1006e060f5e0eaa58ff0e6b4777cc2bc18 100644
+index 22dfab5a45f4c039bf48f9c2d97622d311de2dc1..8e423d5f1822cd81d8971e1ff53337b063237a1e 100644
 --- a/toolkit/components/glean/moz.build
 +++ b/toolkit/components/glean/moz.build
 @@ -25,6 +25,10 @@ EXPORTS.mozilla.glean.bindings.jog += [
@@ -114679,11 +117181,96 @@ index 22dfab5a45f4c039bf48f9c2d97622d311de2dc1..72945b1006e060f5e0eaa58ff0e6b477
  if CONFIG["COMPILE_ENVIRONMENT"]:
      EXPORTS.mozilla.glean += [
          "!fog_ffi_generated.h",
+@@ -45,7 +49,6 @@ UNIFIED_SOURCES += [
+     "bindings/GleanMetric.cpp",
+     "bindings/GleanPings.cpp",
+     "bindings/GleanWebIDL.cpp",
+-    "bindings/jog/JOG.cpp",
+     "bindings/private/Boolean.cpp",
+     "bindings/private/Common.cpp",
+     "bindings/private/Counter.cpp",
+@@ -74,12 +77,22 @@ UNIFIED_SOURCES += [
+ 
+ SOURCES += [
+     "!EventGIFFTMap.cpp",
+-    "!GleanJSMetricsLookup.cpp",
+-    "!GleanJSPingsLookup.cpp",
+     "!HistogramGIFFTMap.cpp",
+     "!ScalarGIFFTMap.cpp",
+ ]
+ 
++if CONFIG["MOZ_WIDGET_TOOLKIT"] == "uikit":
++    SOURCES += [
++        "bindings/GleanJSLookupUIKit.cpp",
++        "bindings/jog/JOGUIKit.cpp",
++    ]
++else:
++    UNIFIED_SOURCES += ["bindings/jog/JOG.cpp"]
++    SOURCES += [
++        "!GleanJSMetricsLookup.cpp",
++        "!GleanJSPingsLookup.cpp",
++    ]
++
+ # Provides us the list of dependent metrics|pings.yaml.
+ include("metrics_index.py")
+ 
 diff --git a/toolkit/components/glean/xpcom/FOG.cpp b/toolkit/components/glean/xpcom/FOG.cpp
-index 562321d0343539dbbeea743fadd043202bec15bc..f950171fd270dcd6fdd1c69862ccd82e2879d152 100644
+index 562321d0343539dbbeea743fadd043202bec15bc..b277623d6015b6bfeefcbe52b7bbce127436989e 100644
 --- a/toolkit/components/glean/xpcom/FOG.cpp
 +++ b/toolkit/components/glean/xpcom/FOG.cpp
-@@ -677,6 +677,13 @@ MOZ_DEFINE_MALLOC_ENCLOSING_SIZE_OF(FOGMallocEnclosingSizeOf)
+@@ -486,8 +486,10 @@ FOG::TestRegisterRuntimeMetric(
+     const nsACString& aLifetime, const bool aDisabled,
+     const nsACString& aExtraArgs, uint32_t* aMetricIdOut) {
+   *aMetricIdOut = 0;
++#ifndef MOZ_WIDGET_UIKIT
+   *aMetricIdOut = glean::jog::jog_test_register_metric(
+       &aType, &aCategory, &aName, &aPings, &aLifetime, aDisabled, &aExtraArgs);
++#endif
+   return NS_OK;
+ }
+ 
+@@ -498,8 +500,12 @@ FOG::RegisterRuntimeMetric(const nsACString& aType, const nsACString& aCategory,
+                            const nsACString& aLifetime, const bool aDisabled,
+                            const nsACString& aExtraArgs) {
+   MOZ_ASSERT(XRE_IsParentProcess());
++#ifdef MOZ_WIDGET_UIKIT
++  return NS_OK;
++#else
+   return glean::jog::jog_register_metric(&aType, &aCategory, &aName, &aPings,
+                                          &aLifetime, aDisabled, &aExtraArgs);
++#endif
+ }
+ 
+ NS_IMETHODIMP
+@@ -512,10 +518,12 @@ FOG::TestRegisterRuntimePing(
+     const bool aFollowsCollectionEnabled,
+     const nsTArray<nsCString>& aUploaderCapabilities, uint32_t* aPingIdOut) {
+   *aPingIdOut = 0;
++#ifndef MOZ_WIDGET_UIKIT
+   *aPingIdOut = glean::jog::jog_test_register_ping(
+       &aName, aIncludeClientId, aSendIfEmpty, aPreciseTimestamps,
+       aIncludeInfoSections, aEnabled, &aSchedulesPings, &aReasonCodes,
+       aFollowsCollectionEnabled, &aUploaderCapabilities);
++#endif
+   return NS_OK;
+ }
+ 
+@@ -528,10 +536,14 @@ FOG::RegisterRuntimePing(const nsACString& aName, const bool aIncludeClientId,
+                          const bool aFollowsCollectionEnabled,
+                          const nsTArray<nsCString>& aUploaderCapabilities) {
+   MOZ_ASSERT(XRE_IsParentProcess());
++#ifdef MOZ_WIDGET_UIKIT
++  return NS_OK;
++#else
+   return glean::jog::jog_register_ping(
+       &aName, aIncludeClientId, aSendIfEmpty, aPreciseTimestamps,
+       aIncludeInfoSections, aEnabled, &aSchedulesPings, &aReasonCodes,
+       aFollowsCollectionEnabled, &aUploaderCapabilities);
++#endif
+ }
+ 
+ NS_IMETHODIMP
+@@ -677,6 +689,13 @@ MOZ_DEFINE_MALLOC_ENCLOSING_SIZE_OF(FOGMallocEnclosingSizeOf)
  // We're re-using the previously MOZ_DEFINE_MALLOC(_ENCLOSING)_SIZE_OF-defined
  // functions here to create symbol visible outside this file (the define creates
  // a static function).
@@ -114698,7 +117285,7 @@ index 562321d0343539dbbeea743fadd043202bec15bc..f950171fd270dcd6fdd1c69862ccd82e
    return FOGMallocSizeOf(aPtr);
  }
 diff --git a/toolkit/components/moz.build b/toolkit/components/moz.build
-index 1435813505f2b9ab06abb7fafb21f3968231cf93..7444ced1a587c9d95926ccb5e1ea89494107a64e 100644
+index 1435813505f2b9ab06abb7fafb21f3968231cf93..82b72d00f5ad7df6d6299b7a32efd6a19158bc22 100644
 --- a/toolkit/components/moz.build
 +++ b/toolkit/components/moz.build
 @@ -9,10 +9,10 @@ with Files("uniffi*/**"):
@@ -114744,7 +117331,7 @@ index 1435813505f2b9ab06abb7fafb21f3968231cf93..7444ced1a587c9d95926ccb5e1ea8949
      "thumbnails",
      "timermanager",
      "tooltiptext",
-@@ -97,10 +93,61 @@ DIRS += [
+@@ -97,10 +93,63 @@ DIRS += [
      "xulstore",
  ]
  
@@ -114761,6 +117348,8 @@ index 1435813505f2b9ab06abb7fafb21f3968231cf93..7444ced1a587c9d95926ccb5e1ea8949
 +        "captchadetection",
 +        "certviewer",
 +        "cookiebanners",
++        "content-classifier",
++        "content-classifier/content_classifier_engine",
 +        "contentprefs",
 +        "contentrelevancy",
 +        "contextualidentity",
@@ -114807,7 +117396,7 @@ index 1435813505f2b9ab06abb7fafb21f3968231cf93..7444ced1a587c9d95926ccb5e1ea8949
      DIRS += [
          "aboutconfig",
          "aboutpdf",
-@@ -110,10 +157,17 @@ if CONFIG["MOZ_BUILD_APP"] != "mobile/android":
+@@ -110,10 +159,17 @@ if CONFIG["MOZ_BUILD_APP"] != "mobile/android":
          "uniffi-bindgen-gecko-js/components",
      ]
  
@@ -114827,7 +117416,7 @@ index 1435813505f2b9ab06abb7fafb21f3968231cf93..7444ced1a587c9d95926ccb5e1ea8949
  
  if CONFIG["OS_TARGET"] != "Android":
      DIRS += ["terminator"]
-@@ -135,18 +189,19 @@ if CONFIG["TARGET_OS"] not in ("Android", "iOS"):
+@@ -135,18 +191,19 @@ if CONFIG["TARGET_OS"] not in ("Android", "iOS"):
          "components.conf",
      ]
  
@@ -114982,6 +117571,34 @@ index 91ae53839b6911348977407a4f01e91874ed39e8..0b9885a5ca1a096b2131f023609610fc
  
  if CONFIG["OS_ARCH"] == "WINNT":
      EXTRA_JS_MODULES += [
+diff --git a/toolkit/components/url-classifier/nsUrlClassifierDBService.cpp b/toolkit/components/url-classifier/nsUrlClassifierDBService.cpp
+index 53169038285fc9b25f31be1f55aeb24d4e7897a9..b96ba05fb11f50040fb47f54d9e5b23faac81e9e 100644
+--- a/toolkit/components/url-classifier/nsUrlClassifierDBService.cpp
++++ b/toolkit/components/url-classifier/nsUrlClassifierDBService.cpp
+@@ -45,7 +45,9 @@
+ #include "nsContentUtils.h"
+ #include "mozilla/Components.h"
+ #include "mozilla/dom/ContentChild.h"
+-#include "mozilla/ContentClassifierService.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/ContentClassifierService.h"
++#endif
+ #include "mozilla/dom/PermissionMessageUtils.h"
+ #include "mozilla/dom/URLClassifierChild.h"
+ #include "mozilla/net/UrlClassifierFeatureFactory.h"
+@@ -2069,10 +2071,12 @@ nsresult nsUrlClassifierDBService::Init() {
+ 
+   Preferences::AddStrongObserver(this, DISALLOW_COMPLETION_TABLE_PREF);
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   // Initialize the ContentClassifierService early so that filter lists are
+   // loaded before the first network request is classified.
+   RefPtr<ContentClassifierService> contentClassifier =
+       ContentClassifierService::GetInstance();
++#endif
+ 
+   return NS_OK;
+ }
 diff --git a/toolkit/content/jar.mn b/toolkit/content/jar.mn
 index 27c97a516690f3ff0994b4d4661a2ac7ab1f63df..0ed60c38c31c5f2f01342a1fe28a3b61f7191a00 100644
 --- a/toolkit/content/jar.mn
@@ -115023,11 +117640,42 @@ index a713a301040f8cdfc7043a977401b9f611413fbe..82facaaa67a3ba8b7c05591f9991fec1
          "-framework CoreGraphics",
          "-framework CoreText",
          "-framework OpenGLES",
+diff --git a/toolkit/library/rust/Cargo.toml b/toolkit/library/rust/Cargo.toml
+index d110b667b08b60af7b539103d5ce3d8cbd71ee5e..29fc8b747b855c6a43c86cd2ddc7664403b3532f 100644
+--- a/toolkit/library/rust/Cargo.toml
++++ b/toolkit/library/rust/Cargo.toml
+@@ -13,6 +13,8 @@ mozilla-central-workspace-hack = { version = "0.1", features = ["gkrust"], optio
+ 
+ # Workarounds for https://github.com/rust-lang/rust/issues/58393
+ mozglue-static = { path = "../../../mozglue/static/rust" }
++
++[target.'cfg(not(target_os = "ios"))'.dependencies]
+ swgl = { path = "../../../gfx/wr/swgl" }
+ 
+ [dev-dependencies]
 diff --git a/toolkit/library/rust/shared/Cargo.toml b/toolkit/library/rust/shared/Cargo.toml
-index dbcd527798f6951e440e27f687fe921b9eaebdef..7c4ff2d40f59dcf1720fb3e02ac74fdfd2236c51 100644
+index dbcd527798f6951e440e27f687fe921b9eaebdef..4501a1d945cf35bdc98da1f1bd1e43aeebf42d4a 100644
 --- a/toolkit/library/rust/shared/Cargo.toml
 +++ b/toolkit/library/rust/shared/Cargo.toml
-@@ -88,7 +88,6 @@ crypto_hash = { path = "../../../../security/manager/ssl/crypto_hash" }
+@@ -50,9 +50,7 @@ chardetng_c = "1.0.0"
+ audio_thread_priority = { version = "0.35", default-features = false }
+ mdns_service = { path="../../../../dom/media/webrtc/transport/mdns_service", optional = true }
+ neqo_glue = { path = "../../../../netwerk/socket/neqo_glue" }
+-wgpu_bindings = { path = "../../../../gfx/wgpu_bindings" }
+ mapped_hyph = { git = "https://github.com/jfkthame/mapped_hyph.git", rev = "eff105f6ad7ec9b79816cfc1985a28e5340ad14b" }
+-fog_control = { path = "../../../components/glean" }
+ http_sfv = { path = "../../../../netwerk/base/http-sfv" }
+ idna_glue = { path = "../../../../netwerk/base/idna_glue" }
+ ssl_tokens_cache = { path = "../../../../netwerk/base/ssl_tokens_cache" }
+@@ -75,7 +73,6 @@ midir_impl = { path = "../../../../dom/midi/midir_impl", optional = true }
+ dom = { path = "../../../../dom/base/rust" }
+ dom_fragmentdirectives = { path="../../../../dom/base/fragmentdirectives" }
+ origin-trials-ffi = { path = "../../../../dom/origin-trials/ffi" }
+-jog = { path = "../../../components/glean/bindings/jog" }
+ dap_ffi = { path = "../../../components/dap/ffi" }
+ data-encoding-ffi = { path = "../../../../dom/fs/parent/rust/data-encoding-ffi" }
+ binary_http = { path = "../../../../netwerk/protocol/http/binary_http" }
+@@ -88,7 +85,6 @@ crypto_hash = { path = "../../../../security/manager/ssl/crypto_hash" }
  data_storage = { path = "../../../../security/manager/ssl/data_storage" }
  ipcclientcerts = { path = "../../../../security/manager/ssl/ipcclientcerts" }
  lockstore_ffi = { path = "../../../../security/lockstore/lockstore_ffi" }
@@ -115035,21 +117683,60 @@ index dbcd527798f6951e440e27f687fe921b9eaebdef..7c4ff2d40f59dcf1720fb3e02ac74fdf
  pdf-trust-anchors = { path = "../../../../security/manager/ssl/pdf_trust_anchors" }
  qwac-trust-anchors = { path = "../../../../security/manager/ssl/qwac_trust_anchors" }
  trust-anchors = { path = "../../../../security/manager/ssl/trust_anchors" }
-@@ -139,6 +138,9 @@ viaduct = "0.1"
+@@ -121,9 +117,6 @@ urlpattern = "0.6.0"
+ urlpattern_glue = { path = "../../../../netwerk/base/urlpattern_glue" }
+ uritemplate_glue = { path = "../../../../netwerk/base/uritemplate_glue" }
+ 
+-adblock = { version = "0.12.1", features = ["full-regex-handling", "single-thread"], default-features = false }
+-content_classifier_engine = { path = "../../../components/content-classifier/content_classifier_engine" }
+-
+ libz-rs-sys = { version = "0.6", features = ["custom-prefix"], optional = true }
+ zlib-rs = { version = "0.6", features = ["avx512"], optional = true }
+ 
+@@ -139,6 +132,14 @@ viaduct = "0.1"
  viaduct-necko = { path = "../../../../services/application-services/components/viaduct-necko" }
  webext-storage = "0.1"
  
 +[target.'cfg(not(target_os = "ios"))'.dependencies]
++adblock = { version = "0.12.1", features = ["full-regex-handling", "single-thread"], default-features = false }
++content_classifier_engine = { path = "../../../components/content-classifier/content_classifier_engine" }
++fog_control = { path = "../../../components/glean" }
++jog = { path = "../../../components/glean/bindings/jog" }
 +mls_gk = { path = "../../../../security/mls/mls_gk" }
++wgpu_bindings = { path = "../../../../gfx/wgpu_bindings" }
 +
  [target.'cfg(target_os = "windows")'.dependencies]
  detect_win32k_conflicts = { path = "../../../xre/detect_win32k_conflicts" }
  widget_windows = { path = "../../../../widget/windows/rust" }
 diff --git a/toolkit/library/rust/shared/lib.rs b/toolkit/library/rust/shared/lib.rs
-index 3483e33e612e834cbf83544786762105b86abfdd..af4a373ef28168f52efa4ccedabce5e98665e052 100644
+index 3483e33e612e834cbf83544786762105b86abfdd..b2968d327d591abe81273bbe6fed064e722df01c 100644
 --- a/toolkit/library/rust/shared/lib.rs
 +++ b/toolkit/library/rust/shared/lib.rs
-@@ -146,6 +146,7 @@ extern crate data_encoding_ffi;
+@@ -28,6 +28,7 @@ extern crate cubeb_pulse;
+ extern crate data_storage;
+ extern crate dom_fragmentdirectives;
+ extern crate encoding_glue;
++#[cfg(not(target_os = "ios"))]
+ extern crate fog_control;
+ extern crate gecko_profiler;
+ extern crate gkrust_utils;
+@@ -35,6 +36,7 @@ extern crate harfbuzz_glue;
+ extern crate http_sfv;
+ extern crate idna_glue;
+ extern crate ipdl_utils;
++#[cfg(not(target_os = "ios"))]
+ extern crate jog;
+ extern crate jsrust_shared;
+ #[cfg(feature = "jxl_decoder")]
+@@ -64,6 +66,7 @@ extern crate webext_storage;
+ #[cfg(feature = "webrtc")]
+ extern crate mdns_service;
+ extern crate neqo_glue;
++#[cfg(not(target_os = "ios"))]
+ extern crate wgpu_bindings;
+ 
+ extern crate aa_stroke;
+@@ -146,6 +149,7 @@ extern crate data_encoding_ffi;
  extern crate binary_http;
  extern crate happy_eyeballs_glue;
  extern crate lockstore_ffi;
@@ -115057,6 +117744,16 @@ index 3483e33e612e834cbf83544786762105b86abfdd..af4a373ef28168f52efa4ccedabce5e9
  extern crate mls_gk;
  extern crate oblivious_http;
  
+@@ -155,7 +159,9 @@ extern crate uritemplate_glue;
+ extern crate urlpattern;
+ extern crate urlpattern_glue;
+ 
++#[cfg(not(target_os = "ios"))]
+ extern crate adblock;
++#[cfg(not(target_os = "ios"))]
+ extern crate content_classifier_engine;
+ 
+ #[cfg(feature = "libz-rs-sys")]
 diff --git a/toolkit/modules/ActorManagerParent.sys.mjs b/toolkit/modules/ActorManagerParent.sys.mjs
 index 8cab331f21d96dc89fa7a97d6efd7f84722a6a8f..ccfe3e6e0bafe467c68d400f92bca5d17e535104 100644
 --- a/toolkit/modules/ActorManagerParent.sys.mjs
@@ -115118,10 +117815,31 @@ index 50d537ee499a0ae935082fd26c8a822ac4b06d36..f0336ada926406982f80520014d60628
          "subprocess",
      ]
 diff --git a/toolkit/moz.configure b/toolkit/moz.configure
-index 593f8b9b9cfc8ed24fc10cb854eca5893636b6f1..c01e58f51ba5322e4ac5ba68d1687f11bacf416d 100644
+index 593f8b9b9cfc8ed24fc10cb854eca5893636b6f1..da4dd73e25e942b143c1994f8aadba850fd17bbc 100644
 --- a/toolkit/moz.configure
 +++ b/toolkit/moz.configure
-@@ -2575,6 +2575,13 @@ def ffvpx(target):
+@@ -196,10 +196,16 @@ def gecko_profiler_parse_elf(target):
+ 
+ set_config("MOZ_GECKO_PROFILER_PARSE_ELF", gecko_profiler_parse_elf)
+ 
+-# enable this by default if the profiler is enabled
+-# Note: also requires jemalloc
+-set_config("MOZ_PROFILER_MEMORY", True)
+-set_define("MOZ_PROFILER_MEMORY", True)
++# Enable this by default if the profiler is enabled. Note: also requires
++# jemalloc. The UIKit embedding does not expose the Gecko Profiler UI.
++@depends(target)
++def profiler_memory(target):
++    if target.os != "iOS":
++        return True
++
++
++set_config("MOZ_PROFILER_MEMORY", profiler_memory)
++set_define("MOZ_PROFILER_MEMORY", profiler_memory)
+ 
+ 
+ @depends(
+@@ -2575,6 +2581,13 @@ def ffvpx(target):
          # 32/64-bit macosx assemblers need to prefix symbols with an
          # underscore.
          flags = ["-DPIC", "-DMACHO", "-DPREFIX"]
@@ -115135,7 +117853,7 @@ index 593f8b9b9cfc8ed24fc10cb854eca5893636b6f1..c01e58f51ba5322e4ac5ba68d1687f11
          if target.cpu == "x86_64":
              flags += [
                  "-D__x86_64__",
-@@ -2828,7 +2835,7 @@ def wasm_sandboxing_libraries():
+@@ -2828,7 +2841,7 @@ def wasm_sandboxing_libraries():
  @depends(dependable(wasm_sandboxing_libraries), build_project, target)
  def default_wasm_sandboxing_libraries(libraries, build_project, target):
      if build_project != "tools/rusttests" and target.endianness == "little":
@@ -116016,6 +118734,56 @@ index 0b0e8a138e4507bba6aac18d8b355a6dc0a8838d..5550200741a57fb82b8a1b04780f1037
    rv = XRE_mainRun();
    if (rv == NS_ERROR_OMNIJAR_OR_DIR_MISSING) {
      if (XRE_IsParentProcess()
+diff --git a/tools/profiler/rust-api/src/profiler_state.rs b/tools/profiler/rust-api/src/profiler_state.rs
+index 4fc499d065bf90e2279edeb0ed2159caa4615a57..3b461a9ab534df4c8d220a87f5abb6a6e78f1fb3 100644
+--- a/tools/profiler/rust-api/src/profiler_state.rs
++++ b/tools/profiler/rust-api/src/profiler_state.rs
+@@ -4,6 +4,7 @@
+ 
+ //! Gecko profiler state.
+ 
++#[cfg(not(target_os = "ios"))]
+ use crate::gecko_bindings::structs::ThreadProfilingFeatures;
+ 
+ /// Whether the Gecko profiler is currently active.
+@@ -54,6 +55,13 @@ pub fn is_active_and_unpaused() -> bool {
+ /// This implementation must be kept in sync with
+ /// ProfilerMarkers.h:profiler_thread_is_being_profiled_for_markers
+ #[inline]
++#[cfg(target_os = "ios")]
++pub fn current_thread_is_being_profiled_for_markers() -> bool {
++    false
++}
++
++#[inline]
++#[cfg(not(target_os = "ios"))]
+ pub fn current_thread_is_being_profiled_for_markers() -> bool {
+     current_thread_is_being_profiled(ThreadProfilingFeatures::Markers)
+         || is_etw_collecting_markers()
+@@ -82,6 +90,7 @@ fn get_active_and_features() -> u32 {
+ /// This implementation must be kept in sync with
+ /// `mozilla::profiler::detail::RacyFeatures::IsETWCollecting`.
+ #[inline]
++#[cfg(not(target_os = "ios"))]
+ fn is_etw_collecting_markers() -> bool {
+     use crate::gecko_bindings::structs::mozilla::profiler::detail;
+ 
+@@ -92,6 +101,7 @@ fn is_etw_collecting_markers() -> bool {
+ /// This implementation must be kept in sync with
+ /// `mozilla::profiler::detail::RacyFeatures::IsPerfettoTracing`.
+ #[inline]
++#[cfg(not(target_os = "ios"))]
+ fn is_perfetto_tracing() -> bool {
+     use crate::gecko_bindings::structs::mozilla::profiler::detail;
+ 
+@@ -102,6 +112,7 @@ fn is_perfetto_tracing() -> bool {
+ /// This implementation must be kept in sync with
+ /// `ProfilerThreadState.h:profiler_thread_is_being_profiled`
+ #[inline]
++#[cfg(not(target_os = "ios"))]
+ fn current_thread_is_being_profiled(thread_profiling_features: ThreadProfilingFeatures) -> bool {
+     if !is_active_and_unpaused() {
+         return false;
 diff --git a/uriloader/base/nsDocLoader.cpp b/uriloader/base/nsDocLoader.cpp
 index 524451a83e03f8a9a83103b1f3d87850ad411515..b44cadc499a28e2e8b34b540b0d20132aecf1bf3 100644
 --- a/uriloader/base/nsDocLoader.cpp
