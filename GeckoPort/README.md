@@ -68,5 +68,11 @@ bash GeckoPort/regenerate_patch.sh build/firefox-src
 Copy the printed SHA-256 to `CANONICAL_PATCH_SHA256` in `PATCHSET.lock`, then
 verify the patch against a fresh locked checkout before committing it.
 
-The reference patchset commit remains recorded in `PATCHSET.lock` for audit and
-attribution. DualAI does not embed the reference browser application or its UI.
+The initial iOS target/toolchain, UIKit widget, process/bootstrap, GeckoView
+embedding, and SpiderMonkey JIT memory work was partly adapted from or informed
+by the MPL-2.0 Gecko patches in
+[`minh-ton/reynard-browser`](https://github.com/minh-ton/reynard-browser). The
+exact reference repository and commit remain recorded in `PATCHSET.lock` for
+audit and attribution. The canonical patch is DualAI's complete current delta,
+not a byte-for-byte copy of the reference patch queue. DualAI does not embed or
+link the GPL-3.0 Reynard browser application or its UI.

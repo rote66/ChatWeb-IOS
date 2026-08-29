@@ -92238,7 +92238,7 @@ index 97c0cb0f57b32d3d60cf005be0e1499b8b574b97..3c6b2ae962f1bcca205d74643b77b823
      DOMInterfaces.update({
  
 diff --git a/dom/canvas/CanvasRenderingContextHelper.cpp b/dom/canvas/CanvasRenderingContextHelper.cpp
-index 96a349316057ba0d4f0757276d89e0c9e73a655e..91a8aee75ffbfe3ba2453638e87600ef2d17c685 100644
+index 96a349316057ba0d4f0757276d89e0c9e73a655e..b62a179e3a5df73e9769c2f22a6596411c1119f5 100644
 --- a/dom/canvas/CanvasRenderingContextHelper.cpp
 +++ b/dom/canvas/CanvasRenderingContextHelper.cpp
 @@ -14,7 +14,9 @@
@@ -92266,6 +92266,16 @@ index 96a349316057ba0d4f0757276d89e0c9e73a655e..91a8aee75ffbfe3ba2453638e87600ef
        break;
  
      case CanvasContextType::ImageBitmap:
+@@ -152,6 +155,9 @@ CanvasRenderingContextHelper::CreateContextHelper(
+       break;
+   }
+   MOZ_ASSERT(ret);
++  if (!ret) {
++    return nullptr;
++  }
+ 
+   if (NS_WARN_IF(NS_FAILED(ret->Initialize()))) {
+     return nullptr;
 diff --git a/dom/canvas/CanvasUtils.cpp b/dom/canvas/CanvasUtils.cpp
 index f68c6df761d35755be7b880b268283dc4bd53134..9520bff5f05e23dd1b02cd436944f93df5ba270b 100644
 --- a/dom/canvas/CanvasUtils.cpp
@@ -92398,6 +92408,111 @@ index 511494c03f8430341ce5ba1487b08784fb933d4d..971a0fb02a1a2b6d9c8865c912bace1b
      WEBIDL_FILES += [
          "UniFFI.webidl",
      ]
+diff --git a/dom/compression/CompressionStream.cpp b/dom/compression/CompressionStream.cpp
+index 5894c7d456f5c666b7afca9ebd8ec0c19af6ec4e..252b06a973f784c8165224fdb5c51052a92f51ef 100644
+--- a/dom/compression/CompressionStream.cpp
++++ b/dom/compression/CompressionStream.cpp
+@@ -33,11 +33,13 @@ NS_INTERFACE_MAP_END
+  */
+ static Result<already_AddRefed<CompressionStreamAlgorithms>, nsresult>
+ CreateCompressionStreamAlgorithms(CompressionFormat aFormat) {
++#ifndef MOZ_WIDGET_UIKIT
+   if (aFormat == CompressionFormat::Brotli) {
+     RefPtr<CompressionStreamAlgorithms> brotliAlgos =
+         MOZ_TRY(BrotliCompressionStreamAlgorithms::Create());
+     return brotliAlgos.forget();
+   }
++#endif
+ 
+   RefPtr<CompressionStreamAlgorithms> zlibAlgos =
+       MOZ_TRY(ZLibCompressionStreamAlgorithms::Create(aFormat));
+@@ -58,6 +60,13 @@ JSObject* CompressionStream::WrapObject(JSContext* aCx,
+ // https://wicg.github.io/compression/#dom-compressionstream-compressionstream
+ already_AddRefed<CompressionStream> CompressionStream::Constructor(
+     const GlobalObject& aGlobal, CompressionFormat aFormat, ErrorResult& aRv) {
++#ifdef MOZ_WIDGET_UIKIT
++  if (aFormat == CompressionFormat::Brotli) {
++    aRv.ThrowTypeError(
++        "'brotli' (value of argument 1) is not supported by CompressionStream");
++    return nullptr;
++  }
++#endif
+   if (aFormat == CompressionFormat::Zstd) {
+     aRv.ThrowTypeError(
+         "'zstd' (value of argument 1) is not a valid value for enumeration "
+diff --git a/dom/compression/FormatBrotli.cpp b/dom/compression/FormatBrotli.cpp
+index 0e4273658f4d49f3fdd7fa4766ea579ff01ee57b..132b7091072b3d6213df578b4bc6e8e5e5e2e8e2 100644
+--- a/dom/compression/FormatBrotli.cpp
++++ b/dom/compression/FormatBrotli.cpp
+@@ -8,11 +8,14 @@
+ 
+ #include "BaseAlgorithms.h"
+ #include "brotli/decode.h"
+-#include "brotli/encode.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "brotli/encode.h"
++#endif
+ #include "mozilla/dom/TransformStreamDefaultController.h"
+ 
+ namespace mozilla::dom::compression {
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ NS_IMPL_CYCLE_COLLECTION_INHERITED(BrotliCompressionStreamAlgorithms,
+                                    TransformerAlgorithmsBase)
+ NS_IMPL_ADDREF_INHERITED(BrotliCompressionStreamAlgorithms,
+@@ -21,6 +24,7 @@ NS_IMPL_RELEASE_INHERITED(BrotliCompressionStreamAlgorithms,
+                           TransformerAlgorithmsBase)
+ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BrotliCompressionStreamAlgorithms)
+ NS_INTERFACE_MAP_END_INHERITING(TransformerAlgorithmsBase)
++#endif
+ 
+ NS_IMPL_CYCLE_COLLECTION_INHERITED(BrotliDecompressionStreamAlgorithms,
+                                    TransformerAlgorithmsBase)
+@@ -31,6 +35,7 @@ NS_IMPL_RELEASE_INHERITED(BrotliDecompressionStreamAlgorithms,
+ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BrotliDecompressionStreamAlgorithms)
+ NS_INTERFACE_MAP_END_INHERITING(TransformerAlgorithmsBase)
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ inline BrotliEncoderOperation intoBrotliOp(Flush aFlush) {
+   switch (aFlush) {
+     case Flush::No: {
+@@ -117,6 +122,7 @@ void BrotliCompressionStreamAlgorithms::BrotliDeleter::operator()(
+     BrotliEncoderStateStruct* aState) {
+   BrotliEncoderDestroyInstance(aState);
+ }
++#endif
+ 
+ Result<already_AddRefed<BrotliDecompressionStreamAlgorithms>, nsresult>
+ BrotliDecompressionStreamAlgorithms::Create() {
+diff --git a/dom/compression/FormatBrotli.h b/dom/compression/FormatBrotli.h
+index 9dc3ce62308e752551a3251892b92e6dca8106a2..deb01ef75aa5ef586e150108b1246220bc01639b 100644
+--- a/dom/compression/FormatBrotli.h
++++ b/dom/compression/FormatBrotli.h
+@@ -8,13 +8,16 @@
+ #include "BaseAlgorithms.h"
+ 
+ struct BrotliDecoderStateStruct;
++#ifndef MOZ_WIDGET_UIKIT
+ struct BrotliEncoderStateStruct;
++#endif
+ 
+ // See the brotli manual
+ // https://searchfox.org/firefox-main/source/modules/brotli/include/brotli/decode.h
+ 
+ namespace mozilla::dom::compression {
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ class BrotliCompressionStreamAlgorithms : public CompressionStreamAlgorithms {
+  public:
+   NS_DECL_ISUPPORTS_INHERITED
+@@ -44,6 +47,7 @@ class BrotliCompressionStreamAlgorithms : public CompressionStreamAlgorithms {
+ 
+   std::unique_ptr<BrotliEncoderStateStruct, BrotliDeleter> mState;
+ };
++#endif
+ 
+ class BrotliDecompressionStreamAlgorithms
+     : public DecompressionStreamAlgorithms {
 diff --git a/dom/events/ContentEventHandler.cpp b/dom/events/ContentEventHandler.cpp
 index 11b57e330c97277c36d6b4c4936c7706487f7dd9..3401c01eaf633821d79c22ed23973b635152630b 100644
 --- a/dom/events/ContentEventHandler.cpp
@@ -97334,7 +97449,7 @@ index 54f4b9cd81f1f8669a95ab77ed9744f83ed158df..b6b711138d2643302db5d7c171c5d80f
  // https://w3c.github.io/permissions/#webidl-2112232240
  [Exposed=(Worker)]
 diff --git a/dom/webidl/moz.build b/dom/webidl/moz.build
-index 35be78b5ef12c5018557d606da30cd6772501d17..b3f5a0eb68a6e133cd40f2c8ecf4f8abb89fcc55 100644
+index 35be78b5ef12c5018557d606da30cd6772501d17..612a0acd0af534d563e8ec475b958fb84d2dd1d3 100644
 --- a/dom/webidl/moz.build
 +++ b/dom/webidl/moz.build
 @@ -418,9 +418,13 @@ GENERATED_WEBIDL_FILES = [
@@ -97393,14 +97508,16 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..b3f5a0eb68a6e133cd40f2c8ecf4f8ab
      "WorkerTestUtils.webidl",
      "Worklet.webidl",
      "WorkletGlobalScope.webidl",
-@@ -1145,8 +1143,20 @@ WEBIDL_FILES = [
+@@ -1145,8 +1143,22 @@ WEBIDL_FILES = [
      "XSLTProcessor.webidl",
  ]
  
 -# Native llama.cpp for ml engine.
 -if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
 +if CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
-+    WEBIDL_FILES += ["WebGPU.webidl"]
++    WEBIDL_FILES += [
++        "WebGPU.webidl",
++    ]
 +
 +# MLS is outside the dedicated UIKit ChatGPT/Gemini surface.
 +# Keep normal Firefox builds unchanged while omitting its binding on UIKit.
@@ -97416,7 +97533,7 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..b3f5a0eb68a6e133cd40f2c8ecf4f8ab
      WEBIDL_FILES += [
          "LlamaRunner.webidl",
      ]
-@@ -1206,24 +1216,32 @@ WEBIDL_FILES += [
+@@ -1206,24 +1218,32 @@ WEBIDL_FILES += [
      "CustomEvent.webidl",
  ]
  
@@ -97467,7 +97584,7 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..b3f5a0eb68a6e133cd40f2c8ecf4f8ab
  
  # We only expose our prefable test interfaces in debug builds, just to be on
  # the safe side.
-@@ -1267,7 +1285,6 @@ GENERATED_EVENTS_WEBIDL_FILES = [
+@@ -1267,7 +1287,6 @@ GENERATED_EVENTS_WEBIDL_FILES = [
      "GamepadAxisMoveEvent.webidl",
      "GamepadButtonEvent.webidl",
      "GamepadEvent.webidl",
@@ -97475,17 +97592,19 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..b3f5a0eb68a6e133cd40f2c8ecf4f8ab
      "HashChangeEvent.webidl",
      "ImageCaptureErrorEvent.webidl",
      "MediaQueryListEvent.webidl",
-@@ -1306,6 +1323,9 @@ GENERATED_EVENTS_WEBIDL_FILES = [
+@@ -1306,6 +1325,11 @@ GENERATED_EVENTS_WEBIDL_FILES = [
      "XRSessionEvent.webidl",
  ]
  
 +if CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
-+    GENERATED_EVENTS_WEBIDL_FILES += ["GPUUncapturedErrorEvent.webidl"]
++    GENERATED_EVENTS_WEBIDL_FILES += [
++        "GPUUncapturedErrorEvent.webidl",
++    ]
 +
  if CONFIG["MOZ_WEBRTC"]:
      GENERATED_EVENTS_WEBIDL_FILES += [
          "RTCDataChannelEvent.webidl",
-@@ -1328,3 +1348,10 @@ if CONFIG["ACCESSIBILITY"]:
+@@ -1328,3 +1352,10 @@ if CONFIG["ACCESSIBILITY"]:
      WEBIDL_FILES += [
          "AccessibleNode.webidl",
      ]
@@ -104700,6 +104819,32 @@ index f1f06b8397adf94353c51a8e073ceb5bc9408f53..d8e39a4068d1b24be32b45f24d0551e2
  
    masm.processCodeLabels(raw());
  }
+diff --git a/js/src/jit/Ion.h b/js/src/jit/Ion.h
+index 95d236a08a4d3210dcbc51bf628d80b065c33c6c..8eb40d4072a77d90e47261b721ff2ffc75092a7e 100644
+--- a/js/src/jit/Ion.h
++++ b/js/src/jit/Ion.h
+@@ -124,6 +124,13 @@ void ForbidCompilation(JSContext* cx, JSScript* script);
+ size_t SizeOfIonData(JSScript* script, mozilla::MallocSizeOf mallocSizeOf);
+ 
+ inline bool IsIonEnabled(JSContext* cx) {
++#ifdef MOZ_WIDGET_UIKIT
++  // The compact iOS embedding keeps the Baseline Interpreter/JIT and its
++  // executable-memory path, but omits the optimizing Ion tier. Inlining this
++  // constant lets the final LTO/dead-strip link discard Ion-only code while
++  // preserving normal Baseline JIT execution.
++  return false;
++#else
+   if (MOZ_UNLIKELY(!IsBaselineJitEnabled(cx) || cx->options().disableIon())) {
+     return false;
+   }
+@@ -137,6 +144,7 @@ inline bool IsIonEnabled(JSContext* cx) {
+            JS::GetRealmPrincipals(realm)->isSystemOrAddonPrincipal();
+   }
+   return false;
++#endif
+ }
+ 
+ // Implemented per-platform.  Returns true if the flags will not require
 diff --git a/js/src/jit/IonCacheIRCompiler.cpp b/js/src/jit/IonCacheIRCompiler.cpp
 index 1fd18f1d6c7c490f2306fc5f6f8efbb0da4fecd0..b7c001cc3b58b63b1b1a22711ced693fc2c9628c 100644
 --- a/js/src/jit/IonCacheIRCompiler.cpp
@@ -106657,7 +106802,7 @@ index baf1fa959abcb25095303c0077ff0a55476eb189..5c9513fe5889c61312e67d9080fd60fa
  #    include "config_unix_aarch64.h"
  #  else
 diff --git a/media/ffvpx/config_override.h b/media/ffvpx/config_override.h
-index 0fe24bd0d0ccdff0ff77364eeddeb96698c681b7..7d680ffb20153daacfa26c78877f56a38ad76f97 100644
+index 0fe24bd0d0ccdff0ff77364eeddeb96698c681b7..0311d2ce939b3658da33fa66b6538867a7bf97fa 100644
 --- a/media/ffvpx/config_override.h
 +++ b/media/ffvpx/config_override.h
 @@ -6,6 +6,12 @@
@@ -106673,14 +106818,16 @@ index 0fe24bd0d0ccdff0ff77364eeddeb96698c681b7..7d680ffb20153daacfa26c78877f56a3
  #endif
  
  #undef CONFIG_FFT
-@@ -13,6 +19,14 @@
+@@ -13,6 +19,16 @@
  #define CONFIG_FFT 1
  #define CONFIG_RDFT 1
  
-+// UIKit still needs Opus encoding for WebRTC/MediaRecorder (Gemini voice),
-+// but the dedicated web runtime does not need the FFmpeg Vorbis encoder.
++// UIKit's audio-only FFVPX component table disables all encoders. WebSpeech
++// recognition captures PCM directly and does not depend on FFVPX/Opus encode.
 +// Keep this in sync with the UIKit gkcodecs export list.
 +#if defined(MOZ_WIDGET_UIKIT)
++#undef CONFIG_LIBOPUS_ENCODER
++#define CONFIG_LIBOPUS_ENCODER 0
 +#undef CONFIG_LIBVORBIS_ENCODER
 +#define CONFIG_LIBVORBIS_ENCODER 0
 +#endif
@@ -106689,7 +106836,7 @@ index 0fe24bd0d0ccdff0ff77364eeddeb96698c681b7..7d680ffb20153daacfa26c78877f56a3
  // gcc on arm
  #if defined(__GNUC__) && defined(__arm__)
 diff --git a/media/ffvpx/libavcodec/moz.build b/media/ffvpx/libavcodec/moz.build
-index f9b65533fbad32f4abf9cda5303ee753aa327c69..4793b7fe4811dd9630ad44f83ef9f1ab01b07b3b 100644
+index f9b65533fbad32f4abf9cda5303ee753aa327c69..149fbe03e5a11ecd16e759c685ba563c7051f9a6 100644
 --- a/media/ffvpx/libavcodec/moz.build
 +++ b/media/ffvpx/libavcodec/moz.build
 @@ -10,7 +10,10 @@ if CONFIG['FFVPX_ASFLAGS']:
@@ -106704,6 +106851,33 @@ index f9b65533fbad32f4abf9cda5303ee753aa327c69..4793b7fe4811dd9630ad44f83ef9f1ab
      DIRS += ['aarch64']
  
  DIRS += ['bsf']
+@@ -48,9 +51,7 @@ SOURCES += [
+     'jrevdct.c',
+     'libopus.c',
+     'libopusdec.c',
+-    'libopusenc.c',
+     'libvorbisdec.c',
+-    'libvorbisenc.c',
+     'log2_tab.c',
+     'mpeg4audio.c',
+     'mpeg4audio_sample_rates.c',
+@@ -84,6 +85,16 @@ SOURCES += [
+     'xiph.c'
+ ]
+ 
++# Firefox's generated audio-only component table disables every FFVPX encoder.
++# Keep the source list consistent for the compact UIKit runtime; otherwise a
++# clean build retains libopusenc references to encoder symbols intentionally
++# removed from gkcodecs.
++if CONFIG['MOZ_WIDGET_TOOLKIT'] != 'uikit':
++    SOURCES += [
++        'libopusenc.c',
++        'libvorbisenc.c',
++    ]
++
+ if not CONFIG['MOZ_FFVPX_AUDIOONLY']:
+     SOURCES += [
+         'atsc_a53.c',
 diff --git a/media/ffvpx/libavcodec/mpegaudiodsp.c b/media/ffvpx/libavcodec/mpegaudiodsp.c
 index 0971c28734242e325b54384a95a1535da9a069be..38adf15b5301f536f8d8ce7c616ce545e7cf6145 100644
 --- a/media/ffvpx/libavcodec/mpegaudiodsp.c
@@ -114381,6 +114555,78 @@ index b0a38a3b876fe20a649e9632d502036fe2d540e4..0cebdeffc7615a1ebaa946a8f3080a99
      "GeckoViewActorChild.sys.mjs",
      "GeckoViewActorManager.sys.mjs",
      "GeckoViewActorParent.sys.mjs",
+diff --git a/modules/brotli/moz.build b/modules/brotli/moz.build
+index 7b692074275b3e712674149b8b43e70100a07b0a..d196fb847e090bd53f9f411126de8e5e9a5aae42 100644
+--- a/modules/brotli/moz.build
++++ b/modules/brotli/moz.build
+@@ -26,36 +26,40 @@ UNIFIED_SOURCES += [
+     'dec/prefix.c',
+     'dec/state.c',
+     'dec/static_init.c',
+-    'enc/backward_references.c',
+-    'enc/backward_references_hq.c',
+-    'enc/bit_cost.c',
+-    'enc/block_splitter.c',
+-    'enc/brotli_bit_stream.c',
+-    'enc/cluster.c',
+-    'enc/command.c',
+-    'enc/compound_dictionary.c',
+-    'enc/dictionary_hash.c',
+-    'enc/encode.c',
+-    'enc/encoder_dict.c',
+-    'enc/fast_log.c',
+-    'enc/histogram.c',
+-    'enc/literal_cost.c',
+-    'enc/memory.c',
+-    'enc/metablock.c',
+-    'enc/static_dict.c',
+-    'enc/static_dict_lut.c',
+-    'enc/static_init_enc.c',
+-    'enc/utf8_util.c',
+ ]
+ 
+-SOURCES += [
+-    # These files conflict with enc/hash.h and also with each other
+-    'enc/compress_fragment.c',
+-    'enc/compress_fragment_two_pass.c',
++if CONFIG['MOZ_WIDGET_TOOLKIT'] != 'uikit':
++    UNIFIED_SOURCES += [
++        'enc/backward_references.c',
++        'enc/backward_references_hq.c',
++        'enc/bit_cost.c',
++        'enc/block_splitter.c',
++        'enc/brotli_bit_stream.c',
++        'enc/cluster.c',
++        'enc/command.c',
++        'enc/compound_dictionary.c',
++        'enc/dictionary_hash.c',
++        'enc/encode.c',
++        'enc/encoder_dict.c',
++        'enc/fast_log.c',
++        'enc/histogram.c',
++        'enc/literal_cost.c',
++        'enc/memory.c',
++        'enc/metablock.c',
++        'enc/static_dict.c',
++        'enc/static_dict_lut.c',
++        'enc/static_init_enc.c',
++        'enc/utf8_util.c',
++    ]
+ 
+-    # Conflict with enc/brotli_bit_stream.c
+-    'enc/entropy_encode.c'
+-]
++    SOURCES += [
++        # These files conflict with enc/hash.h and also with each other
++        'enc/compress_fragment.c',
++        'enc/compress_fragment_two_pass.c',
++
++        # Conflict with enc/brotli_bit_stream.c
++        'enc/entropy_encode.c'
++    ]
+ 
+ # We allow warnings for third-party code that can be updated from upstream.
+ AllowCompilerWarnings()
 diff --git a/modules/libpref/init/StaticPrefList.yaml b/modules/libpref/init/StaticPrefList.yaml
 index f6929493a5443a0f1c17cd4347ca608fc079bea6..c292d31142d816f24d0fe672674ea2c11f03b2f4 100644
 --- a/modules/libpref/init/StaticPrefList.yaml
@@ -114729,6 +114975,77 @@ index 661cb874485305293dd7d79e6317f2a00dde3c12..eebf5e3bb64bbc2ca096224caed37e7d
      UNIFIED_SOURCES += woff2_sources
  
  EXPORTS.woff2 += [
+diff --git a/netwerk/base/SSLTokensCache.cpp b/netwerk/base/SSLTokensCache.cpp
+index a174a1bb51e9be31ac7c539e3c3699b5657a8b58..85b00d255b25f6fe8d5c59dfa028bc457347a6e3 100644
+--- a/netwerk/base/SSLTokensCache.cpp
++++ b/netwerk/base/SSLTokensCache.cpp
+@@ -8,7 +8,9 @@
+ 
+ #include "CertVerifier.h"
+ #include "brotli/decode.h"
+-#include "brotli/encode.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "brotli/encode.h"
++#endif
+ #include "CommonSocketControl.h"
+ #include "mozilla/EndianUtils.h"
+ #include "TransportSecurityInfo.h"
+@@ -84,7 +86,8 @@ SessionCacheInfo SessionCacheInfo::Clone() const {
+ //   [1: has_succeeded_chain] if 1: [1: count] then for each [4: len][bytes]
+ //   [1: has_handshake_certs] if 1: [1: count] then for each [4: len][bytes]
+ //
+-// Stored compressed with a 4-byte LE original-size prefix.
++// Stored with a 4-byte LE original-size prefix. UIKit writes an uncompressed
++// versioned payload; other platforms retain Brotli compression.
+ 
+ template <typename T>
+ static void AppendLE(nsTArray<uint8_t>& aBuf, T aVal) {
+@@ -128,6 +131,18 @@ static nsTArray<uint8_t> SerializeRecord(Span<const uint8_t> aToken,
+ 
+ // Returns empty array on failure.
+ static nsTArray<uint8_t> CompressRecord(Span<const uint8_t> aPayload) {
++#ifdef MOZ_WIDGET_UIKIT
++  static constexpr uint8_t kRawMarker[] = {'D', 'U', 'I', '1'};
++  nsTArray<uint8_t> result;
++  if (!result.SetLength(8 + aPayload.Length(), fallible)) {
++    return {};
++  }
++  uint32_t originalLen = AssertedCast<uint32_t>(aPayload.Length());
++  LittleEndian::writeUint32(result.Elements(), originalLen);
++  memcpy(result.Elements() + 4, kRawMarker, sizeof(kRawMarker));
++  memcpy(result.Elements() + 8, aPayload.Elements(), aPayload.Length());
++  return result;
++#else
+   size_t bound = BrotliEncoderMaxCompressedSize(aPayload.Length());
+   nsTArray<uint8_t> result;
+   if (!result.SetLength(4 + bound, fallible)) {
+@@ -143,6 +158,7 @@ static nsTArray<uint8_t> CompressRecord(Span<const uint8_t> aPayload) {
+   }
+   result.TruncateLength(4 + encodedSize);
+   return result;
++#endif
+ }
+ 
+ // Returns empty array on failure.
+@@ -156,6 +172,18 @@ static nsTArray<uint8_t> DecompressRecord(Span<const uint8_t> aCompressed) {
+          originalLen));
+     return {};
+   }
++#ifdef MOZ_WIDGET_UIKIT
++  static constexpr uint8_t kRawMarker[] = {'D', 'U', 'I', '1'};
++  if (aCompressed.Length() == 8 + originalLen &&
++      !memcmp(aCompressed.Elements() + 4, kRawMarker, sizeof(kRawMarker))) {
++    nsTArray<uint8_t> result;
++    if (!result.AppendElements(aCompressed.Elements() + 8, originalLen,
++                               fallible)) {
++      return {};
++    }
++    return result;
++  }
++#endif
+   nsTArray<uint8_t> result;
+   if (!result.SetLength(originalLen, fallible)) {
+     return {};
 diff --git a/netwerk/build/components.conf b/netwerk/build/components.conf
 index 9c6bc65494eb75113ef00876d1daaa53b988572f..a24c84661e960dc2639dcf3ed77376757626ef76 100644
 --- a/netwerk/build/components.conf
@@ -115038,7 +115355,7 @@ index c6d926448e399e0cb3032180efad3cddaf785fc0..d51f3e24af6655a0b58a7220eca7a331
  
    if (ShouldIntercept()) {
 diff --git a/netwerk/protocol/http/nsHttpHandler.cpp b/netwerk/protocol/http/nsHttpHandler.cpp
-index d7c4ee4d66f11ec37fbb9a32a979def59ab5b229..d81f0e82e884d4aff4c18771e08afa32f64fb55b 100644
+index d7c4ee4d66f11ec37fbb9a32a979def59ab5b229..6ef0b091f00f5c6425ea3f5dc6e44a77627fed29 100644
 --- a/netwerk/protocol/http/nsHttpHandler.cpp
 +++ b/netwerk/protocol/http/nsHttpHandler.cpp
 @@ -51,7 +51,9 @@
@@ -115119,8 +115436,23 @@ index d7c4ee4d66f11ec37fbb9a32a979def59ab5b229..d81f0e82e884d4aff4c18771e08afa32
  
    // TODO E10S This helper has to be initialized on the other process
    RefPtr<nsAsyncRedirectVerifyHelper> redirectCallbackHelper =
+@@ -2903,12 +2934,14 @@ HttpTrafficAnalyzer* nsHttpHandler::GetHttpTrafficAnalyzer() {
+   return &mHttpTrafficAnalyzer;
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ bool nsHttpHandler::IsHttp3Enabled() {
+   static const uint32_t TLS3_PREF_VALUE = 4;
+ 
+   return StaticPrefs::network_http_http3_enable() &&
+          (StaticPrefs::security_tls_version_max() >= TLS3_PREF_VALUE);
+ }
++#endif
+ 
+ bool nsHttpHandler::IsHttp3VersionSupported(const nsACString& version) {
+   return (StaticPrefs::network_http_http3_support_version1() &&
 diff --git a/netwerk/protocol/http/nsHttpHandler.h b/netwerk/protocol/http/nsHttpHandler.h
-index 93d4734c93b5f1af0464ddadd2cd6c844f703d74..96b7504116b6736b26d148589299516fdfd4d1d2 100644
+index 93d4734c93b5f1af0464ddadd2cd6c844f703d74..e44d954aa6d4b018273af5b9fc123718ba809e22 100644
 --- a/netwerk/protocol/http/nsHttpHandler.h
 +++ b/netwerk/protocol/http/nsHttpHandler.h
 @@ -51,6 +51,7 @@ class nsIRequestContextService;
@@ -115142,6 +115474,364 @@ index 93d4734c93b5f1af0464ddadd2cd6c844f703d74..96b7504116b6736b26d148589299516f
    // This function is also called to kick-off a new transaction. But the new
    // transaction will take a sticky connection from |transWithStickyConn|
    // and reuse it.
+@@ -456,7 +461,14 @@ class nsHttpHandler final : public nsIHttpProtocolHandler,
+ 
+   uint32_t DefaultHpackBuffer() const { return mDefaultHpackBuffer; }
+ 
++#ifdef MOZ_WIDGET_UIKIT
++  // The compact UIKit runtime uses HTTP/1.1 and HTTP/2. Making HTTP/3 a
++  // compile-time false branch allows ThinLTO to discard QUIC/Neqo and its
++  // otherwise-unneeded telemetry dependency chain.
++  static constexpr bool IsHttp3Enabled() { return false; }
++#else
+   static bool IsHttp3Enabled();
++#endif
+   bool IsHttp3VersionSupported(const nsACString& version);
+ 
+   static bool IsHttp3SupportedByServer(nsHttpResponseHead* aResponseHead);
+diff --git a/netwerk/socket/neqo_glue/NeqoUIKitStubs.cpp b/netwerk/socket/neqo_glue/NeqoUIKitStubs.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..bd1e6370ab273a1757b9a01850ee9b7a106a941f
+--- /dev/null
++++ b/netwerk/socket/neqo_glue/NeqoUIKitStubs.cpp
+@@ -0,0 +1,323 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#include "mozilla/net/neqo_glue_ffi_generated.h"
++
++#include <algorithm>
++#include <atomic>
++#include <cstring>
++#include <new>
++#include <vector>
++
++#include "nsError.h"
++
++namespace mozilla::net {
++
++class NeqoEncoder final {
++ public:
++  std::atomic<uint32_t> refs{1};
++  std::vector<uint8_t> data;
++};
++
++class NeqoDecoder final {
++ public:
++  NeqoDecoder(const uint8_t* aData, uint32_t aLength)
++      : data(aData), length(aLength) {}
++
++  std::atomic<uint32_t> refs{1};
++  const uint8_t* data;
++  uint32_t length;
++  uint32_t offset = 0;
++};
++
++static nsresult NeqoUnavailable() { return NS_ERROR_NOT_AVAILABLE; }
++
++extern "C" {
++
++void neqo_http3conn_addref(const NeqoHttp3Conn*) {}
++void neqo_http3conn_release(const NeqoHttp3Conn*) {}
++
++nsresult neqo_http3conn_new(const nsACString*, const nsACString*,
++                            const NetAddr*, const NetAddr*, uint64_t, uint16_t,
++                            uint64_t, uint64_t, bool, bool, const nsACString*,
++                            uint32_t, uint32_t, int64_t, bool,
++                            const NeqoHttp3Conn** aResult) {
++  if (aResult) {
++    *aResult = nullptr;
++  }
++  return NeqoUnavailable();
++}
++
++nsresult neqo_http3conn_new_use_nspr_for_io(
++    const nsACString*, const nsACString*, const NetAddr*, const NetAddr*,
++    uint64_t, uint16_t, uint64_t, uint64_t, bool, bool, const nsACString*,
++    uint32_t, uint32_t, const NeqoHttp3Conn** aResult) {
++  if (aResult) {
++    *aResult = nullptr;
++  }
++  return NeqoUnavailable();
++}
++
++nsresult neqo_http3conn_process_input_use_nspr_for_io(NeqoHttp3Conn*,
++                                                       const NetAddr*,
++                                                       const nsTArray<uint8_t>*) {
++  return NeqoUnavailable();
++}
++
++ProcessInputResult neqo_http3conn_process_input(NeqoHttp3Conn*) {
++  return {NeqoUnavailable(), 0};
++}
++
++nsresult neqo_http3conn_process_output_and_send_use_nspr_for_io(
++    NeqoHttp3Conn*, void*, SendFunc, SetTimerFunc) {
++  return NeqoUnavailable();
++}
++
++ProcessOutputAndSendResult neqo_http3conn_process_output_and_send(
++    NeqoHttp3Conn*, void*, SetTimerFunc) {
++  return {NeqoUnavailable(), 0};
++}
++
++void neqo_http3conn_close(NeqoHttp3Conn*, uint64_t) {}
++
++#define NEQO_RESULT_STUB(name, signature) \
++  nsresult name signature { return NeqoUnavailable(); }
++
++NEQO_RESULT_STUB(neqo_http3conn_fetch,
++                 (NeqoHttp3Conn*, const nsACString*, const nsACString*,
++                  const nsACString*, const nsACString*, const nsACString*,
++                  uint64_t*, uint8_t, bool))
++NEQO_RESULT_STUB(neqo_http3conn_connect,
++                 (NeqoHttp3Conn*, const nsACString*, const nsACString*,
++                  uint64_t*, uint8_t, bool))
++NEQO_RESULT_STUB(neqo_http3conn_priority_update,
++                 (NeqoHttp3Conn*, uint64_t, uint8_t, bool))
++NEQO_RESULT_STUB(neqo_htttp3conn_send_request_body,
++                 (NeqoHttp3Conn*, uint64_t, const uint8_t*, uint32_t,
++                  uint32_t*))
++NEQO_RESULT_STUB(neqo_http3conn_cancel_fetch,
++                 (NeqoHttp3Conn*, uint64_t, uint64_t))
++NEQO_RESULT_STUB(neqo_http3conn_reset_stream,
++                 (NeqoHttp3Conn*, uint64_t, uint64_t))
++NEQO_RESULT_STUB(neqo_http3conn_stream_stop_sending,
++                 (NeqoHttp3Conn*, uint64_t, uint64_t))
++NEQO_RESULT_STUB(neqo_http3conn_close_stream, (NeqoHttp3Conn*, uint64_t))
++NEQO_RESULT_STUB(neqo_http3conn_event,
++                 (NeqoHttp3Conn*, Http3Event*, nsTArray<uint8_t>*))
++
++nsresult neqo_http3conn_read_response_data(NeqoHttp3Conn*, uint64_t, uint8_t*,
++                                            uint32_t, uint32_t* aRead,
++                                            bool* aFin) {
++  if (aRead) {
++    *aRead = 0;
++  }
++  if (aFin) {
++    *aFin = true;
++  }
++  return NeqoUnavailable();
++}
++
++NEQO_RESULT_STUB(neqo_http3conn_tls_info,
++                 (NeqoHttp3Conn*, NeqoSecretInfo*))
++NEQO_RESULT_STUB(neqo_http3conn_peer_certificate_info,
++                 (NeqoHttp3Conn*, NeqoCertificateInfo*))
++void neqo_http3conn_authenticated(NeqoHttp3Conn*, PRErrorCode) {}
++NEQO_RESULT_STUB(neqo_http3conn_set_resumption_token,
++                 (NeqoHttp3Conn*, nsTArray<uint8_t>*))
++void neqo_http3conn_set_ech_config(NeqoHttp3Conn*, nsTArray<uint8_t>*) {}
++bool neqo_http3conn_is_zero_rtt(NeqoHttp3Conn*) { return false; }
++void neqo_http3conn_get_stats(NeqoHttp3Conn*, Http3Stats* aStats) {
++  if (aStats) {
++    std::memset(aStats, 0, sizeof(*aStats));
++  }
++}
++
++NEQO_RESULT_STUB(neqo_http3conn_webtransport_create_session,
++                 (NeqoHttp3Conn*, const nsACString*, const nsACString*,
++                  const nsACString*, uint64_t*))
++NEQO_RESULT_STUB(neqo_http3conn_connect_udp_create_session,
++                 (NeqoHttp3Conn*, const nsACString*, const nsACString*,
++                  const nsACString*, uint64_t*))
++NEQO_RESULT_STUB(neqo_http3conn_webtransport_close_session,
++                 (NeqoHttp3Conn*, uint64_t, uint32_t, const nsACString*))
++NEQO_RESULT_STUB(neqo_http3conn_connect_udp_close_session,
++                 (NeqoHttp3Conn*, uint64_t, uint32_t, const nsACString*))
++NEQO_RESULT_STUB(neqo_http3conn_webtransport_create_stream,
++                 (NeqoHttp3Conn*, uint64_t, WebTransportStreamType,
++                  uint64_t*))
++NEQO_RESULT_STUB(neqo_http3conn_webtransport_send_datagram,
++                 (NeqoHttp3Conn*, uint64_t, nsTArray<uint8_t>*, uint64_t))
++NEQO_RESULT_STUB(neqo_http3conn_connect_udp_send_datagram,
++                 (NeqoHttp3Conn*, uint64_t, nsTArray<uint8_t>*, uint64_t))
++NEQO_RESULT_STUB(neqo_http3conn_webtransport_max_datagram_size,
++                 (NeqoHttp3Conn*, uint64_t, uint64_t*))
++NEQO_RESULT_STUB(neqo_http3conn_webtransport_set_sendorder,
++                 (NeqoHttp3Conn*, uint64_t, const int64_t*))
++
++#undef NEQO_RESULT_STUB
++
++void neqo_encoder_addref(const NeqoEncoder* aEncoder) {
++  const_cast<NeqoEncoder*>(aEncoder)->refs.fetch_add(1,
++                                                     std::memory_order_relaxed);
++}
++
++void neqo_encoder_release(const NeqoEncoder* aEncoder) {
++  auto* encoder = const_cast<NeqoEncoder*>(aEncoder);
++  if (encoder && encoder->refs.fetch_sub(1, std::memory_order_acq_rel) == 1) {
++    delete encoder;
++  }
++}
++
++void neqo_encoder_new(const NeqoEncoder** aResult) {
++  if (aResult) {
++    *aResult = new (std::nothrow) NeqoEncoder();
++  }
++}
++
++void neqo_encode_byte(NeqoEncoder* aEncoder, uint8_t aData) {
++  aEncoder->data.push_back(aData);
++}
++
++void neqo_encode_uint(NeqoEncoder* aEncoder, uint32_t aCount, uint64_t aData) {
++  for (uint32_t index = aCount; index > 0; --index) {
++    aEncoder->data.push_back(static_cast<uint8_t>(aData >> ((index - 1) * 8)));
++  }
++}
++
++uintptr_t neqo_encode_varint_len(uint64_t aValue) {
++  return aValue < (1ULL << 6)    ? 1
++         : aValue < (1ULL << 14) ? 2
++         : aValue < (1ULL << 30) ? 4
++                                 : 8;
++}
++
++void neqo_encode_varint(NeqoEncoder* aEncoder, uint64_t aData) {
++  const uint32_t length = neqo_encode_varint_len(aData);
++  aData |= length == 2   ? 0x4000ULL
++           : length == 4 ? 0x80000000ULL
++           : length == 8 ? 0xC000000000000000ULL
++                         : 0;
++  neqo_encode_uint(aEncoder, length, aData);
++}
++
++void neqo_encode_buffer(NeqoEncoder* aEncoder, const uint8_t* aBuffer,
++                        uint32_t aLength) {
++  aEncoder->data.insert(aEncoder->data.end(), aBuffer, aBuffer + aLength);
++}
++
++void neqo_encode_vvec(NeqoEncoder* aEncoder, const uint8_t* aBuffer,
++                      uint32_t aLength) {
++  neqo_encode_varint(aEncoder, aLength);
++  neqo_encode_buffer(aEncoder, aBuffer, aLength);
++}
++
++void neqo_encode_get_data(NeqoEncoder* aEncoder, const uint8_t** aBuffer,
++                          uint32_t* aLength) {
++  if (aBuffer) {
++    *aBuffer = aEncoder->data.data();
++  }
++  if (aLength) {
++    *aLength = static_cast<uint32_t>(aEncoder->data.size());
++  }
++}
++
++void neqo_decoder_addref(const NeqoDecoder* aDecoder) {
++  const_cast<NeqoDecoder*>(aDecoder)->refs.fetch_add(1,
++                                                     std::memory_order_relaxed);
++}
++
++void neqo_decoder_release(const NeqoDecoder* aDecoder) {
++  auto* decoder = const_cast<NeqoDecoder*>(aDecoder);
++  if (decoder && decoder->refs.fetch_sub(1, std::memory_order_acq_rel) == 1) {
++    delete decoder;
++  }
++}
++
++void neqo_decoder_new(const uint8_t* aBuffer, uint32_t aLength,
++                      const NeqoDecoder** aResult) {
++  if (aResult) {
++    *aResult = new (std::nothrow) NeqoDecoder(aBuffer, aLength);
++  }
++}
++
++static bool DecodeUint(NeqoDecoder* aDecoder, uint32_t aCount,
++                       uint64_t* aResult) {
++  if (!aDecoder || aCount > aDecoder->length - aDecoder->offset) {
++    return false;
++  }
++  uint64_t value = 0;
++  for (uint32_t index = 0; index < aCount; ++index) {
++    value = (value << 8) | aDecoder->data[aDecoder->offset++];
++  }
++  *aResult = value;
++  return true;
++}
++
++bool neqo_decode_uint32(NeqoDecoder* aDecoder, uint32_t* aResult) {
++  uint64_t value = 0;
++  if (!aResult || !DecodeUint(aDecoder, 4, &value)) {
++    return false;
++  }
++  *aResult = static_cast<uint32_t>(value);
++  return true;
++}
++
++bool neqo_decode_varint(NeqoDecoder* aDecoder, uint64_t* aResult) {
++  if (!aDecoder || !aResult || aDecoder->offset >= aDecoder->length) {
++    return false;
++  }
++  const uint32_t length = 1U << (aDecoder->data[aDecoder->offset] >> 6);
++  uint64_t value = 0;
++  if (!DecodeUint(aDecoder, length, &value)) {
++    return false;
++  }
++  *aResult = value & ~(0xC000000000000000ULL >> ((8 - length) * 8));
++  return true;
++}
++
++bool neqo_decode(NeqoDecoder* aDecoder, uint32_t aLength,
++                 const uint8_t** aBuffer, uint32_t* aRead) {
++  if (!aDecoder || aLength > aDecoder->length - aDecoder->offset) {
++    return false;
++  }
++  if (aBuffer) {
++    *aBuffer = aDecoder->data + aDecoder->offset;
++  }
++  if (aRead) {
++    *aRead = aLength;
++  }
++  aDecoder->offset += aLength;
++  return true;
++}
++
++void neqo_decode_remainder(NeqoDecoder* aDecoder, const uint8_t** aBuffer,
++                           uint32_t* aRead) {
++  const uint32_t remaining = aDecoder ? aDecoder->length - aDecoder->offset : 0;
++  if (aBuffer) {
++    *aBuffer = remaining ? aDecoder->data + aDecoder->offset : nullptr;
++  }
++  if (aRead) {
++    *aRead = remaining;
++  }
++  if (aDecoder) {
++    aDecoder->offset = aDecoder->length;
++  }
++}
++
++uint64_t neqo_decoder_remaining(NeqoDecoder* aDecoder) {
++  return aDecoder ? aDecoder->length - aDecoder->offset : 0;
++}
++
++uint64_t neqo_decoder_offset(NeqoDecoder* aDecoder) {
++  return aDecoder ? aDecoder->offset : 0;
++}
++
++void neqo_glue_enable_apple_fast_path() {}
++bool neqo_glue_probe_apple_fast_path(int, int) { return false; }
++bool neqo_glue_test_parse_headers(const nsACString*, HeaderCallback, void*) {
++  return false;
++}
++
++}  // extern "C"
++}  // namespace mozilla::net
+diff --git a/netwerk/socket/neqo_glue/moz.build b/netwerk/socket/neqo_glue/moz.build
+index 6b147f460c3d91cd5726fcf5ee60db3ecba4d511..3c836cc4ee5f1b00cf481d4545936734ec7c1590 100644
+--- a/netwerk/socket/neqo_glue/moz.build
++++ b/netwerk/socket/neqo_glue/moz.build
+@@ -11,6 +11,9 @@ UNIFIED_SOURCES += [
+     "AppleFastDatapathProbe.cpp",
+ ]
+ 
++if CONFIG["MOZ_WIDGET_TOOLKIT"] == "uikit":
++    SOURCES += ["NeqoUIKitStubs.cpp"]
++
+ LOCAL_INCLUDES += [
+     "/security/manager/ssl",
+     "/security/nss/lib/ssl",
 diff --git a/netwerk/system/ios/moz.build b/netwerk/system/ios/moz.build
 index 233ac534d03cb581d4f02c5c10afcfbafe8399a1..2c81f6a9fbd66818ba771455428d6085435f1a8f 100644
 --- a/netwerk/system/ios/moz.build
@@ -115965,8 +116655,77 @@ index 50bb10e9417f0e2fee3429b1705d63ce4c1ca0b1..23126e41eee23722e2be4091316318d4
    nsTArray<RefPtr<nsIX509Cert>> certArray;
    for (CERTCertListNode* node = CERT_LIST_HEAD(mPotentialClientCertificates);
         !CERT_LIST_END(node, mPotentialClientCertificates);
+diff --git a/security/manager/ssl/nsSiteSecurityService.cpp b/security/manager/ssl/nsSiteSecurityService.cpp
+index 9b259fd3edca7d535bab826dd9cc5a47c88bbf74..4a9edbb3a28e615cbc0a5948703e47db1c723034 100644
+--- a/security/manager/ssl/nsSiteSecurityService.cpp
++++ b/security/manager/ssl/nsSiteSecurityService.cpp
+@@ -35,7 +35,9 @@
+ // influence its HSTS status via include subdomains, however).
+ // This prevents the preload list from overriding the site's current
+ // desired HSTS status.
+-#include "nsSTSPreloadListGenerated.inc"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "nsSTSPreloadListGenerated.inc"
++#endif
+ 
+ using namespace mozilla;
+ using namespace mozilla::psm;
+@@ -168,7 +170,12 @@ void SiteHSTSState::ToString(nsCString& aString) {
+   aString.AppendInt(static_cast<uint32_t>(mHSTSIncludeSubdomains));
+ }
+ 
+-nsSiteSecurityService::nsSiteSecurityService() : mDafsa(kDafsa) {}
++nsSiteSecurityService::nsSiteSecurityService()
++#ifndef MOZ_WIDGET_UIKIT
++    : mDafsa(kDafsa)
++#endif
++{
++}
+ 
+ nsSiteSecurityService::~nsSiteSecurityService() = default;
+ 
+@@ -806,6 +813,17 @@ nsSiteSecurityService::IsSecureURI(nsIURI* aURI,
+ // @return True if the host is matched, false otherwise.
+ bool nsSiteSecurityService::GetPreloadStatus(const nsACString& aHost,
+                                              bool* aIncludeSubdomains) const {
++#ifdef MOZ_WIDGET_UIKIT
++  // DualAI only opens these HTTPS services as top-level destinations. Keep a
++  // small preload set for them instead of embedding Firefox's full HSTS DAFSA.
++  bool found = aHost.EqualsLiteral("chatgpt.com") ||
++               aHost.EqualsLiteral("openai.com") ||
++               aHost.EqualsLiteral("google.com");
++  if (found && aIncludeSubdomains) {
++    *aIncludeSubdomains = true;
++  }
++  return found;
++#else
+   const int kIncludeSubdomains = 1;
+   bool found = false;
+ 
+@@ -822,6 +840,7 @@ bool nsSiteSecurityService::GetPreloadStatus(const nsACString& aHost,
+   }
+ 
+   return found;
++#endif
+ }
+ 
+ nsresult nsSiteSecurityService::GetWithMigration(
+diff --git a/security/manager/ssl/nsSiteSecurityService.h b/security/manager/ssl/nsSiteSecurityService.h
+index 5ac5c16bb801d2b2d0ff2482def6adfb63903aea..da456d14141497c528b4b1a6a63aab7d9fa4b6f3 100644
+--- a/security/manager/ssl/nsSiteSecurityService.h
++++ b/security/manager/ssl/nsSiteSecurityService.h
+@@ -139,7 +139,9 @@ class nsSiteSecurityService : public nsISiteSecurityService {
+                                nsIDataStorage::DataType aDataStorageType);
+ 
+   nsCOMPtr<nsIDataStorage> mSiteStateStorage;
++#ifndef MOZ_WIDGET_UIKIT
+   const mozilla::Dafsa mDafsa;
++#endif
+ };
+ 
+ #endif  // _nsSiteSecurityService_h_
 diff --git a/security/moz.build b/security/moz.build
-index 90bae217e5c813944e0c2c6103e7316932e19686..e473c242d57c380801f97a8ce438b3d9c304d163 100644
+index 90bae217e5c813944e0c2c6103e7316932e19686..105c7acc516f77e99ae651b30e5b10c51549c3b6 100644
 --- a/security/moz.build
 +++ b/security/moz.build
 @@ -7,9 +7,13 @@ with Files("**"):
@@ -115984,6 +116743,710 @@ index 90bae217e5c813944e0c2c6103e7316932e19686..e473c242d57c380801f97a8ce438b3d9
  with Files("generate*.py"):
      BUG_COMPONENT = ("Firefox Build System", "General")
  
+@@ -45,7 +49,10 @@ if CONFIG["MOZ_FOLD_LIBS"]:
+ 
+     OS_LIBS += CONFIG["REALTIME_LIBS"]
+ 
+-    SYMBOLS_FILE = "nss.symbols"
++    if CONFIG["MOZ_WIDGET_TOOLKIT"] == "uikit":
++        SYMBOLS_FILE = "nss-uikit.symbols"
++    else:
++        SYMBOLS_FILE = "nss.symbols"
+     # This changes the default targets in the NSS build, among
+     # other things.
+     gyp_vars["moz_fold_libs"] = 1
+@@ -76,6 +83,10 @@ else:
+ 
+ # This disables building some NSS tools.
+ gyp_vars["mozilla_client"] = 1
++if CONFIG["MOZ_WIDGET_TOOLKIT"] == "uikit":
++    # certutil and pk12util are not shipped in the embedded app. They also
++    # intentionally cannot link against UIKit's runtime-only NSS export list.
++    gyp_vars["disable_cmds"] = 1
+ 
+ # This builds NSS tools in COMM applications that Firefox doesn't build.
+ if CONFIG["MOZ_BUILD_APP"].startswith("comm/"):
+diff --git a/security/nss-uikit.symbols b/security/nss-uikit.symbols
+new file mode 100644
+index 0000000000000000000000000000000000000000..4712016fb05e823f4e193cf6f57203aa1ef0a2f9
+--- /dev/null
++++ b/security/nss-uikit.symbols
+@@ -0,0 +1,631 @@
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++# UIKit embeds one fixed Gecko consumer and does not expose NSS as a public
++# SDK. Keep only symbols imported by XUL and the bundled softoken/freebl
++# libraries so the linker can discard unused desktop NSS surfaces.
++CERT_AddCertToListTail
++CERT_ChangeCertTrust
++CERT_CompareName
++CERT_CreateSubjectCertList
++CERT_DecodeAltNameExtension
++CERT_DecodeAuthInfoAccessExtension
++CERT_DecodeCertPackage
++CERT_DecodeTrustString
++CERT_DerNameToAscii
++CERT_DestroyCertList
++CERT_DestroyCertificate
++CERT_DestroyCertificateList
++CERT_DupCertificate
++CERT_ExtractPublicKey
++CERT_FilterCertListByUsage
++CERT_FilterCertListForUserCerts
++CERT_FindCertByIssuerAndSN
++CERT_FindCertByNickname
++CERT_FindCertExtension
++CERT_FindKeyUsageExtension
++CERT_GetCertTrust
++CERT_GetCommonName
++CERT_GetDefaultCertDB
++CERT_GetFirstEmailAddress
++CERT_GetImposedNameConstraints
++CERT_GetNextEmailAddress
++CERT_GetNextGeneralName
++CERT_GetOrgName
++CERT_GetOrgUnitName
++CERT_Hexify
++CERT_IsCACert
++CERT_MakeCANickname
++CERT_NewCertList
++CERT_NewTempCertificate
++CERT_RFC1485_EscapeAndQuote
++CERT_RemoveCertListNode
++CERT_SubjectPublicKeyInfoTemplate
++DER_DecodeTimeChoice
++DER_Encode_Util
++DER_GetInteger_Util
++DER_SetUInteger
++DSAU_EncodeDerSigWithLen
++HASH_ResultLenByOidTag
++NSSSMIME_GetVersion
++NSSSSL_GetVersion
++NSSUTIL_ArgDecodeNumber
++NSSUTIL_ArgFetchValue
++NSSUTIL_ArgGetLabel
++NSSUTIL_ArgHasFlag
++NSSUTIL_ArgIsBlank
++NSSUTIL_ArgSkipParameter
++NSSUTIL_ArgStrip
++NSSUTIL_DoModuleDBFunction
++NSSUTIL_GetVersion
++NSS_CMSContentInfo_GetContent
++NSS_CMSContentInfo_GetContentTypeTag
++NSS_CMSContentInfo_SetContent_SignedData
++NSS_CMSEncoder_Finish
++NSS_CMSEncoder_Start
++NSS_CMSMessage_ContentLevel
++NSS_CMSMessage_Create
++NSS_CMSMessage_CreateFromDER
++NSS_CMSMessage_Destroy
++NSS_CMSMessage_GetContentInfo
++NSS_CMSMessage_IsSigned
++NSS_CMSSignedData_AddCertificate
++NSS_CMSSignedData_CreateCertsOnly
++NSS_CMSSignedData_Destroy
++NSS_CMSSignedData_GetSignerInfo
++NSS_CMSSignedData_SignerInfoCount
++NSS_CMSSignerInfo_GetSigningCertificate
++NSS_CMSSignerInfo_GetSigningTime
++NSS_CMSSignerInfo_Verify
++NSS_FindCertKEAType
++NSS_GetAlgorithmPolicy
++NSS_GetVersion
++NSS_Initialize
++NSS_IsInitialized
++NSS_NoDB_Init
++NSS_OptionSet
++NSS_SecureMemcmp
++NSS_SecureMemcmpZero
++NSS_SecureSelect
++NSS_SetAlgorithmPolicy
++NSS_SetDomesticPolicy
++NSS_Shutdown
++NSS_VersionCheck
++PK11SDR_Decrypt
++PK11SDR_EncryptWithMechanism
++PK11_AEADOp
++PK11_Authenticate
++PK11_ChangePW
++PK11_CheckUserPassword
++PK11_CipherOp
++PK11_ConvertSessionSymKeyToTokenSymKey
++PK11_CreateContextBySymKey
++PK11_CreateDigestContext
++PK11_CreateGenericObject
++PK11_CreatePBEV2AlgorithmID
++PK11_Decrypt
++PK11_DeleteTokenCertAndKey
++PK11_DeleteTokenSymKey
++PK11_Derive
++PK11_DestroyContext
++PK11_DestroyGenericObject
++PK11_DigestBegin
++PK11_DigestFinal
++PK11_DigestOp
++PK11_Encrypt
++PK11_ExportDERPrivateKeyInfo
++PK11_ExtractKeyValue
++PK11_FindCertFromNickname
++PK11_FindEncodedCertInSlot
++PK11_FindKeyByAnyCert
++PK11_FindKeyByDERCert
++PK11_FindKeyByKeyID
++PK11_FindRawCertsWithSubject
++PK11_FreeSlot
++PK11_FreeSlotList
++PK11_FreeSymKey
++PK11_GenerateKeyPair
++PK11_GenerateKeyPairWithOpFlags
++PK11_GenerateRandom
++PK11_GenerateRandomOnSlot
++PK11_GetAllTokens
++PK11_GetBestSlot
++PK11_GetCertsMatchingPrivateKey
++PK11_GetInternalKeySlot
++PK11_GetInternalSlot
++PK11_GetKeyData
++PK11_GetNextSymKey
++PK11_GetPrivateModulusLen
++PK11_GetSlotInfo
++PK11_GetSlotName
++PK11_GetSlotSeries
++PK11_GetTokenInfo
++PK11_GetTokenName
++PK11_HPKE_Deserialize
++PK11_HPKE_DestroyContext
++PK11_HPKE_ExportSecret
++PK11_HPKE_GetEncapPubKey
++PK11_HPKE_NewContext
++PK11_HPKE_Open
++PK11_HPKE_Seal
++PK11_HPKE_Serialize
++PK11_HPKE_SetupR
++PK11_HPKE_SetupS
++PK11_HPKE_ValidateParameters
++PK11_HasAttributeSet
++PK11_HasRootCerts
++PK11_HashBuf
++PK11_ImportCert
++PK11_ImportCertForKey
++PK11_ImportDERPrivateKeyInfoAndReturnKey
++PK11_ImportPublicKey
++PK11_ImportSymKey
++PK11_InitPin
++PK11_IsDisabled
++PK11_IsFIPS
++PK11_IsFriendly
++PK11_IsInternal
++PK11_IsInternalKeySlot
++PK11_IsLoggedIn
++PK11_IsPresent
++PK11_IsReadOnly
++PK11_KeyForCertExists
++PK11_KeyGen
++PK11_ListCerts
++PK11_ListCertsInSlot
++PK11_ListFixedKeysInSlot
++PK11_ListPrivKeysInSlot
++PK11_Logout
++PK11_LogoutAll
++PK11_MapSignKeyType
++PK11_NeedLogin
++PK11_NeedUserInit
++PK11_PBEKeyGen
++PK11_ParamFromIV
++PK11_PrivDecrypt
++PK11_ProtectedAuthenticationPath
++PK11_PubDeriveWithKDF
++PK11_PubEncrypt
++PK11_ReadDistrustAfterAttribute
++PK11_ReadRawAttribute
++PK11_ReferenceSlot
++PK11_ResetToken
++PK11_SetPasswordFunc
++PK11_SetSymKeyNickname
++PK11_SignWithMechanism
++PK11_SignatureLen
++PK11_TokenKeyGenWithFlags
++PK11_UnwrapSymKey
++PK11_VerifyWithMechanism
++PK11_WrapSymKey
++PL_Base64Decode
++PL_CompareValues
++PL_HashTableAdd
++PL_HashTableDestroy
++PL_HashTableEnumerateEntries
++PL_HashTableLookup
++PL_HashTableLookupConst
++PL_HashTableRemove
++PL_NewHashTable
++PL_strcasecmp
++PL_strcasestr
++PL_strcmp
++PL_strncasecmp
++PORT_Alloc_Util
++PORT_ArenaAlloc
++PORT_ArenaAlloc_Util
++PORT_ArenaGrow_Util
++PORT_ArenaZAlloc
++PORT_ArenaZAlloc_Util
++PORT_Free
++PORT_FreeArena
++PORT_FreeArena_Util
++PORT_Free_Util
++PORT_GetError
++PORT_GetError_Util
++PORT_NewArena
++PORT_NewArena_Util
++PORT_Realloc_Util
++PORT_SafeZero
++PORT_SetError_Util
++PORT_SetUCS2_ASCIIConversionFunction
++PORT_Strdup_Util
++PORT_UCS2_UTF8Conversion
++PORT_ZAllocAlignedOffset_Util
++PORT_ZAlloc_Util
++PORT_ZFree_Util
++PR_Accept
++PR_Access
++PR_AtomicDecrement
++PR_AtomicIncrement
++PR_Available
++PR_Available64
++PR_Bind
++PR_CallOnce
++PR_ChangeFileDescNativeHandle
++PR_Close
++PR_CloseFileMap
++PR_Connect
++PR_ConnectContinue
++PR_ConvertIPv4AddrToIPv6
++PR_CreateFileMap
++PR_CreateIOLayerStub
++PR_CreatePipe
++PR_CreateProcessDetached
++PR_CreateThread
++PR_Delete
++PR_DestroyCondVar
++PR_DestroyLock
++PR_DestroyMonitor
++PR_EnterMonitor
++PR_EnumerateAddrInfo
++PR_ErrorInstallTable
++PR_ErrorToName
++PR_ErrorToString
++PR_ExitMonitor
++PR_ExplodeTime
++PR_FileDesc2NativeHandle
++PR_FindFunctionSymbol
++PR_FindFunctionSymbolAndLibrary
++PR_FindSymbol
++PR_FormatTime
++PR_FormatTimeUSEnglish
++PR_Free
++PR_FreeAddrInfo
++PR_FreeLibraryName
++PR_GMTParameters
++PR_GetAddrInfoByName
++PR_GetCanonNameFromAddrInfo
++PR_GetCurrentThread
++PR_GetDefaultIOMethods
++PR_GetDescType
++PR_GetDirectorySeparator
++PR_GetEnv
++PR_GetEnvSecure
++PR_GetError
++PR_GetHostByName
++PR_GetIdentitiesLayer
++PR_GetLayersIdentity
++PR_GetLibraryFilePathname
++PR_GetLibraryName
++PR_GetMemMapAlignment
++PR_GetNumberOfProcessors
++PR_GetOSError
++PR_GetOpenFileInfo
++PR_GetOpenFileInfo64
++PR_GetPageShift
++PR_GetPageSize
++PR_GetPeerName
++PR_GetPhysicalMemorySize
++PR_GetSockName
++PR_GetSocketOption
++PR_GetSpecialFD
++PR_GetSystemInfo
++PR_GetThreadName
++PR_GetThreadPrivate
++PR_GetUniqueIdentity
++PR_GetVersion
++PR_ImplodeTime
++PR_ImportFile
++PR_InitializeNetAddr
++PR_IntervalNow
++PR_IntervalToMicroseconds
++PR_IntervalToMilliseconds
++PR_IntervalToSeconds
++PR_IsNetAddrType
++PR_JoinThread
++PR_Listen
++PR_LoadLibrary
++PR_LoadLibraryWithFlags
++PR_LocalTimeParameters
++PR_Lock
++PR_Malloc
++PR_MemMap
++PR_MemUnmap
++PR_MicrosecondsToInterval
++PR_MillisecondsToInterval
++PR_NetAddrToString
++PR_NewCondVar
++PR_NewLock
++PR_NewMonitor
++PR_NewThreadPrivateIndex
++PR_NormalizeTime
++PR_Notify
++PR_NotifyAll
++PR_NotifyAllCondVar
++PR_NotifyCondVar
++PR_Now
++PR_Open
++PR_OpenFile
++PR_OpenTCPSocket
++PR_OpenUDPSocket
++PR_ParseTimeString
++PR_Poll
++PR_PopIOLayer
++PR_PushIOLayer
++PR_Read
++PR_Recv
++PR_RecvFrom
++PR_SecondsToInterval
++PR_Seek
++PR_Seek64
++PR_SendTo
++PR_SetCurrentThreadName
++PR_SetEnv
++PR_SetError
++PR_SetFDInheritable
++PR_SetNetAddr
++PR_SetSocketOption
++PR_SetThreadPriority
++PR_SetThreadPrivate
++PR_Sleep
++PR_StringToNetAddr
++PR_Sync
++PR_TicksPerSecond
++PR_UnloadLibrary
++PR_Unlock
++PR_Wait
++PR_WaitCondVar
++PR_Write
++PR_dtoa
++PR_fprintf
++PR_htonl
++PR_htons
++PR_ntohl
++PR_ntohs
++PR_smprintf
++PR_smprintf_free
++PR_snprintf
++PR_sscanf
++PR_strtod
++SECITEM_AllocItem
++SECITEM_AllocItem_Util
++SECITEM_CompareItem_Util
++SECITEM_CopyItem
++SECITEM_CopyItem_Util
++SECITEM_DupItem
++SECITEM_DupItem_Util
++SECITEM_FreeArray
++SECITEM_FreeItem
++SECITEM_FreeItem_Util
++SECITEM_HashCompare
++SECITEM_ItemsAreEqual
++SECITEM_ItemsAreEqual_Util
++SECITEM_MakeItem
++SECITEM_ZfreeItem_Util
++SECKEY_ConvertToPublicKey
++SECKEY_CopyPrivateKey
++SECKEY_CopyPublicKey
++SECKEY_CreateSubjectPublicKeyInfo
++SECKEY_DecodeDERSubjectPublicKeyInfo
++SECKEY_DestroyPrivateKey
++SECKEY_DestroyPrivateKeyList
++SECKEY_DestroyPublicKey
++SECKEY_DestroySubjectPublicKeyInfo
++SECKEY_ExtractPublicKey
++SECKEY_GetPublicKeyType
++SECKEY_ImportDERPublicKey
++SECKEY_PublicKeyStrength
++SECKEY_SignatureLen
++SECMOD_AddNewModule
++SECMOD_CanDeleteInternalModule
++SECMOD_DeleteInternalModule
++SECMOD_DeleteModule
++SECMOD_DestroyModule
++SECMOD_FindModule
++SECMOD_GetDeadModuleList
++SECMOD_GetDefaultModuleList
++SECMOD_GetDefaultModuleListLock
++SECMOD_GetInternalModule
++SECMOD_GetReadLock
++SECMOD_LoadUserModule
++SECMOD_LoadUserModuleWithFunction
++SECMOD_LockedModuleHasRemovableSlots
++SECMOD_PubCipherFlagstoInternal
++SECMOD_PubMechFlagstoInternal
++SECMOD_ReferenceModule
++SECMOD_ReleaseReadLock
++SECMOD_UnloadUserModule
++SECMOD_UpdateSlotList
++SECOID_AlgorithmIDTemplate
++SECOID_AlgorithmIDTemplate_Util
++SECOID_CopyAlgorithmID_Util
++SECOID_DestroyAlgorithmID
++SECOID_DestroyAlgorithmID_Util
++SECOID_FindOID
++SECOID_FindOIDByMechanism
++SECOID_FindOIDByTag
++SECOID_FindOIDTag
++SECOID_FindOIDTag_Util
++SECOID_GetAlgorithmTag_Util
++SECOID_Init
++SECOID_SetAlgorithmID_Util
++SECOID_Shutdown
++SEC_ASN1DecodeItem_Util
++SEC_ASN1EncodeInteger_Util
++SEC_ASN1EncodeItem
++SEC_ASN1EncodeItem_Util
++SEC_AnyTemplate_Util
++SEC_BitStringTemplate_Util
++SEC_DeletePermCertificate
++SEC_ObjectIDTemplate_Util
++SEC_OctetStringTemplate
++SEC_OctetStringTemplate_Util
++SEC_PKCS12AddCertAndKey
++SEC_PKCS12AddPasswordIntegrity
++SEC_PKCS12CreateExportContext
++SEC_PKCS12CreatePasswordPrivSafe
++SEC_PKCS12CreateUnencryptedSafe
++SEC_PKCS12DecoderFinish
++SEC_PKCS12DecoderImportBags
++SEC_PKCS12DecoderStart
++SEC_PKCS12DecoderUpdate
++SEC_PKCS12DecoderValidateBags
++SEC_PKCS12DecoderVerify
++SEC_PKCS12DestroyExportContext
++SEC_PKCS12EnableCipher
++SEC_PKCS12Encode
++SEC_PKCS12IsEncryptionAllowed
++SEC_PKCS12SetPreferredCipher
++SEC_QuickDERDecodeItem
++SEC_QuickDERDecodeItem_Util
++SEC_StringToOID
++SGN_CreateDigestInfo
++SGN_CreateDigestInfo_Util
++SGN_DecodeDigestInfo
++SGN_DestroyDigestInfo
++SGN_DestroyDigestInfo_Util
++SSL_AuthCertificateComplete
++SSL_AuthCertificateHook
++SSL_CipherPrefSetDefault
++SSL_ClearSessionCache
++SSL_ClientCertCallbackComplete
++SSL_ConfigSecureServer
++SSL_ConfigServerSessionIDCache
++SSL_ForceHandshake
++SSL_GetChannelInfo
++SSL_GetCipherSuiteInfo
++SSL_GetClientAuthDataHook
++SSL_GetExperimentalAPI
++SSL_GetNextProto
++SSL_GetPreliminaryChannelInfo
++SSL_HandshakeCallback
++SSL_HandshakeNegotiatedExtension
++SSL_ImplementedCiphers
++SSL_ImportFD
++SSL_NamedGroupConfig
++SSL_NumImplementedCiphers
++SSL_OptionGet
++SSL_OptionSet
++SSL_OptionSetDefault
++SSL_PeerCertificate
++SSL_PeerSignedCertTimestamps
++SSL_PeerStapledOCSPResponses
++SSL_ResetHandshake
++SSL_SendAdditionalKeyShares
++SSL_SetCanFalseStartCallback
++SSL_SetDowngradeCheckVersion
++SSL_SetNextProtoNego
++SSL_SetSockPeerID
++SSL_SetURL
++SSL_SignatureSchemePrefSet
++SSL_VersionRangeGet
++SSL_VersionRangeGetDefault
++SSL_VersionRangeGetSupported
++SSL_VersionRangeSet
++SSL_VersionRangeSetDefault
++UTIL_SetForkState
++VFY_Begin
++VFY_CreateContext
++VFY_DestroyContext
++VFY_End
++VFY_Update
++_NSSUTIL_EvaluateConfigDir
++_SGN_VerifyPKCS1DigestInfo
++sqlite3_backup_finish
++sqlite3_backup_init
++sqlite3_backup_step
++sqlite3_bind_blob
++sqlite3_bind_double
++sqlite3_bind_int
++sqlite3_bind_int64
++sqlite3_bind_null
++sqlite3_bind_parameter_count
++sqlite3_bind_parameter_index
++sqlite3_bind_parameter_name
++sqlite3_bind_text
++sqlite3_bind_text16
++sqlite3_bind_zeroblob
++sqlite3_busy_timeout
++sqlite3_carray_bind
++sqlite3_changes
++sqlite3_changes64
++sqlite3_clear_bindings
++sqlite3_close
++sqlite3_column_blob
++sqlite3_column_bytes
++sqlite3_column_bytes16
++sqlite3_column_count
++sqlite3_column_double
++sqlite3_column_int
++sqlite3_column_int64
++sqlite3_column_name
++sqlite3_column_text
++sqlite3_column_text16
++sqlite3_column_type
++sqlite3_config
++sqlite3_context_db_handle
++sqlite3_create_collation_v2
++sqlite3_create_function
++sqlite3_create_function_v2
++sqlite3_create_module
++sqlite3_database_file_object
++sqlite3_db_config
++sqlite3_db_handle
++sqlite3_db_mutex
++sqlite3_db_status
++sqlite3_declare_vtab
++sqlite3_errcode
++sqlite3_errmsg
++sqlite3_error_offset
++sqlite3_errstr
++sqlite3_exec
++sqlite3_extended_errcode
++sqlite3_extended_result_codes
++sqlite3_file_control
++sqlite3_finalize
++sqlite3_free
++sqlite3_get_autocommit
++sqlite3_initialize
++sqlite3_interrupt
++sqlite3_last_insert_rowid
++sqlite3_libversion_number
++sqlite3_limit
++sqlite3_load_extension
++sqlite3_malloc64
++sqlite3_memory_used
++sqlite3_mprintf
++sqlite3_mutex_alloc
++sqlite3_mutex_enter
++sqlite3_mutex_free
++sqlite3_mutex_leave
++sqlite3_next_stmt
++sqlite3_open
++sqlite3_open_v2
++sqlite3_prepare_v2
++sqlite3_prepare_v3
++sqlite3_progress_handler
++sqlite3_randomness
++sqlite3_reset
++sqlite3_result_blob
++sqlite3_result_double
++sqlite3_result_error
++sqlite3_result_error_code
++sqlite3_result_int
++sqlite3_result_int64
++sqlite3_result_null
++sqlite3_result_text
++sqlite3_result_text16
++sqlite3_shutdown
++sqlite3_sql
++sqlite3_step
++sqlite3_stmt_readonly
++sqlite3_stricmp
++sqlite3_temp_directory
++sqlite3_threadsafe
++sqlite3_unlock_notify
++sqlite3_uri_parameter
++sqlite3_user_data
++sqlite3_value_blob
++sqlite3_value_bytes
++sqlite3_value_bytes16
++sqlite3_value_double
++sqlite3_value_int
++sqlite3_value_int64
++sqlite3_value_text
++sqlite3_value_text16
++sqlite3_value_type
++sqlite3_vfs_find
++sqlite3_vfs_register
++sqlite3_vfs_unregister
+diff --git a/security/nss/coreconf/config.gypi b/security/nss/coreconf/config.gypi
+index c9fffd0968191f0049c0abb5fd8b4c4c45dfef53..ae617cb83a35984a7112a9a8b898ecef021dcda4 100644
+--- a/security/nss/coreconf/config.gypi
++++ b/security/nss/coreconf/config.gypi
+@@ -106,6 +106,7 @@
+     'disable_arm_hw_sha2%': 0,
+     'disable_intel_hw_sha%': 0,
+     'disable_tests%': 0,
++    'disable_cmds%': 0,
+     'disable_chachapoly%': 0,
+     'disable_dsa%': 0,
+     'disable_deprecated_seed%': 0,
+diff --git a/security/nss/nss.gyp b/security/nss/nss.gyp
+index 46b7444e7297912726dfd67898a527a4bffbfb3d..2eba83747c15b0b50715f1394172b78c258f0b2e 100644
+--- a/security/nss/nss.gyp
++++ b/security/nss/nss.gyp
+@@ -111,19 +111,21 @@
+         {
+           'target_name': 'nss_cmds',
+           'type': 'none',
+-          'dependencies': [
+-            'cmd/certutil/certutil.gyp:certutil',
+-            'cmd/pk12util/pk12util.gyp:pk12util',
+-          ],
+           'conditions': [
+-            [ 'comm_client==1', {
++            [ 'disable_cmds==0', {
++              'dependencies': [
++                'cmd/certutil/certutil.gyp:certutil',
++                'cmd/pk12util/pk12util.gyp:pk12util',
++              ],
++            }],
++            [ 'disable_cmds==0 and comm_client==1', {
+               'dependencies': [
+                 'cmd/smimetools/smimetools.gyp:cmsutil',
+                 'cmd/atob/atob.gyp:atob',
+                 'cmd/btoa/btoa.gyp:btoa',
+               ],
+             }],
+-            [ 'mozilla_client==0', {
++            [ 'disable_cmds==0 and mozilla_client==0', {
+               'dependencies': [
+                 'cmd/crlutil/crlutil.gyp:crlutil',
+                 'cmd/dbtool/dbtool.gyp:dbtool',
 diff --git a/services/fxaccounts/moz.build b/services/fxaccounts/moz.build
 index be3781fb4d2850fe56dd554c7cb646fe8d673ab8..605edf535d94a6470bb4fad96ab485f679b57189 100644
 --- a/services/fxaccounts/moz.build
@@ -117654,20 +119117,21 @@ index d110b667b08b60af7b539103d5ce3d8cbd71ee5e..29fc8b747b855c6a43c86cd2ddc76644
  
  [dev-dependencies]
 diff --git a/toolkit/library/rust/shared/Cargo.toml b/toolkit/library/rust/shared/Cargo.toml
-index dbcd527798f6951e440e27f687fe921b9eaebdef..4501a1d945cf35bdc98da1f1bd1e43aeebf42d4a 100644
+index dbcd527798f6951e440e27f687fe921b9eaebdef..17baf0ab5f923d4bb3c616aa1be555a95acbbb84 100644
 --- a/toolkit/library/rust/shared/Cargo.toml
 +++ b/toolkit/library/rust/shared/Cargo.toml
-@@ -50,9 +50,7 @@ chardetng_c = "1.0.0"
+@@ -49,10 +49,7 @@ buildid_reader_ffi = { path = "../../buildid_reader/ffi" }
+ chardetng_c = "1.0.0"
  audio_thread_priority = { version = "0.35", default-features = false }
  mdns_service = { path="../../../../dom/media/webrtc/transport/mdns_service", optional = true }
- neqo_glue = { path = "../../../../netwerk/socket/neqo_glue" }
+-neqo_glue = { path = "../../../../netwerk/socket/neqo_glue" }
 -wgpu_bindings = { path = "../../../../gfx/wgpu_bindings" }
  mapped_hyph = { git = "https://github.com/jfkthame/mapped_hyph.git", rev = "eff105f6ad7ec9b79816cfc1985a28e5340ad14b" }
 -fog_control = { path = "../../../components/glean" }
  http_sfv = { path = "../../../../netwerk/base/http-sfv" }
  idna_glue = { path = "../../../../netwerk/base/idna_glue" }
  ssl_tokens_cache = { path = "../../../../netwerk/base/ssl_tokens_cache" }
-@@ -75,7 +73,6 @@ midir_impl = { path = "../../../../dom/midi/midir_impl", optional = true }
+@@ -75,7 +72,6 @@ midir_impl = { path = "../../../../dom/midi/midir_impl", optional = true }
  dom = { path = "../../../../dom/base/rust" }
  dom_fragmentdirectives = { path="../../../../dom/base/fragmentdirectives" }
  origin-trials-ffi = { path = "../../../../dom/origin-trials/ffi" }
@@ -117675,7 +119139,7 @@ index dbcd527798f6951e440e27f687fe921b9eaebdef..4501a1d945cf35bdc98da1f1bd1e43ae
  dap_ffi = { path = "../../../components/dap/ffi" }
  data-encoding-ffi = { path = "../../../../dom/fs/parent/rust/data-encoding-ffi" }
  binary_http = { path = "../../../../netwerk/protocol/http/binary_http" }
-@@ -88,7 +85,6 @@ crypto_hash = { path = "../../../../security/manager/ssl/crypto_hash" }
+@@ -88,7 +84,6 @@ crypto_hash = { path = "../../../../security/manager/ssl/crypto_hash" }
  data_storage = { path = "../../../../security/manager/ssl/data_storage" }
  ipcclientcerts = { path = "../../../../security/manager/ssl/ipcclientcerts" }
  lockstore_ffi = { path = "../../../../security/lockstore/lockstore_ffi" }
@@ -117683,7 +119147,7 @@ index dbcd527798f6951e440e27f687fe921b9eaebdef..4501a1d945cf35bdc98da1f1bd1e43ae
  pdf-trust-anchors = { path = "../../../../security/manager/ssl/pdf_trust_anchors" }
  qwac-trust-anchors = { path = "../../../../security/manager/ssl/qwac_trust_anchors" }
  trust-anchors = { path = "../../../../security/manager/ssl/trust_anchors" }
-@@ -121,9 +117,6 @@ urlpattern = "0.6.0"
+@@ -121,9 +116,6 @@ urlpattern = "0.6.0"
  urlpattern_glue = { path = "../../../../netwerk/base/urlpattern_glue" }
  uritemplate_glue = { path = "../../../../netwerk/base/uritemplate_glue" }
  
@@ -117693,7 +119157,7 @@ index dbcd527798f6951e440e27f687fe921b9eaebdef..4501a1d945cf35bdc98da1f1bd1e43ae
  libz-rs-sys = { version = "0.6", features = ["custom-prefix"], optional = true }
  zlib-rs = { version = "0.6", features = ["avx512"], optional = true }
  
-@@ -139,6 +132,14 @@ viaduct = "0.1"
+@@ -139,6 +131,15 @@ viaduct = "0.1"
  viaduct-necko = { path = "../../../../services/application-services/components/viaduct-necko" }
  webext-storage = "0.1"
  
@@ -117703,13 +119167,14 @@ index dbcd527798f6951e440e27f687fe921b9eaebdef..4501a1d945cf35bdc98da1f1bd1e43ae
 +fog_control = { path = "../../../components/glean" }
 +jog = { path = "../../../components/glean/bindings/jog" }
 +mls_gk = { path = "../../../../security/mls/mls_gk" }
++neqo_glue = { path = "../../../../netwerk/socket/neqo_glue" }
 +wgpu_bindings = { path = "../../../../gfx/wgpu_bindings" }
 +
  [target.'cfg(target_os = "windows")'.dependencies]
  detect_win32k_conflicts = { path = "../../../xre/detect_win32k_conflicts" }
  widget_windows = { path = "../../../../widget/windows/rust" }
 diff --git a/toolkit/library/rust/shared/lib.rs b/toolkit/library/rust/shared/lib.rs
-index 3483e33e612e834cbf83544786762105b86abfdd..b2968d327d591abe81273bbe6fed064e722df01c 100644
+index 3483e33e612e834cbf83544786762105b86abfdd..597eb2298dddbed20e9f251129e92e58624e3d5a 100644
 --- a/toolkit/library/rust/shared/lib.rs
 +++ b/toolkit/library/rust/shared/lib.rs
 @@ -28,6 +28,7 @@ extern crate cubeb_pulse;
@@ -117728,15 +119193,17 @@ index 3483e33e612e834cbf83544786762105b86abfdd..b2968d327d591abe81273bbe6fed064e
  extern crate jog;
  extern crate jsrust_shared;
  #[cfg(feature = "jxl_decoder")]
-@@ -64,6 +66,7 @@ extern crate webext_storage;
+@@ -63,7 +65,9 @@ extern crate webext_storage;
+ 
  #[cfg(feature = "webrtc")]
  extern crate mdns_service;
++#[cfg(not(target_os = "ios"))]
  extern crate neqo_glue;
 +#[cfg(not(target_os = "ios"))]
  extern crate wgpu_bindings;
  
  extern crate aa_stroke;
-@@ -146,6 +149,7 @@ extern crate data_encoding_ffi;
+@@ -146,6 +150,7 @@ extern crate data_encoding_ffi;
  extern crate binary_http;
  extern crate happy_eyeballs_glue;
  extern crate lockstore_ffi;
@@ -117744,7 +119211,7 @@ index 3483e33e612e834cbf83544786762105b86abfdd..b2968d327d591abe81273bbe6fed064e
  extern crate mls_gk;
  extern crate oblivious_http;
  
-@@ -155,7 +159,9 @@ extern crate uritemplate_glue;
+@@ -155,7 +160,9 @@ extern crate uritemplate_glue;
  extern crate urlpattern;
  extern crate urlpattern_glue;
  
@@ -118734,6 +120201,41 @@ index 0b0e8a138e4507bba6aac18d8b355a6dc0a8838d..5550200741a57fb82b8a1b04780f1037
    rv = XRE_mainRun();
    if (rv == NS_ERROR_OMNIJAR_OR_DIR_MISSING) {
      if (XRE_IsParentProcess()
+diff --git a/tools/profiler/public/ProfilerMarkers.h b/tools/profiler/public/ProfilerMarkers.h
+index e9ebd8f30db6f2fc4958da7002304ee5a53ea143..ab45f33c3f90b589b00f7be0315d1b7d677625ad 100644
+--- a/tools/profiler/public/ProfilerMarkers.h
++++ b/tools/profiler/public/ProfilerMarkers.h
+@@ -120,8 +120,12 @@ inline mozilla::ProfileBufferBlockIndex AddMarkerToBuffer(
+ // Internally we need to check specifically if gecko is collecting markers.
+ [[nodiscard]] inline bool profiler_thread_is_being_gecko_profiled_for_markers(
+     const ProfilerThreadId& aThreadId) {
++#if defined(XP_IOS)
++  return false;
++#else
+   return profiler_thread_is_being_profiled(aThreadId,
+                                            ThreadProfilingFeatures::Markers);
++#endif
+ }
+ 
+ // ETW collects on all threads. So when it is collecting these should always
+diff --git a/tools/profiler/public/ProfilerState.h b/tools/profiler/public/ProfilerState.h
+index 444ee7fd5043c9014e8c1d153127ba5dd6cabc74..6a1744b741cd93150bee036ed02446f122f7744b 100644
+--- a/tools/profiler/public/ProfilerState.h
++++ b/tools/profiler/public/ProfilerState.h
+@@ -316,9 +316,13 @@ class RacyFeatures {
+   }
+ 
+   [[nodiscard]] static bool IsCollectingMarkers() {
++#if defined(XP_IOS)
++    return false;
++#else
+     uint32_t af = sActiveAndFeatures;  // copy it first
+     return ((af & Active) && !(af & Paused)) || (af & ETWCollectionEnabled) ||
+            (af & PerfettoTracingEnabled);
++#endif
+   }
+ 
+   // This implementation must be kept in sync with
 diff --git a/tools/profiler/rust-api/src/profiler_state.rs b/tools/profiler/rust-api/src/profiler_state.rs
 index 4fc499d065bf90e2279edeb0ed2159caa4615a57..3b461a9ab534df4c8d220a87f5abb6a6e78f1fb3 100644
 --- a/tools/profiler/rust-api/src/profiler_state.rs

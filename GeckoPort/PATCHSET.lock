@@ -2,9 +2,10 @@
 
 FIREFOX_TAG=FIREFOX_153_0_4_RELEASE
 FIREFOX_COMMIT=c178247e1dfea52241a6b18b18cf3a00f8da935c
+REFERENCE_PATCHSET_REPOSITORY=https://github.com/minh-ton/reynard-browser
 REFERENCE_PATCHSET_COMMIT=a0794ff252c5c52040bb4f7419dba110233d4102
 CANONICAL_PATCH=DualAI-Gecko.patch
-CANONICAL_PATCH_SHA256=c7566f57ecf4eecd4534c084894445a12a73d142978d439b30fafd99d010b875
+CANONICAL_PATCH_SHA256=348e7037b9f97c7e5163efad896d0e95e4220af06431bf2257f5249824e7969c
 
 # The reference repository is an audit/input source only. The shipping project
 # does not embed its browser shell. DualAI-Gecko.patch is the single canonical

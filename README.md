@@ -20,7 +20,7 @@ Gecko 端的完整源码修改集中在一份
 `GeckoPrebuilt/GeckoCore-ios-arm64.zip`，因此修改 Swift/UIKit 层时不需要重新
 编译 Firefox/XUL。
 
-当前测试版本为 `1.0.15 (106)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
+当前测试版本为 `1.0.15 (107)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
 `OpenerPolicy`：UIKit 单进程网络路径绕过 `DocumentChannel` 后，仍把仅适用于专用
 COOP/COEP remote type 和 browsing-context group 的 `require-corp` 组合策略写入
 当前 context，第二次刷新发生策略切换时被 Gecko 的 `CanSet` 校验拒绝。Build 97
@@ -102,9 +102,10 @@ XUL 为 `118005696` B，strip 并签名后为 `59964192` B；完整安装估算�
 
 为达到 62-65 MB 的第一版测试配置曾从 UIKit 内核排除 Rust SWGL 软件光栅器和
 C++ SWGL compositor，只保留极小的 `wr_swgl_*` ABI 失败桩；硬件 WebRender、
-EAGL GLES3/GLES2、WebGL/WebGPU 和 Apple VideoToolbox 保持启用。ffvpx 只编译
-音频实现，libaom/dav1d 软件 AV1 与 AVIF 不再进入 UIKit 产物，libvpx 的 VP8/VP9
-解码仍保留。iOS 默认不会启用 `gfx.webrender.program-binary-disk`，因此该构建也
+EAGL GLES3/GLES2、WebGL 和 Apple VideoToolbox 保持启用，WebGPU 则从最终 UIKit
+构建排除。ffvpx 只编译音频实现，libaom/dav1d 软件 AV1 与 AVIF 不再进入 UIKit
+产物，libvpx 的 VP8/VP9 解码仍保留。iOS 默认不会启用
+`gfx.webrender.program-binary-disk`，因此该构建也
 不再链接其 shader 序列化/磁盘读写实现和仅供开发诊断的 `wr-capture` 文件导出；
 这不关闭进程内 shader/program cache 或正常 shader 编译。
 
@@ -284,6 +285,31 @@ Release 构建已通过，包内 XUL 仍为 `59914704` B，SHA-256 仍为
 为 `34170258` B，SHA-256 为
 `960d6eb2c3ef4d8e29323ee707308dcb3993c434947d24763840fc795a0beb10`，解包完整安装
 常规文件为 `65905461` B。
+
+Build 107 保留 SpiderMonkey Baseline Interpreter/JIT、标准 WebAssembly、SWGL、
+Intl/CJK、TLS/NSS、HTTP/2、Cookie/LocalStorage/IndexedDB、Service Worker/Cache
+API、Fetch/Streams/WebSocket/WebCrypto、文件上传、核心图片解码和 UIKit WebSpeech。
+UIKit 下不再进入 Ion 优化层，并通过 `--wasm-no-experimental` 关闭实验性 Wasm
+提案；普通 JS、Baseline JIT 和标准 Wasm 仍可用。NSS 改用由 XUL 与 bundled
+softoken/freebl 实际导入生成的 UIKit 导出表，不再构建未随 App 分发的 NSS CLI；
+动态 HSTS 学习仍保留，内置 preload 表缩为 ChatGPT/OpenAI/Google 根域。TLS session
+token 在 UIKit 下以带版本标记的原始记录写入，仍可读取旧 Brotli 记录，从而只移除
+无写入消费者的 Brotli encoder。URLPattern 的独立 Rust `regex` 依赖曾做隔离重建，
+但 strip/签名后仅相差 32 B，证明 ThinLTO/共享依赖已消除可回收部分，因此没有保留
+该实验分叉。
+
+Build 107 正式增量重链耗时 4 分 58 秒且报告 `0 compiler warnings`；raw XUL 为
+`114365680` B，strip 后为 `57123608` B，16 KiB 页签名后为 `57253456` B。
+prebuilt zip 为 `42906330` B，SHA-256 为
+`f98fb459863519b59e4125bafa0eea9927c4c9b50268a00d50b9c9c4b00760f7`；IPA 为
+`32164661` B，SHA-256 为
+`1afe6a4aa45333af6d215e69b700f91e9266a97fc89d78ba98c2107548e256fb`；解包完整安装
+常规文件为 `62948997` B。相对 Build 106，常规文件减少 `2956464` B，但仍高于
+十进制 60 MB `2948997` B。按此前真机“App 大小”比同版常规文件高约 5 MB 的实测
+差值，这版仍可能显示约 67.9 MB；该数值必须以真机安装为准，不能由 IPA 压缩率推断。
+继续逼近真机 65 MB 已没有接近 3 MB 的无损单项：需要另行接受并回归 WebGL、标准
+Wasm 或其他网页能力取舍。SWGL 不能再次移除，其缺失已在 iOS 15.5 触发启动
+watchdog。
 
 ## 当前结构
 
@@ -703,19 +729,20 @@ git apply --check GeckoPort/DualAI-Gecko.patch
 - runtime 文件数。
 
 压缩包包含 `Runtime/`、`include/` 和同一份 `MANIFEST.lock`。
-`prepare_gecko_prebuilt.sh` 会校验结构、manifest 和 XUL arm64 架构。
+`prepare_gecko_prebuilt.sh` 会校验结构、内外 manifest、XUL SHA-256/大小、runtime
+文件数和 XUL arm64 架构；已展开目录不匹配时会自动从 zip 重建，不能静默复用旧核。
 
 当前 Gecko runtime 最终以
 `GeckoPrebuilt/MANIFEST.lock` 为准：
 
 ```text
-XUL bytes:     117922048
-XUL SHA256:    e149ea0e5d27216e3965c420698952e3743f23cd3360844f459b347ab3b8290c
+XUL bytes:     114365680
+XUL SHA256:    fc9403f9c79cd26a35de95516f4e60c388806a120beb2de1c6811ccb445fc5b4
 Runtime files: 12
 ```
 
-对应 prebuilt zip 为 `45142665` B，SHA-256 为
-`ac6a45bd9bd51352ceba45b9774e17c3d6ad59924df52eeeb2ed69a5f9e67963`。从 prebuilt
+对应 prebuilt zip 为 `42906330` B，SHA-256 为
+`f98fb459863519b59e4125bafa0eea9927c4c9b50268a00d50b9c9c4b00760f7`。从 prebuilt
 构建与上面的完整源码构建均使用同一份 XUL manifest；源码构建还会从
 `GeckoPort/mozconfig.ios13-arm64`
 读取 cross-language ThinLTO、safe ICF 和 MergeFunctions 参数。
@@ -789,7 +816,17 @@ idevicesyslog -p DualAI --no-colors > log.log
 
 ## License / upstream
 
-Gecko/Firefox 及其修改遵循对应 Mozilla 源文件和 MPL-2.0 要求。项目的 iOS
-port 工作参考并审计过 Reynard 的 Gecko iOS 修改；锁定的参考 commit 记录在
-`GeckoPort/PATCHSET.lock`。DualAI 不包含 Reynard 浏览器 UI，也不依赖其浏览器
-shell 运行。
+内嵌引擎基于 Mozilla 的
+[`FIREFOX_153_0_4_RELEASE`](https://github.com/mozilla-firefox/firefox/tree/FIREFOX_153_0_4_RELEASE)，
+Gecko/Firefox 源文件及其修改继续遵循文件内声明和
+[`MPL-2.0`](https://www.mozilla.org/MPL/2.0/) 要求。
+
+最初的 `aarch64-apple-ios` target、UIKit widget、进程/bootstrap、GeckoView
+embedding 和 SpiderMonkey JIT 内存适配，部分改编或参考了
+[`minh-ton/reynard-browser`](https://github.com/minh-ton/reynard-browser) 的
+MPL-2.0 Gecko patches；审计基线固定在
+[`a0794ff252c5c52040bb4f7419dba110233d4102`](https://github.com/minh-ton/reynard-browser/commit/a0794ff252c5c52040bb4f7419dba110233d4102)，
+并记录于 [`GeckoPort/PATCHSET.lock`](GeckoPort/PATCHSET.lock)。当前
+`DualAI-Gecko.patch` 是在该基础上继续修改后、相对锁定 Firefox commit 生成的
+完整 canonical delta，并不等同于 Reynard 原 patch 集。DualAI 未复制或链接
+GPL-3.0 的 Reynard 浏览器 UI/shell，也不依赖它运行。

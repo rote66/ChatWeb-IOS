@@ -24,6 +24,9 @@ ac_add_options --disable-jxl
 ac_add_options --enable-optimize=-Oz
 ac_add_options --enable-release
 ac_add_options --enable-rust-simd
+# Keep standards-track WebAssembly, but omit experimental proposals that the
+# ChatGPT/Gemini embedding does not rely on.
+ac_add_options --wasm-no-experimental
 # Let the final XUL link see Rust and C/C++ bitcode together. This preserves the
 # retained web platform while allowing LLVM to discard Rust C-ABI entry points
 # that are not reachable from the UIKit Gecko embedding.
@@ -43,8 +46,9 @@ export RUSTC_OPT_LEVEL="z"
 # address-significant functions must remain distinct.
 export LDFLAGS="-Wl,-dead_strip -Wl,-no_function_starts -Wl,--icf=safe -Wl,-mllvm,-enable-merge-functions"
 
-# SpiderMonkey JIT is intentionally not disabled. Production readiness requires
-# the iOS child process to report a working executable-memory/JIT path.
+# SpiderMonkey JIT is intentionally not disabled. UIKit keeps its Baseline
+# Interpreter/JIT and executable-memory path; the source patch makes the
+# optimizing Ion tier unreachable so LTO can remove it from this compact build.
 
 # Phase-1 Gemini does not require camera/microphone/WebRTC. The pinned Firefox
 # 153 tree defines this switch in toolkit/moz.configure. The full WebRTC-enabled
