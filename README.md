@@ -20,7 +20,7 @@ Gecko 端的完整源码修改集中在一份
 `GeckoPrebuilt/GeckoCore-ios-arm64.zip`，因此修改 Swift/UIKit 层时不需要重新
 编译 Firefox/XUL。
 
-当前测试版本为 `1.0.15 (107)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
+当前测试版本为 `1.0.15 (108)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
 `OpenerPolicy`：UIKit 单进程网络路径绕过 `DocumentChannel` 后，仍把仅适用于专用
 COOP/COEP remote type 和 browsing-context group 的 `require-corp` 组合策略写入
 当前 context，第二次刷新发生策略切换时被 Gecko 的 `CanSet` 校验拒绝。Build 97
@@ -310,6 +310,23 @@ prebuilt zip 为 `42906330` B，SHA-256 为
 继续逼近真机 65 MB 已没有接近 3 MB 的无损单项：需要另行接受并回归 WebGL、标准
 Wasm 或其他网页能力取舍。SWGL 不能再次移除，其缺失已在 iOS 15.5 触发启动
 watchdog。
+
+Build 108 在 UIKit 专用构建中继续排除网页无法实际使用的 Web Serial、未接入原生
+支付 UI 的 Payment Request，以及 ChatGPT/Gemini 当前不依赖的 WebTransport DOM、
+WebIDL 和对应顶层 IPC actor；普通 Firefox 平台保持原有能力。通用 TLS、HTTP/2、
+Fetch、Streams、WebSocket 和 Necko 网络实现不变，Service Worker、Cache API、站点
+存储、标准 Wasm、Baseline JIT、SWGL 与 UIKit WebSpeech 也继续保留。最终增量
+Release 构建成功；raw XUL 为 `113365840` B，strip 后为 `56761784` B，按 16 KiB
+页签名后为 `56890928` B。相对 Build 107 的最终签名 XUL 再减少 `362528` B；其中
+Web Serial 与 Payment Request 减少 `247200` B，WebTransport DOM/IPC 再减少
+`115328` B。`XUL.list` 已不含 `dom/webtransport`，五个 embedding/JIT 导出和 iOS
+13.0 最低版本仍通过检查。prebuilt zip 为 `42644934` B，SHA-256 为
+`e2beb94e438c9713d1412bfcf8e957364b57a94ff0af01ab53b1dac109e5a9ba`；Build 108
+IPA 为 `31997046` B，SHA-256 为
+`a1e5d41bfc53af37a198979d6727737a8273eda2d5211d7710a6ad5decf21714`，解包完整
+安装常规文件为 `62586468` B，比 Build 107 再减少 `362529` B。canonical patch
+SHA-256 为
+`de99c889227a4dc809cb7df47e4059ae8e4b69acf20266defb999a8847737d8c`。
 
 ## 当前结构
 
@@ -736,13 +753,13 @@ git apply --check GeckoPort/DualAI-Gecko.patch
 `GeckoPrebuilt/MANIFEST.lock` 为准：
 
 ```text
-XUL bytes:     114365680
-XUL SHA256:    fc9403f9c79cd26a35de95516f4e60c388806a120beb2de1c6811ccb445fc5b4
+XUL bytes:     113365840
+XUL SHA256:    b63b97b06c682b4e3fc00bcc13d015a1c787ff566cd5ee182b774f5cc655e64b
 Runtime files: 12
 ```
 
-对应 prebuilt zip 为 `42906330` B，SHA-256 为
-`f98fb459863519b59e4125bafa0eea9927c4c9b50268a00d50b9c9c4b00760f7`。从 prebuilt
+对应 prebuilt zip 为 `42644934` B，SHA-256 为
+`e2beb94e438c9713d1412bfcf8e957364b57a94ff0af01ab53b1dac109e5a9ba`。从 prebuilt
 构建与上面的完整源码构建均使用同一份 XUL manifest；源码构建还会从
 `GeckoPort/mozconfig.ios13-arm64`
 读取 cross-language ThinLTO、safe ICF 和 MergeFunctions 参数。

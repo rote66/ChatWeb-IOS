@@ -92029,10 +92029,21 @@ index a0fb5092f3f843aae89d9a251e12c6be28e66031..d4e1e47063caa0fddcbcbde2514ce298
  
  nsPresContext* Element::GetPresContext(PresContextFor aFor) const {
 diff --git a/dom/base/Navigator.cpp b/dom/base/Navigator.cpp
-index 079746f77996ca03464c8f30b00cd34817b8430d..01c7aabb9e611eca47446fb38ae4a63f8d242f21 100644
+index 079746f77996ca03464c8f30b00cd34817b8430d..696ee9adb5207c8922826ada3514ab66d885433a 100644
 --- a/dom/base/Navigator.cpp
 +++ b/dom/base/Navigator.cpp
-@@ -113,7 +113,9 @@
+@@ -15,7 +15,9 @@
+ #include "mozilla/dom/BodyExtractor.h"
+ #include "mozilla/dom/FetchBinding.h"
+ #include "mozilla/dom/File.h"
+-#include "mozilla/dom/Serial.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/dom/Serial.h"
++#endif
+ #include "nsCharSeparatedTokenizer.h"
+ #include "nsContentPolicyUtils.h"
+ #include "nsContentUtils.h"
+@@ -113,7 +115,9 @@
  #include "mozilla/dom/HTMLMediaElement.h"
  #include "mozilla/dom/WindowGlobalChild.h"
  #include "mozilla/intl/LocaleService.h"
@@ -92043,7 +92054,17 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..01c7aabb9e611eca47446fb38ae4a63f
  
  namespace mozilla::dom {
  
-@@ -156,7 +158,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
+@@ -144,7 +148,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPlugins)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPermissions)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mGeolocation)
++#ifndef MOZ_WIDGET_UIKIT
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSerial)
++#endif
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBatteryManager)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBatteryPromise)
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mConnection)
+@@ -156,7 +162,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Navigator)
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaSession)
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAudioSession)
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAddonManager)
@@ -92053,7 +92074,20 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..01c7aabb9e611eca47446fb38ae4a63f
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLocks)
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLogin)
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mModelContext)
-@@ -247,7 +251,9 @@ void Navigator::Invalidate() {
+@@ -193,10 +201,12 @@ void Navigator::Invalidate() {
+     mGeolocation = nullptr;
+   }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   if (mSerial) {
+     mSerial->Shutdown();
+     mSerial = nullptr;
+   }
++#endif
+ 
+   if (mBatteryManager) {
+     mBatteryManager->Shutdown();
+@@ -247,7 +257,9 @@ void Navigator::Invalidate() {
  
    mAddonManager = nullptr;
  
@@ -92063,7 +92097,7 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..01c7aabb9e611eca47446fb38ae4a63f
  
    if (mLocks) {
      // Unloading a page does not immediately destruct the lock manager actor,
-@@ -321,6 +327,19 @@ void Navigator::GetAppCodeName(nsAString& aAppCodeName, ErrorResult& aRv) {
+@@ -321,6 +333,19 @@ void Navigator::GetAppCodeName(nsAString& aAppCodeName, ErrorResult& aRv) {
  
  void Navigator::GetAppVersion(nsAString& aAppVersion, CallerType aCallerType,
                                ErrorResult& aRv) const {
@@ -92083,7 +92117,7 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..01c7aabb9e611eca47446fb38ae4a63f
    nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
  
    nsresult rv = GetAppVersion(
-@@ -461,6 +480,19 @@ void Navigator::GetPlatform(nsAString& aPlatform, CallerType aCallerType,
+@@ -461,6 +486,19 @@ void Navigator::GetPlatform(nsAString& aPlatform, CallerType aCallerType,
  
  void Navigator::GetOscpu(nsAString& aOSCPU, CallerType aCallerType,
                           ErrorResult& aRv) const {
@@ -92103,7 +92137,23 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..01c7aabb9e611eca47446fb38ae4a63f
    if (aCallerType != CallerType::System) {
      // If fingerprinting resistance is on, we will spoof this value. See
      // nsRFPService.h for details about spoofed values.
-@@ -2027,6 +2059,14 @@ void Navigator::ClearPlatformCache() {
+@@ -1156,6 +1194,7 @@ Geolocation* Navigator::GetGeolocation(ErrorResult& aRv) {
+   return mGeolocation;
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ dom::Serial* Navigator::GetSerial(ErrorResult& aRv) {
+   if (mSerial) {
+     return mSerial;
+@@ -1169,6 +1208,7 @@ dom::Serial* Navigator::GetSerial(ErrorResult& aRv) {
+   mSerial = MakeRefPtr<dom::Serial>(mWindow);
+   return mSerial;
+ }
++#endif
+ 
+ class BeaconStreamListener final : public nsIStreamListener {
+   ~BeaconStreamListener() = default;
+@@ -2027,6 +2067,14 @@ void Navigator::ClearPlatformCache() {
    Navigator_Binding::ClearCachedPlatformValue(this);
  }
  
@@ -92118,7 +92168,7 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..01c7aabb9e611eca47446fb38ae4a63f
  void Navigator::ClearLanguageCache() {
    Navigator_Binding::ClearCachedLanguageValue(this);
    Navigator_Binding::ClearCachedLanguagesValue(this);
-@@ -2056,6 +2096,8 @@ nsresult Navigator::GetPlatform(nsAString& aPlatform, Document* aCallerDoc,
+@@ -2056,6 +2104,8 @@ nsresult Navigator::GetPlatform(nsAString& aPlatform, Document* aCallerDoc,
  #elif defined(XP_MACOSX)
    // Always return "MacIntel", even on ARM64 macOS like Safari does.
    aPlatform.AssignLiteral("MacIntel");
@@ -92127,7 +92177,7 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..01c7aabb9e611eca47446fb38ae4a63f
  #elif defined(ANDROID)
    aPlatform.AssignLiteral("Linux armv81");
  #else
-@@ -2324,12 +2366,14 @@ AddonManager* Navigator::GetMozAddonManager(ErrorResult& aRv) {
+@@ -2324,12 +2374,14 @@ AddonManager* Navigator::GetMozAddonManager(ErrorResult& aRv) {
    return mAddonManager;
  }
  
@@ -92143,10 +92193,20 @@ index 079746f77996ca03464c8f30b00cd34817b8430d..01c7aabb9e611eca47446fb38ae4a63f
  dom::LockManager* Navigator::Locks() {
    if (!mLocks) {
 diff --git a/dom/base/Navigator.h b/dom/base/Navigator.h
-index d303ab778fb5a4381d5f5b5db6288175538c2ab5..ddbf029243e0c668e6fdfbf9bfeac1d9408d471d 100644
+index d303ab778fb5a4381d5f5b5db6288175538c2ab5..7d1a209a0c5838cc65dde23866098f4502fe9fe4 100644
 --- a/dom/base/Navigator.h
 +++ b/dom/base/Navigator.h
-@@ -50,9 +50,11 @@ class HTMLMediaElement;
+@@ -34,7 +34,9 @@ class AddonManager;
+ class AudioSession;
+ class BodyExtractorBase;
+ class Geolocation;
++#ifndef MOZ_WIDGET_UIKIT
+ class Serial;
++#endif
+ class systemMessageCallback;
+ class MediaDevices;
+ struct MediaStreamConstraints;
+@@ -50,9 +52,11 @@ class HTMLMediaElement;
  class AudioContext;
  class WakeLockJS;
  }  // namespace dom
@@ -92158,7 +92218,18 @@ index d303ab778fb5a4381d5f5b5db6288175538c2ab5..ddbf029243e0c668e6fdfbf9bfeac1d9
  }  // namespace mozilla
  
  //*****************************************************************************
-@@ -160,6 +162,10 @@ class Navigator final : public nsISupports, public nsWrapperCache {
+@@ -132,8 +136,10 @@ class Navigator final : public nsISupports, public nsWrapperCache {
+   void GetDoNotTrack(nsAString& aResult);
+   bool GlobalPrivacyControl();
+   Geolocation* GetGeolocation(ErrorResult& aRv);
++#ifndef MOZ_WIDGET_UIKIT
+   dom::Serial* GetSerial(ErrorResult& aRv);
+   dom::Serial* GetExistingSerial() { return mSerial; }
++#endif
+   Promise* GetBattery(ErrorResult& aRv);
+   dom::WakeLockJS* WakeLock();
+ 
+@@ -160,6 +166,10 @@ class Navigator final : public nsISupports, public nsWrapperCache {
    // Navigator_Binding::ClearCachedPlatformValue(this);
    void ClearPlatformCache();
  
@@ -92169,7 +92240,7 @@ index d303ab778fb5a4381d5f5b5db6288175538c2ab5..ddbf029243e0c668e6fdfbf9bfeac1d9
    // Clears the user agent cache by calling:
    // Navigator_Binding::ClearCachedUserAgentValue(this);
    void ClearUserAgentCache();
-@@ -218,7 +224,9 @@ class Navigator final : public nsISupports, public nsWrapperCache {
+@@ -218,7 +228,9 @@ class Navigator final : public nsISupports, public nsWrapperCache {
  
    mozilla::dom::CredentialsContainer* Credentials();
    dom::Clipboard* Clipboard();
@@ -92179,7 +92250,17 @@ index d303ab778fb5a4381d5f5b5db6288175538c2ab5..ddbf029243e0c668e6fdfbf9bfeac1d9
    dom::LockManager* Locks();
    NavigatorLogin* Login();
    dom::ModelContext* ModelContext();
-@@ -320,7 +328,9 @@ class Navigator final : public nsISupports, public nsWrapperCache {
+@@ -301,7 +313,9 @@ class Navigator final : public nsISupports, public nsWrapperCache {
+   RefPtr<nsPluginArray> mPlugins;
+   RefPtr<Permissions> mPermissions;
+   RefPtr<Geolocation> mGeolocation;
++#ifndef MOZ_WIDGET_UIKIT
+   RefPtr<dom::Serial> mSerial;
++#endif
+   RefPtr<battery::BatteryManager> mBatteryManager;
+   RefPtr<Promise> mBatteryPromise;
+   RefPtr<network::Connection> mConnection;
+@@ -320,7 +334,9 @@ class Navigator final : public nsISupports, public nsWrapperCache {
    RefPtr<dom::MediaSession> mMediaSession;
    RefPtr<dom::AudioSession> mAudioSession;
    RefPtr<AddonManager> mAddonManager;
@@ -93263,10 +93344,21 @@ index 45fa91a01ee24014c33396b4e057a797c72377b2..fbcd3b9db3ce15a7bf5fde6a8d6718f3
  }
  
 diff --git a/dom/ipc/BrowserChild.cpp b/dom/ipc/BrowserChild.cpp
-index f70a0100508399133624a3b050fdeeed543e3c43..0ccc657c2bf4cde0193596fd206c797bad771308 100644
+index f70a0100508399133624a3b050fdeeed543e3c43..8032bad89671eaf09d96a818e6087a5dd9dd1579 100644
 --- a/dom/ipc/BrowserChild.cpp
 +++ b/dom/ipc/BrowserChild.cpp
-@@ -230,6 +230,13 @@ PresShell* BrowserChild::GetTopLevelPresShell() const {
+@@ -53,7 +53,9 @@
+ #include "mozilla/dom/MouseEventBinding.h"
+ #include "mozilla/dom/Nullable.h"
+ #include "mozilla/dom/PBrowser.h"
+-#include "mozilla/dom/PaymentRequestChild.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/dom/PaymentRequestChild.h"
++#endif
+ #include "mozilla/dom/PointerEventHandler.h"
+ #include "mozilla/dom/SessionStoreChild.h"
+ #include "mozilla/dom/SessionStoreUtils.h"
+@@ -230,6 +232,13 @@ PresShell* BrowserChild::GetTopLevelPresShell() const {
    return nullptr;
  }
  
@@ -93280,8 +93372,24 @@ index f70a0100508399133624a3b050fdeeed543e3c43..0ccc657c2bf4cde0193596fd206c797b
  bool BrowserChild::UpdateFrame(const RepaintRequest& aRequest) {
    MOZ_ASSERT(aRequest.GetScrollId() != ScrollableLayerGuid::NULL_SCROLL_ID);
  
+@@ -3791,6 +3800,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvReleasePointerLock() {
+   return IPC_OK();
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ PPaymentRequestChild* BrowserChild::AllocPPaymentRequestChild() {
+   MOZ_CRASH(
+       "We should never be manually allocating PPaymentRequestChild actors");
+@@ -3801,6 +3811,7 @@ bool BrowserChild::DeallocPPaymentRequestChild(PPaymentRequestChild* actor) {
+   delete actor;
+   return true;
+ }
++#endif
+ 
+ LayoutDeviceIntSize BrowserChild::GetInnerSize() {
+   return RoundedToInt(mUnscaledInnerSize * mPuppetWidget->GetDefaultScale());
 diff --git a/dom/ipc/BrowserChild.h b/dom/ipc/BrowserChild.h
-index 7561b9d512e18fe49dfedccec31a92a4e7089ed9..5efe8ad56d0673ffbca5e663116e2e07695ed365 100644
+index 7561b9d512e18fe49dfedccec31a92a4e7089ed9..f7e73044cf3ccdeea1795797a98eac89df41d8c2 100644
 --- a/dom/ipc/BrowserChild.h
 +++ b/dom/ipc/BrowserChild.h
 @@ -454,7 +454,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
@@ -93293,11 +93401,34 @@ index 7561b9d512e18fe49dfedccec31a92a4e7089ed9..5efe8ad56d0673ffbca5e663116e2e07
  
    MOZ_CAN_RUN_SCRIPT_BOUNDARY virtual mozilla::ipc::IPCResult RecvUpdateEffects(
        const EffectsInfo& aEffects);
+@@ -553,9 +553,11 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
+ 
+   mozilla::ipc::IPCResult RecvWillChangeProcess();
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   PPaymentRequestChild* AllocPPaymentRequestChild();
+ 
+   bool DeallocPPaymentRequestChild(PPaymentRequestChild* aActor);
++#endif
+ 
+   LayoutDeviceIntPoint GetClientOffset() const { return mClientOffset; }
+   LayoutDeviceIntPoint GetChromeOffset() const { return mChromeOffset; };
 diff --git a/dom/ipc/BrowserParent.cpp b/dom/ipc/BrowserParent.cpp
-index ca69f14836c5441a512d88793b48f25657f21c74..f9fedb4bf2cc68eaa7e0b1fe4817690e80570483 100644
+index ca69f14836c5441a512d88793b48f25657f21c74..b38bc8d76b86438654165fbd0e8230382b261513 100644
 --- a/dom/ipc/BrowserParent.cpp
 +++ b/dom/ipc/BrowserParent.cpp
-@@ -121,7 +121,9 @@
+@@ -44,7 +44,9 @@
+ #include "mozilla/dom/DocumentInlines.h"
+ #include "mozilla/dom/Event.h"
+ #include "mozilla/dom/PContentPermissionRequestParent.h"
+-#include "mozilla/dom/PaymentRequestParent.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/dom/PaymentRequestParent.h"
++#endif
+ #include "mozilla/dom/PointerEventHandler.h"
+ #include "mozilla/dom/RemoteDragStartData.h"
+ #include "mozilla/dom/RemoteWebProgressRequest.h"
+@@ -121,7 +123,9 @@
  #include "nsIAuthPrompt2.h"
  #include "nsIAuthPromptCallback.h"
  #include "nsICancelable.h"
@@ -93308,7 +93439,7 @@ index ca69f14836c5441a512d88793b48f25657f21c74..f9fedb4bf2cc68eaa7e0b1fe4817690e
  #include "nsISecureBrowserUI.h"
  #include "nsIXULRuntime.h"
  #include "nsNetCID.h"
-@@ -139,6 +141,10 @@
+@@ -139,6 +143,10 @@
  #  include "FxRWindowManager.h"
  #endif
  
@@ -93319,7 +93450,7 @@ index ca69f14836c5441a512d88793b48f25657f21c74..f9fedb4bf2cc68eaa7e0b1fe4817690e
  #if defined(XP_WIN) && defined(ACCESSIBILITY)
  #  include "mozilla/a11y/AccessibleWrap.h"
  #  include "mozilla/a11y/Compatibility.h"
-@@ -793,6 +799,21 @@ mozilla::ipc::IPCResult BrowserParent::RecvEnsureLayersConnected(
+@@ -793,6 +801,21 @@ mozilla::ipc::IPCResult BrowserParent::RecvEnsureLayersConnected(
      Maybe<CompositorOptions>* aCompositorOptions) {
    if (mRemoteLayerTreeOwner.IsInitialized()) {
      mRemoteLayerTreeOwner.EnsureLayersConnected(*aCompositorOptions);
@@ -93341,7 +93472,7 @@ index ca69f14836c5441a512d88793b48f25657f21c74..f9fedb4bf2cc68eaa7e0b1fe4817690e
    }
    return IPC_OK();
  }
-@@ -1020,13 +1041,19 @@ void BrowserParent::InitRendering() {
+@@ -1020,13 +1043,19 @@ void BrowserParent::InitRendering() {
          widget->SupportsUnadjustedMovement());
    }
  
@@ -93362,7 +93493,7 @@ index ca69f14836c5441a512d88793b48f25657f21c74..f9fedb4bf2cc68eaa7e0b1fe4817690e
  #endif
  }
  
-@@ -2413,6 +2440,16 @@ mozilla::ipc::IPCResult BrowserParent::RecvSetCursor(
+@@ -2413,6 +2442,16 @@ mozilla::ipc::IPCResult BrowserParent::RecvSetCursor(
    return IPC_OK();
  }
  
@@ -93379,7 +93510,7 @@ index ca69f14836c5441a512d88793b48f25657f21c74..f9fedb4bf2cc68eaa7e0b1fe4817690e
  mozilla::ipc::IPCResult BrowserParent::RecvSetLinkStatus(
      const nsString& aStatus) {
    nsCOMPtr<nsIXULBrowserWindow> xulBrowserWindow = GetXULBrowserWindow();
-@@ -2563,14 +2600,22 @@ mozilla::ipc::IPCResult BrowserParent::RecvNotifyIMEPositionChange(
+@@ -2563,14 +2602,22 @@ mozilla::ipc::IPCResult BrowserParent::RecvNotifyIMEPositionChange(
      const ContentCache& aContentCache,
      const IMENotification& aIMENotification) {
    nsCOMPtr<nsIWidget> widget = GetTextInputHandlingWidget();
@@ -93405,7 +93536,7 @@ index ca69f14836c5441a512d88793b48f25657f21c74..f9fedb4bf2cc68eaa7e0b1fe4817690e
    return IPC_OK();
  }
  
-@@ -3232,18 +3277,31 @@ bool BrowserParent::HandleQueryContentEvent(WidgetQueryContentEvent& aEvent) {
+@@ -3232,18 +3279,31 @@ bool BrowserParent::HandleQueryContentEvent(WidgetQueryContentEvent& aEvent) {
        NS_WARN_IF(aEvent.Failed())) {
      return true;
    }
@@ -93440,7 +93571,7 @@ index ca69f14836c5441a512d88793b48f25657f21c74..f9fedb4bf2cc68eaa7e0b1fe4817690e
      default:
        break;
    }
-@@ -3530,10 +3588,12 @@ BrowserParent::GetAuthPrompt(uint32_t aPromptReason, const nsIID& iid,
+@@ -3530,10 +3590,12 @@ BrowserParent::GetAuthPrompt(uint32_t aPromptReason, const nsIID& iid,
    rv = wwatch->GetPrompt(window, iid, getter_AddRefs(prompt));
    NS_ENSURE_SUCCESS(rv, rv);
  
@@ -93453,8 +93584,24 @@ index ca69f14836c5441a512d88793b48f25657f21c74..f9fedb4bf2cc68eaa7e0b1fe4817690e
  
    *aResult = prompt.forget().take();
    return NS_OK;
+@@ -3896,6 +3958,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvRemoteIsReadyToHandleInputEvents() {
+   return IPC_OK();
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ PPaymentRequestParent* BrowserParent::AllocPPaymentRequestParent() {
+   RefPtr<PaymentRequestParent> actor = new PaymentRequestParent();
+   return actor.forget().take();
+@@ -3907,6 +3970,7 @@ bool BrowserParent::DeallocPPaymentRequestParent(
+       dont_AddRef(static_cast<PaymentRequestParent*>(aActor));
+   return true;
+ }
++#endif
+ 
+ nsresult BrowserParent::HandleEvent(Event* aEvent) {
+   if (mIsDestroyed) {
 diff --git a/dom/ipc/BrowserParent.h b/dom/ipc/BrowserParent.h
-index a10d70b699bdd5f8d8f6ae4c1228bfe6c08f70c8..3a107b9cd1229b24b64fae6536416ae52c4a24cc 100644
+index a10d70b699bdd5f8d8f6ae4c1228bfe6c08f70c8..e8bc6c3f4791af2fed26b0505646a148a39304cb 100644
 --- a/dom/ipc/BrowserParent.h
 +++ b/dom/ipc/BrowserParent.h
 @@ -389,6 +389,7 @@ class BrowserParent final : public PBrowserParent,
@@ -93465,7 +93612,19 @@ index a10d70b699bdd5f8d8f6ae4c1228bfe6c08f70c8..3a107b9cd1229b24b64fae6536416ae5
  
    mozilla::ipc::IPCResult RecvSetLinkStatus(const nsString& aStatus);
  
-@@ -966,6 +967,10 @@ class BrowserParent final : public PBrowserParent,
+@@ -665,9 +666,11 @@ class BrowserParent final : public PBrowserParent,
+ 
+   void StopIMEStateManagement();
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   PPaymentRequestParent* AllocPPaymentRequestParent();
+ 
+   bool DeallocPPaymentRequestParent(PPaymentRequestParent* aActor);
++#endif
+ 
+   bool SendLoadRemoteScript(const nsAString& aURL,
+                             const bool& aRunInGlobalScope);
+@@ -966,6 +969,10 @@ class BrowserParent final : public PBrowserParent,
    // tab, it should take this appearance.
    nsIWidget::Cursor mCursor;
  
@@ -93644,10 +93803,20 @@ index 8cca90086a0716813270cb2e28f766a03283a089..ccabf1e2f072caf7f6530d35796325f7
    bool CheckBrowsingContextEmbedder(CanonicalBrowsingContext* aBC,
                                      const char* aOperation) const;
 diff --git a/dom/ipc/PBrowser.ipdl b/dom/ipc/PBrowser.ipdl
-index f717f761d9952d7f974deeee1ffc59eca6dba0ef..847f335ec2f05ca70c72ef03fa8ab2c6ac17671b 100644
+index f717f761d9952d7f974deeee1ffc59eca6dba0ef..91f87eb58cb624b4259ea03195ccf64be91f6ea3 100644
 --- a/dom/ipc/PBrowser.ipdl
 +++ b/dom/ipc/PBrowser.ipdl
-@@ -44,6 +44,7 @@ include "mozilla/ipc/TransportSecurityInfoUtils.h";
+@@ -9,7 +9,9 @@ include protocol PDocAccessible;
+ #endif
+ include protocol PFilePicker;
+ include protocol PRemotePrintJob;
++#ifndef MOZ_WIDGET_UIKIT
+ include protocol PPaymentRequest;
++#endif
+ include protocol PSessionStore;
+ include protocol PWindowGlobal;
+ include protocol PBrowserBridge;
+@@ -44,6 +46,7 @@ include "mozilla/ipc/TransportSecurityInfoUtils.h";
  include "mozilla/ipc/URIUtils.h";
  
  using struct nsID from "nsID.h";
@@ -93655,7 +93824,27 @@ index f717f761d9952d7f974deeee1ffc59eca6dba0ef..847f335ec2f05ca70c72ef03fa8ab2c6
  using mozilla::contentanalysis::StringHashSet from "mozilla/contentanalysis/ContentAnalysisIPCTypes.h";
  using mozilla::gfx::Matrix4x4 from "mozilla/gfx/Matrix.h";
  using mozilla::gfx::SurfaceFormat from "mozilla/gfx/Types.h";
-@@ -400,6 +401,7 @@ parent:
+@@ -202,7 +205,9 @@ struct PrintPreviewResultInfo
+ #endif
+ 
+     manages PFilePicker;
++#ifndef MOZ_WIDGET_UIKIT
+     manages PPaymentRequest;
++#endif
+     manages PSessionStore;
+     manages PWindowGlobal;
+     manages PBrowserBridge;
+@@ -223,7 +228,9 @@ parent:
+                          MaybeDiscardedBrowsingContext aBrowsingContext);
+ #endif
+ 
++#ifndef MOZ_WIDGET_UIKIT
+     async PPaymentRequest();
++#endif
+ 
+     /**
+      * Create a new Vsync connection for our associated root widget
+@@ -400,6 +407,7 @@ parent:
                      IPCImage? customCursor,
                      float resolutionX, float resolutionY,
                      uint32_t hotspotX, uint32_t hotspotY, bool force);
@@ -93698,6 +93887,40 @@ index 23fb6485163552f033054047833e2a3b2c32017f..6afd9d5f25df372fe0a8d1e6f5cbaed2
  
      async NetworkLinkTypeChange(uint32_t type);
      async SocketProcessCrashed();
+diff --git a/dom/ipc/PWindowGlobal.ipdl b/dom/ipc/PWindowGlobal.ipdl
+index 92b4530a8cdb45decc5e6a09c290bba504cf5387..6de56e2b855f79a3bdf2983519240f7016da2f21 100644
+--- a/dom/ipc/PWindowGlobal.ipdl
++++ b/dom/ipc/PWindowGlobal.ipdl
+@@ -14,7 +14,9 @@ include protocol PBrowser;
+ include protocol PInProcess;
+ include protocol PBrowserBridge;
+ include protocol PDigitalCredential;
++#ifndef MOZ_WIDGET_UIKIT
+ include protocol PSerialManager;
++#endif
+ include protocol PWebAuthnTransaction;
+ include protocol PWebIdentity;
+ 
+@@ -74,7 +76,9 @@ async protocol PWindowGlobal
+ {
+   manager PBrowser or PInProcess;
+   manages PDigitalCredential;
++#ifndef MOZ_WIDGET_UIKIT
+   manages PSerialManager;
++#endif
+   manages PWebAuthnTransaction;
+   manages PWebIdentity;
+ 
+@@ -242,7 +246,9 @@ parent:
+   async NotifyAudioSessionTypeOverride(AudioSessionType aType);
+ 
+   async PDigitalCredential();
++#ifndef MOZ_WIDGET_UIKIT
+   async PSerialManager();
++#endif
+   async PWebAuthnTransaction();
+   async PWebIdentity();
+ 
 diff --git a/dom/ipc/ProcessHangMonitor.cpp b/dom/ipc/ProcessHangMonitor.cpp
 index ff1b92365a31129b396f213f231d07b5be3eba6d..57ba869ddb7e32ca5aa38bef8d83693b033434e8 100644
 --- a/dom/ipc/ProcessHangMonitor.cpp
@@ -93913,6 +94136,54 @@ index 5c2705dd7f8a06448b1b0ad5499d7b594bb4d2d9..0d410d19571b958092076369d17b8baf
  
    return NS_OK;
  }
+diff --git a/dom/ipc/WindowGlobalParent.cpp b/dom/ipc/WindowGlobalParent.cpp
+index 0aed80a78cea80c9c0e6006aea820e4f504dbb7b..0d251b82f5add1e74d3eff44eb6ba56b17f71e70 100644
+--- a/dom/ipc/WindowGlobalParent.cpp
++++ b/dom/ipc/WindowGlobalParent.cpp
+@@ -45,7 +45,9 @@
+ #include "mozilla/dom/NavigatorLogin.h"
+ #include "mozilla/dom/PBackgroundSessionStorageCache.h"
+ #include "mozilla/dom/ParentProcessChannelHandle.h"
+-#include "mozilla/dom/SerialManagerParent.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/dom/SerialManagerParent.h"
++#endif
+ #include "mozilla/dom/UseCounterMetrics.h"
+ #include "mozilla/dom/WebAuthnTransactionParent.h"
+ #include "mozilla/dom/WebIdentityParent.h"
+@@ -2091,6 +2093,7 @@ IPCResult WindowGlobalParent::RecvNotifyAudioSessionTypeOverride(
+   return IPC_OK();
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ already_AddRefed<PSerialManagerParent>
+ WindowGlobalParent::AllocPSerialManagerParent() {
+   return MakeAndAddRef<SerialManagerParent>();
+@@ -2102,6 +2105,7 @@ mozilla::ipc::IPCResult WindowGlobalParent::RecvPSerialManagerConstructor(
+   manager->Init(BrowsingContext()->GetBrowserId());
+   return IPC_OK();
+ }
++#endif
+ 
+ already_AddRefed<PWebAuthnTransactionParent>
+ WindowGlobalParent::AllocPWebAuthnTransactionParent() {
+diff --git a/dom/ipc/WindowGlobalParent.h b/dom/ipc/WindowGlobalParent.h
+index 02c0bc7cd977c27877e24cf8e9ae907a7124388b..bde5cf46dbf70ad68ec41db806924d165ee9e738 100644
+--- a/dom/ipc/WindowGlobalParent.h
++++ b/dom/ipc/WindowGlobalParent.h
+@@ -379,10 +379,12 @@ class WindowGlobalParent final : public WindowContext,
+   mozilla::ipc::IPCResult RecvNotifyAudioSessionTypeOverride(
+       const dom::AudioSessionType& aType);
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   already_AddRefed<dom::PSerialManagerParent> AllocPSerialManagerParent();
+ 
+   mozilla::ipc::IPCResult RecvPSerialManagerConstructor(
+       PSerialManagerParent* aActor) override;
++#endif
+ 
+   already_AddRefed<dom::PWebAuthnTransactionParent>
+   AllocPWebAuthnTransactionParent();
 diff --git a/dom/ipc/components.conf b/dom/ipc/components.conf
 index 3555d04229bed2c29309ae6f83bc80b5c26dd308..35fcbc88c27e13cf1fd736de6b49c09048ae9627 100644
 --- a/dom/ipc/components.conf
@@ -93947,7 +94218,7 @@ index 3555d04229bed2c29309ae6f83bc80b5c26dd308..35fcbc88c27e13cf1fd736de6b49c090
 +        },
 +    ]
 diff --git a/dom/ipc/moz.build b/dom/ipc/moz.build
-index 40382ea4999d40d6e3aa1a8fbe27ff2002bbd40a..43bcab7eb158e5ecc59eede0ba47b2d802453671 100644
+index 40382ea4999d40d6e3aa1a8fbe27ff2002bbd40a..fb6c364258eb12922b047a3aa8c1a8a81cebf95b 100644
 --- a/dom/ipc/moz.build
 +++ b/dom/ipc/moz.build
 @@ -13,9 +13,15 @@ XPIDL_SOURCES += [
@@ -93983,6 +94254,22 @@ index 40382ea4999d40d6e3aa1a8fbe27ff2002bbd40a..43bcab7eb158e5ecc59eede0ba47b2d8
      "MemMapSnapshot.cpp",
      "MemoryReportRequest.cpp",
      "MMPrinter.cpp",
+@@ -172,6 +176,7 @@ PREPROCESSED_IPDL_SOURCES += [
+     "PBrowser.ipdl",
+     "PBrowserBridge.ipdl",
+     "PContent.ipdl",
++    "PWindowGlobal.ipdl",
+ ]
+ 
+ IPDL_SOURCES += [
+@@ -195,7 +200,6 @@ IPDL_SOURCES += [
+     "PURLClassifierLocal.ipdl",
+     "PURLClassifierLocalByName.ipdl",
+     "PVsync.ipdl",
+-    "PWindowGlobal.ipdl",
+     "ServiceWorkerConfiguration.ipdlh",
+     "WindowGlobalTypes.ipdlh",
+ ]
 diff --git a/dom/media/CubebUtils.cpp b/dom/media/CubebUtils.cpp
 index 637c7be753c973e8adbe98fe53c0ffec95161110..f8e9ce97db54c3580ecec529d99a20f2e6bd1cb3 100644
 --- a/dom/media/CubebUtils.cpp
@@ -96810,13 +97097,19 @@ index af2a85de614068133829c959cb4cc985c5bbf98f..44f86e1cf8bd763f8b3471ef601e4fe5
      UNIFIED_SOURCES += [
          "test/FakeSpeechRecognitionService.cpp",
 diff --git a/dom/moz.build b/dom/moz.build
-index 3ef0e0c76698c8414a69a745484a644e35a2b656..02aeb0f8af3e1e669ed0615ce983d9e9a82cefea 100644
+index 3ef0e0c76698c8414a69a745484a644e35a2b656..9913d3818f343265da86bbc459008340931d1cc9 100644
 --- a/dom/moz.build
 +++ b/dom/moz.build
-@@ -19,6 +19,16 @@ interfaces = [
-     "payments",
+@@ -16,9 +16,24 @@ interfaces = [
+     "geolocation",
+     "notification",
+     "push",
+-    "payments",
  ]
  
++if CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
++    interfaces += ["payments"]
++
 +
 +# These APIs are outside the Gemini Phase 1 surface and pull substantial
 +# implementation/binding code into XUL. Keep normal Firefox builds unchanged,
@@ -96825,12 +97118,15 @@ index 3ef0e0c76698c8414a69a745484a644e35a2b656..02aeb0f8af3e1e669ed0615ce983d9e9
 +    DIRS += [
 +        "mls",
 +        "onnx",
++        "payments",
++        "webserial",
++        "webtransport",
 +    ]
 +
  DIRS += ["interfaces/" + i for i in interfaces]
  
  DIRS += [
-@@ -29,7 +39,6 @@ DIRS += [
+@@ -29,7 +44,6 @@ DIRS += [
      "battery",
      "cache",
      "canvas",
@@ -96838,7 +97134,7 @@ index 3ef0e0c76698c8414a69a745484a644e35a2b656..02aeb0f8af3e1e669ed0615ce983d9e9
      "chrome-webidl",
      "clients",
      "closewatcher",
-@@ -52,11 +61,9 @@ DIRS += [
+@@ -52,11 +66,9 @@ DIRS += [
      "grid",
      "html",
      "jsurl",
@@ -96850,7 +97146,25 @@ index 3ef0e0c76698c8414a69a745484a644e35a2b656..02aeb0f8af3e1e669ed0615ce983d9e9
      "modelcontext",
      "notification",
      "power",
-@@ -113,6 +120,8 @@ DIRS += [
+@@ -85,9 +97,7 @@ DIRS += [
+     "urlpattern",
+     "webauthn",
+     "webidl",
+-    "webserial",
+     "webshare",
+-    "webtransport",
+     "xml",
+     "xslt",
+     "xul",
+@@ -100,7 +110,6 @@ DIRS += [
+     "xhr",
+     "worklet",
+     "script",
+-    "payments",
+     "websocket",
+     "serializers",
+     "serviceworkers",
+@@ -113,6 +122,8 @@ DIRS += [
      "navigation",
  ]
  
@@ -97090,6 +97404,37 @@ index fbb3b5d77026203f89f972a8f69c18ddc23b9fe4..bca2be7ffc1f1e1092ca5d699f5dd06f
  
    return resultPromise.forget();
  }
+diff --git a/dom/streams/UnderlyingSinkCallbackHelpers.cpp b/dom/streams/UnderlyingSinkCallbackHelpers.cpp
+index fc83f6b8222ea9cec483e544cd49f090d17c87f1..e00d08ccdbdaf7cb516f267e2525aa73fbc911da 100644
+--- a/dom/streams/UnderlyingSinkCallbackHelpers.cpp
++++ b/dom/streams/UnderlyingSinkCallbackHelpers.cpp
+@@ -8,7 +8,9 @@
+ #include "mozilla/dom/BufferSourceBinding.h"
+ #include "mozilla/dom/BufferSourceBindingFwd.h"
+ #include "mozilla/dom/UnionTypes.h"
+-#include "mozilla/dom/WebTransportError.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/dom/WebTransportError.h"
++#endif
+ #include "nsHttp.h"
+ 
+ using namespace mozilla::dom;
+@@ -270,6 +272,7 @@ already_AddRefed<Promise> WritableStreamToOutputAlgorithms::AbortCallbackImpl(
+   // https://streams.spec.whatwg.org/#writablestream-set-up
+   // Step 3. Let abortAlgorithmWrapper be an algorithm that runs these steps:
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   if (aReason.WasPassed() && aReason.Value().isObject()) {
+     JS::Rooted<JSObject*> obj(aCx, &aReason.Value().toObject());
+     RefPtr<WebTransportError> error;
+@@ -281,6 +284,7 @@ already_AddRefed<Promise> WritableStreamToOutputAlgorithms::AbortCallbackImpl(
+       return nullptr;
+     }
+   }
++#endif
+ 
+   // XXX The close or rather a dedicated abort should be async. For now we have
+   // to always fall back to the Step 3.3 below.
 diff --git a/dom/system/mac/CoreLocationLocationProvider.mm b/dom/system/mac/CoreLocationLocationProvider.mm
 index 7f7952c8b5bc62630c2f2ea1ee66c72f25c81809..c244f6726dc7cb280628603ec5b716626ffc7944 100644
 --- a/dom/system/mac/CoreLocationLocationProvider.mm
@@ -97376,7 +97721,7 @@ index 0000000000000000000000000000000000000000..7610b8bf3dcb0239592d81ba1cea0642
 +interface mixin ExtensionGlobalsMixin {
 +};
 diff --git a/dom/webidl/Navigator.webidl b/dom/webidl/Navigator.webidl
-index d586dc5e43881bae1aef0a9c62b7d2b47f3cac70..f181a5dbaa4ccfd15848eb98f0f7e2b783308d2b 100644
+index d586dc5e43881bae1aef0a9c62b7d2b47f3cac70..f4dc8651cbf8f8ce21ff8a31856dbd732720a277 100644
 --- a/dom/webidl/Navigator.webidl
 +++ b/dom/webidl/Navigator.webidl
 @@ -39,7 +39,9 @@ Navigator includes NavigatorStorageUtils;
@@ -97407,6 +97752,19 @@ index d586dc5e43881bae1aef0a9c62b7d2b47f3cac70..f181a5dbaa4ccfd15848eb98f0f7e2b7
    readonly attribute DOMString oscpu;
    // WebKit/Blink support this; Trident/Presto do not.
    readonly attribute DOMString vendor;
+@@ -250,10 +252,12 @@ partial interface Navigator {
+ };
+ 
+ // https://wicg.github.io/serial/
++#ifndef MOZ_WIDGET_UIKIT
+ partial interface Navigator {
+   [SecureContext, Throws, SameObject, Pref="dom.webserial.enabled"]
+   readonly attribute Serial serial;
+ };
++#endif
+ 
+ // http://webaudio.github.io/web-midi-api/#requestmidiaccess
+ partial interface Navigator {
 diff --git a/dom/webidl/OffscreenCanvas.webidl b/dom/webidl/OffscreenCanvas.webidl
 index b998f4fff0250f769853c921efe82ee471b125dd..39728c1a83e1334d450df97452980fe028308600 100644
 --- a/dom/webidl/OffscreenCanvas.webidl
@@ -97434,8 +97792,28 @@ index b998f4fff0250f769853c921efe82ee471b125dd..39728c1a83e1334d450df97452980fe0
  
  [Exposed=(Window,Worker)]
  interface OffscreenCanvas : EventTarget {
+diff --git a/dom/webidl/Window.webidl b/dom/webidl/Window.webidl
+index ae2d14e105bc70dc4a5c7f1fa3481c550a74dd4d..3aaf36d994e4665f224ef4744e8d27b5f201f831 100644
+--- a/dom/webidl/Window.webidl
++++ b/dom/webidl/Window.webidl
+@@ -106,6 +106,7 @@ interface nsIPrintSettings;
+                     OrientationSensor,
+                     OverconstrainedError,
+                     PasswordCredential,
++#ifndef MOZ_WIDGET_UIKIT
+                     PaymentAddress,
+                     PaymentInstruments,
+                     PaymentManager,
+@@ -113,6 +114,7 @@ interface nsIPrintSettings;
+                     PaymentRequest,
+                     PaymentRequestUpdateEvent,
+                     PaymentResponse,
++#endif
+                     PerformanceLongTaskTiming,
+                     PhotoCapabilities,
+                     PictureInPictureEvent,
 diff --git a/dom/webidl/WorkerNavigator.webidl b/dom/webidl/WorkerNavigator.webidl
-index 54f4b9cd81f1f8669a95ab77ed9744f83ed158df..b6b711138d2643302db5d7c171c5d80f469b3305 100644
+index 54f4b9cd81f1f8669a95ab77ed9744f83ed158df..7c304523cdaf2ccab46bd34f1dabb95ab311cbc4 100644
 --- a/dom/webidl/WorkerNavigator.webidl
 +++ b/dom/webidl/WorkerNavigator.webidl
 @@ -32,7 +32,9 @@ partial interface WorkerNavigator {
@@ -97448,8 +97826,19 @@ index 54f4b9cd81f1f8669a95ab77ed9744f83ed158df..b6b711138d2643302db5d7c171c5d80f
  
  // https://w3c.github.io/permissions/#webidl-2112232240
  [Exposed=(Worker)]
+@@ -48,8 +50,10 @@ partial interface WorkerNavigator {
+ };
+ 
+ // https://wicg.github.io/serial/
++#ifndef MOZ_WIDGET_UIKIT
+ [Exposed=DedicatedWorker]
+ partial interface WorkerNavigator {
+   [SecureContext, SameObject, Pref="dom.webserial.enabled"]
+   readonly attribute Serial serial;
+ };
++#endif
 diff --git a/dom/webidl/moz.build b/dom/webidl/moz.build
-index 35be78b5ef12c5018557d606da30cd6772501d17..612a0acd0af534d563e8ec475b958fb84d2dd1d3 100644
+index 35be78b5ef12c5018557d606da30cd6772501d17..603fc277705caa744333ddbbb31176dd53dd680e 100644
 --- a/dom/webidl/moz.build
 +++ b/dom/webidl/moz.build
 @@ -418,9 +418,13 @@ GENERATED_WEBIDL_FILES = [
@@ -97466,7 +97855,23 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..612a0acd0af534d563e8ec475b958fb8
  ]
  
  WEBIDL_FILES = [
-@@ -827,7 +831,6 @@ WEBIDL_FILES = [
+@@ -467,7 +471,6 @@ WEBIDL_FILES = [
+     "BarProp.webidl",
+     "BaseAudioContext.webidl",
+     "BaseKeyframeTypes.webidl",
+-    "BasicCardPayment.webidl",
+     "BatteryManager.webidl",
+     "BeforeUnloadEvent.webidl",
+     "BiquadFilterNode.webidl",
+@@ -813,7 +816,6 @@ WEBIDL_FILES = [
+     "MediaTrackCapabilities.webidl",
+     "MediaTrackSettings.webidl",
+     "MediaTrackSupportedConstraints.webidl",
+-    "MerchantValidationEvent.webidl",
+     "MessageChannel.webidl",
+     "MessageEvent.webidl",
+     "MessagePort.webidl",
+@@ -827,7 +829,6 @@ WEBIDL_FILES = [
      "MIDIPort.webidl",
      "MimeType.webidl",
      "MimeTypeArray.webidl",
@@ -97474,7 +97879,7 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..612a0acd0af534d563e8ec475b958fb8
      "ModelContext.webidl",
      "MouseEvent.webidl",
      "MouseScrollEvent.webidl",
-@@ -842,7 +845,6 @@ WEBIDL_FILES = [
+@@ -842,7 +843,6 @@ WEBIDL_FILES = [
      "NavigationPrecommitController.webidl",
      "NavigationPreloadManager.webidl",
      "NavigationTransition.webidl",
@@ -97482,7 +97887,7 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..612a0acd0af534d563e8ec475b958fb8
      "NetErrorInfo.webidl",
      "NetworkInformation.webidl",
      "NetworkOptions.webidl",
-@@ -854,9 +856,7 @@ WEBIDL_FILES = [
+@@ -854,9 +854,7 @@ WEBIDL_FILES = [
      "NotificationEvent.webidl",
      "NotifyPaintEvent.webidl",
      "OfflineAudioContext.webidl",
@@ -97492,15 +97897,42 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..612a0acd0af534d563e8ec475b958fb8
      "OscillatorNode.webidl",
      "PaintRequest.webidl",
      "PaintRequestList.webidl",
-@@ -1112,7 +1112,6 @@ WEBIDL_FILES = [
+@@ -864,11 +862,6 @@ WEBIDL_FILES = [
+     "PaintWorkletGlobalScope.webidl",
+     "PannerNode.webidl",
+     "ParentNode.webidl",
+-    "PaymentAddress.webidl",
+-    "PaymentMethodChangeEvent.webidl",
+-    "PaymentRequest.webidl",
+-    "PaymentRequestUpdateEvent.webidl",
+-    "PaymentResponse.webidl",
+     "Performance.webidl",
+     "PerformanceEntry.webidl",
+     "PerformanceEventTiming.webidl",
+@@ -921,8 +914,6 @@ WEBIDL_FILES = [
+     "ScrollAreaEvent.webidl",
+     "ScrollTimeline.webidl",
+     "Selection.webidl",
+-    "Serial.webidl",
+-    "SerialPort.webidl",
+     "ServiceWorker.webidl",
+     "ServiceWorkerContainer.webidl",
+     "ServiceWorkerGlobalScope.webidl",
+@@ -1112,13 +1103,8 @@ WEBIDL_FILES = [
      "WebAuthentication.webidl",
      "WebGL2RenderingContext.webidl",
      "WebGLRenderingContext.webidl",
 -    "WebGPU.webidl",
      "WebSocket.webidl",
      "WebTaskScheduling.webidl",
-     "WebTransport.webidl",
-@@ -1126,7 +1125,6 @@ WEBIDL_FILES = [
+-    "WebTransport.webidl",
+-    "WebTransportDatagramDuplexStream.webidl",
+-    "WebTransportError.webidl",
+-    "WebTransportSendReceiveStream.webidl",
+     "WebXR.webidl",
+     "WheelEvent.webidl",
+     "WindowOrWorkerGlobalScope.webidl",
+@@ -1126,7 +1112,6 @@ WEBIDL_FILES = [
      "WorkerDebuggerGlobalScope.webidl",
      "WorkerGlobalScope.webidl",
      "WorkerLocation.webidl",
@@ -97508,7 +97940,7 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..612a0acd0af534d563e8ec475b958fb8
      "WorkerTestUtils.webidl",
      "Worklet.webidl",
      "WorkletGlobalScope.webidl",
-@@ -1145,8 +1143,22 @@ WEBIDL_FILES = [
+@@ -1145,8 +1130,35 @@ WEBIDL_FILES = [
      "XSLTProcessor.webidl",
  ]
  
@@ -97516,6 +97948,19 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..612a0acd0af534d563e8ec475b958fb8
 -if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
 +if CONFIG["MOZ_WIDGET_TOOLKIT"] != "uikit":
 +    WEBIDL_FILES += [
++        "BasicCardPayment.webidl",
++        "MerchantValidationEvent.webidl",
++        "PaymentAddress.webidl",
++        "PaymentMethodChangeEvent.webidl",
++        "PaymentRequest.webidl",
++        "PaymentRequestUpdateEvent.webidl",
++        "PaymentResponse.webidl",
++        "Serial.webidl",
++        "SerialPort.webidl",
++        "WebTransport.webidl",
++        "WebTransportDatagramDuplexStream.webidl",
++        "WebTransportError.webidl",
++        "WebTransportSendReceiveStream.webidl",
 +        "WebGPU.webidl",
 +    ]
 +
@@ -97616,10 +98061,20 @@ index 35be78b5ef12c5018557d606da30cd6772501d17..612a0acd0af534d563e8ec475b958fb8
 +        "ONNX.webidl",
 +    ]
 diff --git a/dom/workers/WorkerNavigator.cpp b/dom/workers/WorkerNavigator.cpp
-index 519668019e4532e97231be959c69efd3ad3995d0..1d62353c9b05344a85dcccb0705ad1fd3094dc36 100644
+index 519668019e4532e97231be959c69efd3ad3995d0..19a57664242f1d0d0e2b317d54031d3925800b24 100644
 --- a/dom/workers/WorkerNavigator.cpp
 +++ b/dom/workers/WorkerNavigator.cpp
-@@ -20,7 +20,9 @@
+@@ -13,14 +13,18 @@
+ #include "mozilla/dom/MediaCapabilities.h"
+ #include "mozilla/dom/Navigator.h"
+ #include "mozilla/dom/Permissions.h"
+-#include "mozilla/dom/Serial.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/dom/Serial.h"
++#endif
+ #include "mozilla/dom/ServiceWorkerContainer.h"
+ #include "mozilla/dom/StorageManager.h"
+ #include "mozilla/dom/WorkerCommon.h"
  #include "mozilla/dom/WorkerNavigatorBinding.h"
  #include "mozilla/dom/WorkerStatus.h"
  #include "mozilla/dom/network/Connection.h"
@@ -97630,7 +98085,7 @@ index 519668019e4532e97231be959c69efd3ad3995d0..1d62353c9b05344a85dcccb0705ad1fd
  #include "nsCOMPtr.h"
  #include "nsDebug.h"
  #include "nsError.h"
-@@ -47,7 +49,9 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(WorkerNavigator)
+@@ -47,11 +51,15 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(WorkerNavigator)
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mStorageManager)
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mConnection)
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMediaCapabilities)
@@ -97640,7 +98095,13 @@ index 519668019e4532e97231be959c69efd3ad3995d0..1d62353c9b05344a85dcccb0705ad1fd
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLocks)
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPermissions)
    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mServiceWorkerContainer)
-@@ -88,7 +92,9 @@ void WorkerNavigator::Invalidate() {
++#ifndef MOZ_WIDGET_UIKIT
+   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mSerial)
++#endif
+ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+ 
+ WorkerNavigator::WorkerNavigator(const NavigatorProperties& aProperties,
+@@ -88,7 +96,9 @@ void WorkerNavigator::Invalidate() {
  
    mMediaCapabilities = nullptr;
  
@@ -97650,7 +98111,20 @@ index 519668019e4532e97231be959c69efd3ad3995d0..1d62353c9b05344a85dcccb0705ad1fd
  
    if (mLocks) {
      mLocks->Shutdown();
-@@ -277,6 +283,7 @@ dom::MediaCapabilities* WorkerNavigator::MediaCapabilities() {
+@@ -99,10 +109,12 @@ void WorkerNavigator::Invalidate() {
+ 
+   mServiceWorkerContainer = nullptr;
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   if (mSerial) {
+     mSerial->Shutdown();
+     mSerial = nullptr;
+   }
++#endif
+ }
+ 
+ JSObject* WorkerNavigator::WrapObject(JSContext* aCx,
+@@ -277,6 +289,7 @@ dom::MediaCapabilities* WorkerNavigator::MediaCapabilities() {
    return mMediaCapabilities;
  }
  
@@ -97658,7 +98132,7 @@ index 519668019e4532e97231be959c69efd3ad3995d0..1d62353c9b05344a85dcccb0705ad1fd
  webgpu::Instance* WorkerNavigator::Gpu() {
    if (!mWebGpu) {
      WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
-@@ -289,6 +296,7 @@ webgpu::Instance* WorkerNavigator::Gpu() {
+@@ -289,6 +302,7 @@ webgpu::Instance* WorkerNavigator::Gpu() {
    }
    return mWebGpu;
  }
@@ -97666,11 +98140,26 @@ index 519668019e4532e97231be959c69efd3ad3995d0..1d62353c9b05344a85dcccb0705ad1fd
  
  dom::LockManager* WorkerNavigator::Locks() {
    if (!mLocks) {
+@@ -331,6 +345,7 @@ already_AddRefed<ServiceWorkerContainer> WorkerNavigator::ServiceWorker() {
+   return ref.forget();
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ dom::Serial* WorkerNavigator::Serial() {
+   if (!mSerial) {
+     WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+@@ -344,5 +359,6 @@ dom::Serial* WorkerNavigator::Serial() {
+ 
+   return mSerial;
+ }
++#endif
+ 
+ }  // namespace mozilla::dom
 diff --git a/dom/workers/WorkerNavigator.h b/dom/workers/WorkerNavigator.h
-index 2f9e06bcb087ca34ddf0a278245a745ff6c845c4..7d9efc743f6d14df6c4b49d5c05f51585ebb54bd 100644
+index 2f9e06bcb087ca34ddf0a278245a745ff6c845c4..427651e2cde35f56c5e9e94497df14852b9659a9 100644
 --- a/dom/workers/WorkerNavigator.h
 +++ b/dom/workers/WorkerNavigator.h
-@@ -23,9 +23,11 @@
+@@ -23,16 +23,20 @@
  namespace mozilla {
  class ErrorResult;
  
@@ -97682,7 +98171,16 @@ index 2f9e06bcb087ca34ddf0a278245a745ff6c845c4..7d9efc743f6d14df6c4b49d5c05f5158
  namespace dom {
  class StorageManager;
  class MediaCapabilities;
-@@ -46,7 +48,9 @@ class WorkerNavigator final : public nsWrapperCache {
+ class LockManager;
+ class Permissions;
+ class ServiceWorkerContainer;
++#ifndef MOZ_WIDGET_UIKIT
+ class Serial;
++#endif
+ 
+ namespace network {
+ class Connection;
+@@ -46,11 +50,15 @@ class WorkerNavigator final : public nsWrapperCache {
    RefPtr<StorageManager> mStorageManager;
    RefPtr<network::Connection> mConnection;
    RefPtr<dom::MediaCapabilities> mMediaCapabilities;
@@ -97692,7 +98190,13 @@ index 2f9e06bcb087ca34ddf0a278245a745ff6c845c4..7d9efc743f6d14df6c4b49d5c05f5158
    RefPtr<dom::LockManager> mLocks;
    RefPtr<dom::Permissions> mPermissions;
    RefPtr<ServiceWorkerContainer> mServiceWorkerContainer;
-@@ -115,7 +119,9 @@ class WorkerNavigator final : public nsWrapperCache {
++#ifndef MOZ_WIDGET_UIKIT
+   RefPtr<dom::Serial> mSerial;
++#endif
+   bool mOnline;
+ 
+   WorkerNavigator(const NavigatorProperties& aProperties, bool aOnline);
+@@ -115,7 +123,9 @@ class WorkerNavigator final : public nsWrapperCache {
  
    dom::MediaCapabilities* MediaCapabilities();
  
@@ -97702,6 +98206,16 @@ index 2f9e06bcb087ca34ddf0a278245a745ff6c845c4..7d9efc743f6d14df6c4b49d5c05f5158
  
    dom::LockManager* Locks();
  
+@@ -123,7 +133,9 @@ class WorkerNavigator final : public nsWrapperCache {
+ 
+   already_AddRefed<ServiceWorkerContainer> ServiceWorker();
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   dom::Serial* Serial();
++#endif
+ };
+ 
+ }  // namespace dom
 diff --git a/dom/workers/WorkerPrivate.cpp b/dom/workers/WorkerPrivate.cpp
 index 3780f5747c0fd4ad9a87b9d60c16684ab9056a2d..6e2f472b62adff5e6f4e4027365d1641a359aa3f 100644
 --- a/dom/workers/WorkerPrivate.cpp
@@ -97831,6 +98345,31 @@ index e91d3f0b5ee0986a037552112b96b3f0e4359ccd..02d65217ed896a0fbe6b677b8b36a5c5
    RefPtr<mozilla::dom::CookieStore> mCookieStore;
  };
  
+diff --git a/dom/workers/sharedworkers/SharedWorkerChild.cpp b/dom/workers/sharedworkers/SharedWorkerChild.cpp
+index 9ebe176c7b5cce3eedc451d35045e6d70d1256fa..5723754767b3c4a9f1152d4ab6193e98e9eb3721 100644
+--- a/dom/workers/sharedworkers/SharedWorkerChild.cpp
++++ b/dom/workers/sharedworkers/SharedWorkerChild.cpp
+@@ -12,7 +12,9 @@
+ #include "mozilla/dom/SecurityPolicyViolationEvent.h"
+ #include "mozilla/dom/SecurityPolicyViolationEventBinding.h"
+ #include "mozilla/dom/SharedWorker.h"
+-#include "mozilla/dom/WebTransport.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/dom/WebTransport.h"
++#endif
+ #include "mozilla/dom/WindowGlobalChild.h"
+ #include "mozilla/dom/WorkerError.h"
+ #include "mozilla/dom/locks/LockManagerChild.h"
+@@ -184,7 +186,9 @@ IPCResult SharedWorkerChild::RecvNotifyWebTransport(bool aCreated) {
+     return IPC_OK();
+   }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   WebTransport::NotifyBFCacheOnMainThread(mParent->GetOwnerWindow(), aCreated);
++#endif
+ 
+   return IPC_OK();
+ }
 diff --git a/extensions/permissions/PermissionManager.cpp b/extensions/permissions/PermissionManager.cpp
 index f8040c897304dcd80f2b10f412a3457e82033316..ee75e8a52ec8f42a8dced52a2466672f6643c166 100644
 --- a/extensions/permissions/PermissionManager.cpp
@@ -103406,7 +103945,7 @@ index 68d1b07ba51d88b0aaeb2f90adb0a7c8b450477d..77d783ee0db3b44e68c1d0e9a3a0bb17
    }
    return false;
 diff --git a/ipc/glue/BackgroundParentImpl.cpp b/ipc/glue/BackgroundParentImpl.cpp
-index d95926a1e3304369f12d3785e92976d9754901db..acbad12da8286f722c1972a636383bf43af7b3bd 100644
+index d95926a1e3304369f12d3785e92976d9754901db..19f1f044b5fc6e7acaa710dbe2784dc283eda871 100644
 --- a/ipc/glue/BackgroundParentImpl.cpp
 +++ b/ipc/glue/BackgroundParentImpl.cpp
 @@ -27,7 +27,9 @@
@@ -103420,7 +103959,18 @@ index d95926a1e3304369f12d3785e92976d9754901db..acbad12da8286f722c1972a636383bf4
  #include "mozilla/dom/ProcessIsolation.h"
  #include "mozilla/dom/MessagePortParent.h"
  #include "mozilla/dom/PGamepadEventChannelParent.h"
-@@ -81,7 +83,9 @@ using mozilla::dom::MIDIPortParent;
+@@ -46,7 +48,9 @@
+ #include "mozilla/dom/StorageActivityService.h"
+ #include "mozilla/dom/StorageIPC.h"
+ #include "mozilla/dom/TemporaryIPCBlobParent.h"
+-#include "mozilla/dom/WebTransportParent.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/dom/WebTransportParent.h"
++#endif
+ #include "mozilla/dom/cache/ActorUtils.h"
+ #include "mozilla/dom/indexedDB/ActorsParent.h"
+ #include "mozilla/dom/locks/LockManagerParent.h"
+@@ -81,7 +85,9 @@ using mozilla::dom::MIDIPortParent;
  using mozilla::dom::PMessagePortParent;
  using mozilla::dom::PMIDIManagerParent;
  using mozilla::dom::PMIDIPortParent;
@@ -103430,7 +103980,23 @@ index d95926a1e3304369f12d3785e92976d9754901db..acbad12da8286f722c1972a636383bf4
  using mozilla::dom::PServiceWorkerContainerParent;
  using mozilla::dom::PServiceWorkerParent;
  using mozilla::dom::PServiceWorkerRegistrationParent;
-@@ -1223,6 +1227,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvHasMIDIDevice(
+@@ -482,6 +488,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateFileSystemManagerParent(
+       this, aPrincipalInfo, std::move(aParentEndpoint), std::move(aResolver));
+ }
+ 
++#ifndef MOZ_WIDGET_UIKIT
+ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
+     const nsAString& aURL, nsIPrincipal* aPrincipal,
+     const uint64_t& aBrowsingContextID, const IPCClientInfo& aClientInfo,
+@@ -501,6 +508,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
+                std::move(aResolver));
+   return IPC_OK();
+ }
++#endif
+ 
+ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateNotificationParent(
+     Endpoint<dom::notification::PNotificationParent>&& aParentEndpoint,
+@@ -1223,6 +1231,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvHasMIDIDevice(
    return IPC_OK();
  }
  
@@ -103438,7 +104004,7 @@ index d95926a1e3304369f12d3785e92976d9754901db..acbad12da8286f722c1972a636383bf4
  // NOTE: Only accessed on the background thread.
  static StaticRefPtr<nsISerialEventTarget> sMLSTaskQueue;
  
-@@ -1307,6 +1312,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateMLSTransaction(
+@@ -1307,6 +1316,7 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateMLSTransaction(
        }));
    return IPC_OK();
  }
@@ -103446,7 +104012,7 @@ index d95926a1e3304369f12d3785e92976d9754901db..acbad12da8286f722c1972a636383bf4
  
  already_AddRefed<mozilla::dom::PClientManagerParent>
  BackgroundParentImpl::AllocPClientManagerParent() {
-@@ -1470,10 +1476,11 @@ BackgroundParentImpl::RecvEnsureUtilityProcessAndCreateBridge(
+@@ -1470,10 +1480,11 @@ BackgroundParentImpl::RecvEnsureUtilityProcessAndCreateBridge(
  }
  
  mozilla::ipc::IPCResult BackgroundParentImpl::RecvRequestCameraAccess(
@@ -103462,10 +104028,26 @@ index d95926a1e3304369f12d3785e92976d9754901db..acbad12da8286f722c1972a636383bf4
               [resolver = std::move(aResolver)](
                   const mozilla::camera::CamerasParent::
 diff --git a/ipc/glue/BackgroundParentImpl.h b/ipc/glue/BackgroundParentImpl.h
-index 8a6f056be76b3b48cbd99938c037c8b9bc0b4697..976fbcb9ac52702e40e3856523783f4c7edfabd6 100644
+index 8a6f056be76b3b48cbd99938c037c8b9bc0b4697..65a3ddf90d6c7ec63a997911bffc67bd79c14bb8 100644
 --- a/ipc/glue/BackgroundParentImpl.h
 +++ b/ipc/glue/BackgroundParentImpl.h
-@@ -294,9 +294,11 @@ class BackgroundParentImpl : public PBackgroundParent {
+@@ -119,6 +119,7 @@ class BackgroundParentImpl : public PBackgroundParent {
+       Endpoint<mozilla::dom::PFileSystemManagerParent>&& aParentEndpoint,
+       CreateFileSystemManagerParentResolver&& aResolver) override;
+ 
++#ifndef MOZ_WIDGET_UIKIT
+   mozilla::ipc::IPCResult RecvCreateWebTransportParent(
+       const nsAString& aURL, nsIPrincipal* aPrincipal,
+       const uint64_t& aBrowsingContextID, const IPCClientInfo& aClientInfo,
+@@ -127,6 +128,7 @@ class BackgroundParentImpl : public PBackgroundParent {
+       nsTArray<WebTransportHash>&& aServerCertHashes,
+       Endpoint<PWebTransportParent>&& aParentEndpoint,
+       CreateWebTransportParentResolver&& aResolver) override;
++#endif
+ 
+   mozilla::ipc::IPCResult RecvCreateNotificationParent(
+       Endpoint<dom::notification::PNotificationParent>&& aParentEndpoint,
+@@ -294,9 +296,11 @@ class BackgroundParentImpl : public PBackgroundParent {
    mozilla::ipc::IPCResult RecvHasMIDIDevice(
        HasMIDIDeviceResolver&& aResolver) override;
  
@@ -103477,7 +104059,7 @@ index 8a6f056be76b3b48cbd99938c037c8b9bc0b4697..976fbcb9ac52702e40e3856523783f4c
  
    mozilla::ipc::IPCResult RecvStorageActivity(
        const PrincipalInfo& aPrincipalInfo) override;
-@@ -335,7 +337,8 @@ class BackgroundParentImpl : public PBackgroundParent {
+@@ -335,7 +339,8 @@ class BackgroundParentImpl : public PBackgroundParent {
        EnsureUtilityProcessAndCreateBridgeResolver&& aResolver) override;
  
    mozilla::ipc::IPCResult RecvRequestCameraAccess(
@@ -104594,7 +105176,7 @@ index 0000000000000000000000000000000000000000..aae5c6b21c43178e4050c4d3a08d3ec9
 +
 +}  // namespace mozilla::ipc
 diff --git a/ipc/glue/PBackground.ipdl b/ipc/glue/PBackground.ipdl
-index bfc523c53e0767bea50a751d623af3d0409720dc..28a16d7a20701e9ffc641ada006029297aeb27b5 100644
+index bfc523c53e0767bea50a751d623af3d0409720dc..8cc56f606b25491af0671c2815e5c13e2613fdf7 100644
 --- a/ipc/glue/PBackground.ipdl
 +++ b/ipc/glue/PBackground.ipdl
 @@ -37,7 +37,9 @@ include protocol PCameras;
@@ -104607,7 +105189,33 @@ index bfc523c53e0767bea50a751d623af3d0409720dc..28a16d7a20701e9ffc641ada00602929
  include protocol PQuota;
  include protocol PServiceWorker;
  include protocol PServiceWorkerContainer;
-@@ -265,7 +267,9 @@ parent:
+@@ -46,7 +48,9 @@ include protocol PServiceWorkerRegistration;
+ include protocol PUDPSocket;
+ include protocol PVsync;
+ include protocol PRemoteMediaManager;
++#ifndef MOZ_WIDGET_UIKIT
+ include protocol PWebTransport;
++#endif
+ include protocol PFetch;
+ include protocol PNotification;
+ 
+@@ -174,6 +178,7 @@ parent:
+   /**
+    * Finish the setup of a new PWebTransport top level protocol.
+    */
++#ifndef MOZ_WIDGET_UIKIT
+   async CreateWebTransportParent(
+       nsString aURL,
+       nullable nsIPrincipal aPrincipal,
+@@ -185,6 +190,7 @@ parent:
+       WebTransportHash[] aServerCertHashes,
+       Endpoint<PWebTransportParent> aParentEndpoint)
+       returns(nsresult rv, uint8_t aReliability); // Actually WebTransportReliabityMode enum
++#endif
+ 
+ 
+   // XXX(krosylight): This should ultimately use nsID instead of scope, see bug 1881812.
+@@ -265,7 +271,9 @@ parent:
                         MIDIPortInfo portInfo, bool sysexEnabled);
    async HasMIDIDevice() returns (bool hasDevice);
  
@@ -104617,7 +105225,7 @@ index bfc523c53e0767bea50a751d623af3d0409720dc..28a16d7a20701e9ffc641ada00602929
  
    // This method is used to propagate storage activities from the child actor
    // to the parent actor. See StorageActivityService.
-@@ -296,7 +300,9 @@ parent:
+@@ -296,7 +304,9 @@ parent:
  
    async PFetch();
  
@@ -106521,6 +107129,21 @@ index a9a3af59a88193c5e9e67112ddb2a8d0d7035c4b..adb3ce13cbc61511e1567e5d37224abf
  
  if defined('MOZ_WEBSPEECH_TEST_BACKEND'):
      Classes += [
+diff --git a/layout/build/nsLayoutStatics.cpp b/layout/build/nsLayoutStatics.cpp
+index 0fa2353fee3a73d446539effcb41c6d02097c440..10d09295094e9d0b1a3d46da04cddcec072bb705 100644
+--- a/layout/build/nsLayoutStatics.cpp
++++ b/layout/build/nsLayoutStatics.cpp
+@@ -96,7 +96,9 @@
+ #include "mozilla/dom/PointerEventHandler.h"
+ #include "mozilla/dom/RemoteWorkerService.h"
+ #include "mozilla/dom/ReportingHeader.h"
+-#include "mozilla/dom/SerialPlatformService.h"
++#ifndef MOZ_WIDGET_UIKIT
++#  include "mozilla/dom/SerialPlatformService.h"
++#endif
+ #include "mozilla/dom/WebIDLGlobalNameHash.h"
+ #include "mozilla/dom/localstorage/ActorsParent.h"
+ #include "mozilla/dom/quota/ActorsParent.h"
 diff --git a/layout/generic/nsHTMLCanvasFrame.cpp b/layout/generic/nsHTMLCanvasFrame.cpp
 index b6d6f6043c324fba37620f812b3762c20f155350..771f719de2ecba3371b143836e80ff1673f700f8 100644
 --- a/layout/generic/nsHTMLCanvasFrame.cpp
