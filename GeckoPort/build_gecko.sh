@@ -13,7 +13,7 @@ case "$BUILD_JOBS" in
   ""|*[!0-9]*|0) echo "error: GECKO_BUILD_JOBS must be a positive integer" >&2; exit 1 ;;
 esac
 
-# Firefox 153 CI uses Rust 1.94.1 (LLVM 21.1.8), matching the Mozilla clang/lld
+# Firefox 154 CI uses Rust 1.94.1 (LLVM 21.1.8), matching the Mozilla clang/lld
 # downloaded by bootstrap. An unpinned stable toolchain may produce newer LLVM
 # bitcode that the ThinLTO linker cannot read.
 command -v rustup >/dev/null 2>&1 || {

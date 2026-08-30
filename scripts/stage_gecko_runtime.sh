@@ -102,7 +102,9 @@ for name in application.ini platform.ini greprefs.js default.locale chrome.manif
     copy_generated_file "$name"
 done
 
-for name in chrome localization dictionaries modules; do
+# UIKit disables Hunspell like Android GeckoView, so a clean build has no
+# dictionaries directory. The runtime trimmer also excludes it intentionally.
+for name in chrome localization modules; do
     copy_generated_dir "$name"
 done
 
@@ -189,8 +191,10 @@ while IFS= read -r name; do
     copy_native "$name"
 done < "$DIST_BIN/dependentlibs.list"
 
-# NSS loads softokn dynamically, so it is not emitted by dependentlibs.list.
+# NSS loads softokn and freebl dynamically, so neither is emitted by
+# dependentlibs.list in a clean Firefox 154 UIKit build.
 copy_native "libsoftokn3.dylib"
+copy_native "libfreebl3.dylib"
 
 # Reduce the generated Firefox product chrome to the GeckoView/Phase-1 runtime
 # closure.  This operates only on the disposable staging tree; the objdir and

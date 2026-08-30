@@ -91,7 +91,7 @@ text = text.replace(remote_block, remote_replacement, 1)
 
 for needle in (
     '  Blocklist: "resource://gre/modules/Blocklist.sys.mjs",\n',
-    '  CaptchaDetectionPingUtils:\n    "resource://gre/modules/CaptchaDetectionPingUtils.sys.mjs",\n',
+    '  CaptchaDetectionPingUtils:\n    "moz-src:///toolkit/components/captchadetection/CaptchaDetectionPingUtils.sys.mjs",\n',
 ):
     if needle not in text:
         fail(f"expected GeckoView startup fragment not found: {needle!r}")
