@@ -24,14 +24,21 @@ overlays.
 Starting from a clean checkout at the locked commit:
 
 ```bash
-git clone --depth 1 --single-branch \
-  --branch FIREFOX_153_0_4_RELEASE --filter=blob:none \
+git clone --depth 1 --single-branch --no-tags \
+  --branch FIREFOX_154_0_1_RELEASE --filter=blob:none \
   https://github.com/mozilla-firefox/firefox.git build/firefox-src
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  build/firefox-src/mach bootstrap \
-    --application-choice browser --no-system-changes
+test "$(git -C build/firefox-src rev-parse HEAD)" = \
+  9cd094dbc3eac5df87a24e7a871e52880cb8cd42
+test "$(git -C build/firefox-src rev-parse --is-shallow-repository)" = true
+(
+  cd build/firefox-src
+  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+    ./mach bootstrap \
+      --application-choice browser --no-system-changes
+)
 bash GeckoPort/apply_patches.sh build/firefox-src
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+GECKO_BUILD_JOBS=4 \
   bash GeckoPort/build_gecko.sh build/firefox-src
 bash scripts/export_gecko_prebuilt.sh
 ```

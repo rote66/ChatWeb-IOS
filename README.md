@@ -7,8 +7,8 @@ ChatWeb 是一个面向 iOS 13+ 的 UIKit 网页客户端，工程目标和 IPA 
 当前 Gecko 基线：
 
 ```text
-Firefox tag:    FIREFOX_153_0_4_RELEASE
-Firefox commit: c178247e1dfea52241a6b18b18cf3a00f8da935c
+Firefox tag:    FIREFOX_154_0_1_RELEASE
+Firefox commit: 9cd094dbc3eac5df87a24e7a871e52880cb8cd42
 Target:         arm64 / iOS 13+
 Configuration:  Release + cross-language ThinLTO
 Content model:  UIKit single-process Gecko
@@ -328,6 +328,21 @@ IPA 为 `31997046` B，SHA-256 为
 SHA-256 为
 `de99c889227a4dc809cb7df47e4059ae8e4b69acf20266defb999a8847737d8c`。
 
+随后将正式 Gecko 基线迁移到 Firefox `154.0.1`。迁移使用
+`--depth 1 --single-branch --filter=blob:none --no-tags` 的 release tag 浅克隆，
+完整 UIKit patch 在锁定 commit 的干净索引上通过正向应用检查，并在已应用源码上
+通过反向应用检查。2026-08-30 又删除项目内全部源码、objdir、展开的 prebuilt 和
+IPA，并严格按本文流程重新浅克隆、bootstrap、应用 patch、完成 Release
+arm64/iOS 13 + ThinLTO 构建。raw XUL 为 `113568944` B，SHA-256 为
+`4f92d01d843c7a7d52371b0428d44a9acf3fd45a9df0a59863a09dd619fec538`；prebuilt zip
+为 `42861544` B，SHA-256 为
+`e9510857bfe51bfe1183ef82ba2d4fb03867518f5324c70a6e5bcaa981800d06`；canonical patch
+SHA-256 为
+`0b398cc4d2678e1f44d5c4f09d5bb67c28eaf91c31b59a26f7a0a45e266d4beb`。
+使用该 prebuilt 构建并加入设置页版本显示后的 IPA 为 `32180259` B，SHA-256 为
+`b5241bfdb03bc6d679456e3b237bc589623ace1deadd798de59fcc0e3f906ae3`，解包完整
+安装常规文件为 `62754531` B。
+
 ## 当前结构
 
 ```text
@@ -464,6 +479,27 @@ UIKit widget 或 runtime 裁剪时才需要走这条路径。
 **不会自动清理现有 objdir。** Gecko 编译耗时很长，所以后续 App 构建应先
 导出新的预编译内核，再回到“构建方式一”。
 
+### 0. 清理本项目源码和编译产物（仅完全重建时）
+
+在仓库根目录执行。前两条 `test` 是删除保护，路径不正确时会立即停止：
+
+```bash
+DUALAI_PROJECT_ROOT="$(pwd -P)"
+test -f "$DUALAI_PROJECT_ROOT/GeckoPort/PATCHSET.lock"
+test -d "$DUALAI_PROJECT_ROOT/DualAI.xcodeproj"
+/bin/rm -rf \
+  "$DUALAI_PROJECT_ROOT/build" \
+  "$DUALAI_PROJECT_ROOT/GeckoPrebuilt/Runtime" \
+  "$DUALAI_PROJECT_ROOT/GeckoPrebuilt/include" \
+  "$DUALAI_PROJECT_ROOT/dist"
+```
+
+这会删除本项目的 Firefox checkout、Gecko objdir/staging、Xcode DerivedData、
+展开的 prebuilt 和 IPA，但保留 Git 跟踪的 canonical patch、prebuilt zip 与
+manifest。它不会删除用户级 `~/.mozbuild` 和 Rust toolchain；如果后两者也被清理，
+下一节的 bootstrap 和 `rustup toolchain install` 会重新准备它们。当前配置未启用
+ccache/sccache，因此项目干净重建不依赖任何编译缓存。
+
 ### 1. 准备锁定 Firefox 源码
 
 源码目录约定为：
@@ -479,7 +515,8 @@ release tag：
 git clone \
   --depth 1 \
   --single-branch \
-  --branch FIREFOX_153_0_4_RELEASE \
+  --no-tags \
+  --branch FIREFOX_154_0_1_RELEASE \
   --filter=blob:none \
   https://github.com/mozilla-firefox/firefox.git \
   build/firefox-src
@@ -490,7 +527,7 @@ git clone \
 
 ```bash
 test "$(git -C build/firefox-src rev-parse HEAD)" = \
-  c178247e1dfea52241a6b18b18cf3a00f8da935c
+  9cd094dbc3eac5df87a24e7a871e52880cb8cd42
 git -C build/firefox-src rev-parse --is-shallow-repository
 ```
 
@@ -503,17 +540,20 @@ clang/lld、Node、sccache 等构建工具。只准备用户级工具链、不�
 或系统配置的命令为：
 
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  build/firefox-src/mach bootstrap \
-    --application-choice browser \
-    --no-system-changes
+(
+  cd build/firefox-src
+  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+    ./mach bootstrap \
+      --application-choice browser \
+      --no-system-changes
+)
 ```
 
 跳过这一步时，`mach configure` 可能退回 `/usr/bin/clang`，随后报
 `Failed to find an adequate linker`。工具链会保存在 `~/.mozbuild`，清理该目录
 后需要重新 bootstrap。
 
-Firefox 153 的 Taskcluster 配置锁定 Rust 1.94.1；它使用 LLVM 21.1.8，与上述
+Firefox 154 的 Taskcluster 配置锁定 Rust 1.94.1；它使用 LLVM 21.1.8，与上述
 bootstrap 下载的 Mozilla clang/lld 一致。不要让构建直接跟随会自动升级的
 `stable`。安装固定工具链及 iOS target：
 
@@ -567,16 +607,19 @@ GECKO_BUILD_JOBS=4 \
 bash GeckoPort/build_gecko.sh build/firefox-src
 ```
 
-2026-08-24 在 16 GiB Mac 上从空 `objdir`、空 `~/.mozbuild` 实测旧的普通
-ThinLTO 配置（4 jobs、未启用 SCCache）：
+2026-08-30 在 16 GiB Mac 上删除项目内 `build/`、Firefox checkout/objdir、展开的
+prebuilt 和 `dist/` 后，严格按本节从 release tag 浅克隆并重建（4 jobs，未启用
+ccache/SCCache；保留已有的用户级 `~/.mozbuild` 工具链）：
 
-- `mach build`：32 分 09 秒，成功完成 Release + ThinLTO；
+- `mach build`：28 分 04 秒，成功完成 Release + ThinLTO；完整构建报告 169 条
+  compiler warning，没有错误；
 - Firefox 浅克隆工作树：约 5.6 GB，其中 `.git` 约 1.1 GB；
 - 构建完成后的 `obj-gemini-gecko-ios-arm64`：约 19 GB；
-- bootstrap 后的 `~/.mozbuild` 工具链：约 3.2 GB；
-- 导出 prebuilt：约 32 秒；从 prebuilt 全新构建/签名 IPA：约 19 秒。
+- bootstrap 后的 `~/.mozbuild` 工具链：约 3.2 GB；本轮目录已存在，bootstrap
+  仍按流程执行并核对工具链；
+- 导出 prebuilt：约 27 秒；从 prebuilt 全新构建/签名 IPA：约 31 秒。
 
-源码克隆和 bootstrap 的下载时间取决于网络，不包含在 32 分 09 秒内。本次完整
+源码克隆和 bootstrap 的下载时间取决于网络，不包含在 28 分 04 秒内。本次完整
 源码树（含 objdir）最终约 25 GB；构建曾产生较多 swap I/O，16 GiB 内存机器不要
 提高默认的 4 jobs，也应预留额外磁盘空间给链接临时文件。
 
@@ -675,16 +718,21 @@ make ipa
 git clone \
   --depth 1 \
   --single-branch \
-  --branch FIREFOX_153_0_4_RELEASE \
+  --no-tags \
+  --branch FIREFOX_154_0_1_RELEASE \
   --filter=blob:none \
   https://github.com/mozilla-firefox/firefox.git \
   build/firefox-src
 test "$(git -C build/firefox-src rev-parse HEAD)" = \
-  c178247e1dfea52241a6b18b18cf3a00f8da935c
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  build/firefox-src/mach bootstrap \
-    --application-choice browser \
-    --no-system-changes
+  9cd094dbc3eac5df87a24e7a871e52880cb8cd42
+test "$(git -C build/firefox-src rev-parse --is-shallow-repository)" = true
+(
+  cd build/firefox-src
+  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+    ./mach bootstrap \
+      --application-choice browser \
+      --no-system-changes
+)
 bash GeckoPort/apply_patches.sh build/firefox-src
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 GECKO_BUILD_JOBS=4 \
@@ -753,13 +801,13 @@ git apply --check GeckoPort/DualAI-Gecko.patch
 `GeckoPrebuilt/MANIFEST.lock` 为准：
 
 ```text
-XUL bytes:     113365840
-XUL SHA256:    b63b97b06c682b4e3fc00bcc13d015a1c787ff566cd5ee182b774f5cc655e64b
+XUL bytes:     113568944
+XUL SHA256:    4f92d01d843c7a7d52371b0428d44a9acf3fd45a9df0a59863a09dd619fec538
 Runtime files: 12
 ```
 
-对应 prebuilt zip 为 `42644934` B，SHA-256 为
-`e2beb94e438c9713d1412bfcf8e957364b57a94ff0af01ab53b1dac109e5a9ba`。从 prebuilt
+对应 prebuilt zip 为 `42861544` B，SHA-256 为
+`e9510857bfe51bfe1183ef82ba2d4fb03867518f5324c70a6e5bcaa981800d06`。从 prebuilt
 构建与上面的完整源码构建均使用同一份 XUL manifest；源码构建还会从
 `GeckoPort/mozconfig.ios13-arm64`
 读取 cross-language ThinLTO、safe ICF 和 MergeFunctions 参数。
@@ -780,6 +828,8 @@ SpiderMonkey JIT 保留。目标真机使用 TrollStore 的 JIT 启动路径；A
   GeckoView session。设置中的“共用登录 Cookie”默认开启；关闭后通过固定
   `sessionContextId` 隔离 Cookie、站点存储和权限，修改在完全重启 App 后生效。
 - HTTPS 页面、登录、流式内容、Storage/Cookie：已进入真实 Gecko 路径。
+- 版本信息：设置页直接显示 App marketing/build 版本，以及从随包
+  `GeckoRuntime/platform.ini` 动态读取的 Gecko milestone。
 - 数据备份：可导出密码加密的单个 `.dualaibackup` 文件，包含逻辑 Cookie、
   持久站点数据和 App 设置，并排除 `cache2`、`startupCache` 等可重建缓存；
   导入后在下一次 Gecko 启动前恢复。服务端已撤销或过期的登录令牌不能靠本地
@@ -834,7 +884,7 @@ idevicesyslog -p DualAI --no-colors > log.log
 ## License / upstream
 
 内嵌引擎基于 Mozilla 的
-[`FIREFOX_153_0_4_RELEASE`](https://github.com/mozilla-firefox/firefox/tree/FIREFOX_153_0_4_RELEASE)，
+[`FIREFOX_154_0_1_RELEASE`](https://github.com/mozilla-firefox/firefox/tree/FIREFOX_154_0_1_RELEASE)，
 Gecko/Firefox 源文件及其修改继续遵循文件内声明和
 [`MPL-2.0`](https://www.mozilla.org/MPL/2.0/) 要求。
 
