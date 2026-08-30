@@ -252,11 +252,12 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
 
     private func showSettingsMenu(for controller: WebContentController) {
         let sharedCookies = preferences.shareGeckoLoginCookies
+        let cookieDescription = sharedCookies
+            ? "当前 GPT 与 Gemini 共用 Gecko 登录 Cookie。关闭后两边会使用独立 session context；需要重新启动 App 后生效。"
+            : "当前 GPT 与 Gemini 使用独立 session context，Google/站点登录 Cookie 与站点存储互不复用；需要重新启动 App 后生效。"
         let menu = UIAlertController(
             title: "设置 & 数据",
-            message: sharedCookies
-                ? "当前 GPT 与 Gemini 共用 Gecko 登录 Cookie。关闭后两边会使用独立 session context；需要重新启动 App 后生效。"
-                : "当前 GPT 与 Gemini 使用独立 session context，Google/站点登录 Cookie 与站点存储互不复用；需要重新启动 App 后生效。",
+            message: "App 版本：\(appVersionDescription)\nGecko 版本：\(geckoVersion)\n\n\(cookieDescription)",
             preferredStyle: .alert
         )
         menu.addAction(UIAlertAction(
@@ -329,6 +330,34 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
         })
         menu.addAction(UIAlertAction(title: "取消", style: .cancel))
         present(menu, animated: true)
+    }
+
+    private var appVersionDescription: String {
+        let version = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        guard let version, !version.isEmpty else { return "未知" }
+        guard let build, !build.isEmpty else { return version }
+        return "\(version) (\(build))"
+    }
+
+    private var geckoVersion: String {
+        guard let frameworksURL = Bundle.main.privateFrameworksURL else { return "未知" }
+        let platformURL = frameworksURL
+            .appendingPathComponent("GeckoRuntime", isDirectory: true)
+            .appendingPathComponent("platform.ini", isDirectory: false)
+        guard let contents = try? String(contentsOf: platformURL, encoding: .utf8) else {
+            return "未知"
+        }
+        for line in contents.split(whereSeparator: \Character.isNewline) {
+            let fields = line.split(separator: "=", maxSplits: 1)
+            if fields.count == 2, fields[0] == "Milestone" {
+                let version = fields[1].trimmingCharacters(in: .whitespaces)
+                return version.isEmpty ? "未知" : version
+            }
+        }
+        return "未知"
     }
 
     private func showUserAgentMenu() {
