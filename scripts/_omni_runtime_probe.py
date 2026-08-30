@@ -57,7 +57,7 @@ def is_omni_entry(rel: str) -> bool:
     if rel.startswith("components/") and rel.endswith(".manifest"):
         return True
 
-    # DualAI registers this tree from the root chrome.manifest using a relative
+    # ChatWeb registers this tree from the root chrome.manifest using a relative
     # file: URI. Keep the tiny tree beside that manifest inside the archive so
     # the relative target remains valid after switching from flat to omnijar.
     if rel.startswith("default-theme/"):

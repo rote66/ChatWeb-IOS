@@ -59,7 +59,7 @@ def prune_tree(rel: str, keep_files: set[str], keep_prefixes: tuple[str, ...]) -
 geckoview = root / "chrome/geckoview/content/geckoview.js"
 text = geckoview.read_text()
 
-# DualAI's UIKit embedding runs without BrowserEngineKit content-process
+# ChatWeb's UIKit embedding runs without BrowserEngineKit content-process
 # extensions on iOS 15.  When the host requests useRemoteProcess=false, make
 # the inner GeckoView <browser> in-process as well so it owns a real docshell
 # instead of a hollow remote BrowsingContext with frameLoader.remoteTab == nil.

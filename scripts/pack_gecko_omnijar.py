@@ -62,7 +62,7 @@ def is_omni_entry(rel: str) -> bool:
     if rel.startswith("components/") and rel.endswith(".manifest"):
         return True
 
-    # DualAI adds this resource alias itself. Because the root manifest moves
+    # ChatWeb adds this resource alias itself. Because the root manifest moves
     # into omni.ja, keep the tiny theme tree beside it so its relative file:
     # target continues to resolve within the same FileLocation.
     if rel.startswith("default-theme/"):

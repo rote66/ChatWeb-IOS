@@ -1,5 +1,5 @@
 import XCTest
-@testable import DualAI
+@testable import ChatWeb
 
 final class NavigationPolicyTests: XCTestCase {
     private let policy = NavigationPolicy()

@@ -3,11 +3,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PROJECT_PATH="$PROJECT_ROOT/DualAI.xcodeproj"
+PROJECT_PATH="$PROJECT_ROOT/ChatWeb.xcodeproj"
 DERIVED_DATA="${DERIVED_DATA:-$PROJECT_ROOT/build/DerivedDataIPA}"
-PRODUCT_APP="$DERIVED_DATA/Build/Products/Release-iphoneos/DualAI.app"
+PRODUCT_APP="$DERIVED_DATA/Build/Products/Release-iphoneos/ChatWeb.app"
 DIST_DIR="$PROJECT_ROOT/dist"
-IPA_PATH="$DIST_DIR/DualAI.ipa"
+IPA_PATH="$DIST_DIR/ChatWeb.ipa"
 DEVELOPER_PATH="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 XCODEBUILD="$DEVELOPER_PATH/usr/bin/xcodebuild"
 STRIP_TOOL="$DEVELOPER_PATH/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip"
@@ -22,7 +22,7 @@ fail() {
 [ -x "$STRIP_TOOL" ] || fail "missing strip tool: $STRIP_TOOL"
 mkdir -p "$DIST_DIR"
 
-# DualAI intentionally publishes exactly one IPA artifact. Remove stale or
+# ChatWeb intentionally publishes exactly one IPA artifact. Remove stale or
 # diagnostic IPA names before every package pass so dist/ never accumulates
 # multiple install candidates.
 /usr/bin/find "$DIST_DIR" -maxdepth 1 -type f -name '*.ipa' ! -path "$IPA_PATH" -delete
@@ -43,7 +43,7 @@ bash "$PROJECT_ROOT/scripts/prepare_gecko_prebuilt.sh"
 DEVELOPER_DIR="$DEVELOPER_PATH" "$XCODEBUILD" \
     -quiet \
     -project "$PROJECT_PATH" \
-    -scheme DualAI \
+    -scheme ChatWeb \
     -configuration Release \
     -sdk iphoneos \
     -destination "generic/platform=iOS" \
@@ -56,16 +56,16 @@ DEVELOPER_DIR="$DEVELOPER_PATH" "$XCODEBUILD" \
 
 [ -d "$PRODUCT_APP" ] || fail "missing build product: $PRODUCT_APP"
 [ -f "$PRODUCT_APP/Info.plist" ] || fail "missing built Info.plist"
-[ -x "$PRODUCT_APP/DualAI" ] || fail "missing app executable"
+[ -x "$PRODUCT_APP/ChatWeb" ] || fail "missing app executable"
 /usr/bin/plutil -lint "$PRODUCT_APP/Info.plist" >/dev/null
-/usr/bin/lipo "$PRODUCT_APP/DualAI" -verify_arch arm64 || fail "executable is not arm64"
+/usr/bin/lipo "$PRODUCT_APP/ChatWeb" -verify_arch arm64 || fail "executable is not arm64"
 
 PACKAGE_ROOT="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/chatweb-ipa.XXXXXX")"
 trap '/bin/rm -rf "$PACKAGE_ROOT"' EXIT
 /bin/mkdir -p "$PACKAGE_ROOT/Payload"
-/usr/bin/ditto "$PRODUCT_APP" "$PACKAGE_ROOT/Payload/DualAI.app"
+/usr/bin/ditto "$PRODUCT_APP" "$PACKAGE_ROOT/Payload/ChatWeb.app"
 
-STAGED_APP="$PACKAGE_ROOT/Payload/DualAI.app"
+STAGED_APP="$PACKAGE_ROOT/Payload/ChatWeb.app"
 [ ! -e "$STAGED_APP/embedded.mobileprovision" ] || fail "embedded provisioning profile must not be packaged"
 
 strip_and_sign_embedded_macho() {
@@ -104,12 +104,12 @@ fi
 
 # The app has already been fully linked. Trim debug/local symbols plus the
 # legacy nlist table from the staged executable before its final signature.
-"$STRIP_TOOL" -S -x -N "$STAGED_APP/DualAI"
+"$STRIP_TOOL" -S -x -N "$STAGED_APP/ChatWeb"
 
 # TrollStore's sandboxed-app JIT path uses the ordinary development
 # get-task-allow entitlement. Keep this temporary and do not add browser-engine,
 # allow-jit, platform-application, or com.apple.private.* entitlements.
-APP_ENTITLEMENTS="$PACKAGE_ROOT/DualAI.entitlements"
+APP_ENTITLEMENTS="$PACKAGE_ROOT/ChatWeb.entitlements"
 /bin/cat > "$APP_ENTITLEMENTS" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -157,27 +157,27 @@ echo "IPA size: $IPA_BYTES bytes (limit: $MAX_IPA_BYTES)"
 VERIFY_ROOT="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/chatweb-verify.XXXXXX")"
 trap '/bin/rm -rf "$PACKAGE_ROOT" "$VERIFY_ROOT"' EXIT
 /usr/bin/unzip -q "$IPA_PATH" -d "$VERIFY_ROOT"
-[ -d "$VERIFY_ROOT/Payload/DualAI.app" ] || fail "IPA does not contain Payload/DualAI.app"
-[ -f "$VERIFY_ROOT/Payload/DualAI.app/Info.plist" ] || fail "IPA app has no Info.plist"
-[ -x "$VERIFY_ROOT/Payload/DualAI.app/DualAI" ] || fail "IPA app has no executable"
-/usr/bin/plutil -lint "$VERIFY_ROOT/Payload/DualAI.app/Info.plist" >/dev/null
-/usr/bin/lipo "$VERIFY_ROOT/Payload/DualAI.app/DualAI" -verify_arch arm64 || fail "packaged executable is not arm64"
-/usr/bin/codesign --verify --strict "$VERIFY_ROOT/Payload/DualAI.app"
-if [ -d "$VERIFY_ROOT/Payload/DualAI.app/Frameworks" ]; then
-    verify_embedded_macho "$VERIFY_ROOT/Payload/DualAI.app/Frameworks"
+[ -d "$VERIFY_ROOT/Payload/ChatWeb.app" ] || fail "IPA does not contain Payload/ChatWeb.app"
+[ -f "$VERIFY_ROOT/Payload/ChatWeb.app/Info.plist" ] || fail "IPA app has no Info.plist"
+[ -x "$VERIFY_ROOT/Payload/ChatWeb.app/ChatWeb" ] || fail "IPA app has no executable"
+/usr/bin/plutil -lint "$VERIFY_ROOT/Payload/ChatWeb.app/Info.plist" >/dev/null
+/usr/bin/lipo "$VERIFY_ROOT/Payload/ChatWeb.app/ChatWeb" -verify_arch arm64 || fail "packaged executable is not arm64"
+/usr/bin/codesign --verify --strict "$VERIFY_ROOT/Payload/ChatWeb.app"
+if [ -d "$VERIFY_ROOT/Payload/ChatWeb.app/Frameworks" ]; then
+    verify_embedded_macho "$VERIFY_ROOT/Payload/ChatWeb.app/Frameworks"
 fi
-PACKAGED_ENTITLEMENTS="$(/usr/bin/codesign -d --entitlements :- "$VERIFY_ROOT/Payload/DualAI.app" 2>/dev/null || true)"
+PACKAGED_ENTITLEMENTS="$(/usr/bin/codesign -d --entitlements :- "$VERIFY_ROOT/Payload/ChatWeb.app" 2>/dev/null || true)"
 echo "$PACKAGED_ENTITLEMENTS" | /usr/bin/grep -q '<key>get-task-allow</key>' \
     || fail "packaged app lost get-task-allow"
 
 # IPA compression is not the number shown by iOS after installation. Report
 # the sum of regular files in the signed payload so size work has a stable,
 # reproducible installed-size baseline as well.
-INSTALLED_BYTES="$(/usr/bin/find "$VERIFY_ROOT/Payload/DualAI.app" -type f -print0 \
+INSTALLED_BYTES="$(/usr/bin/find "$VERIFY_ROOT/Payload/ChatWeb.app" -type f -print0 \
     | /usr/bin/xargs -0 /usr/bin/stat -f '%z' \
     | /usr/bin/awk '{ total += $1 } END { printf "%.0f", total }')"
 [ -n "$INSTALLED_BYTES" ] || fail "failed to measure packaged app files"
 
 echo "Created: $IPA_PATH"
-echo "Validated: Payload/DualAI.app, Info.plist, arm64 executable, stripped/signed Gecko Mach-O, get-task-allow"
+echo "Validated: Payload/ChatWeb.app, Info.plist, arm64 executable, stripped/signed Gecko Mach-O, get-task-allow"
 echo "Installed regular-file size: $INSTALLED_BYTES bytes"

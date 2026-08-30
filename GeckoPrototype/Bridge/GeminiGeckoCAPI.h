@@ -82,7 +82,7 @@ typedef struct GGGeckoSessionCallbacks {
 } GGGeckoSessionCallbacks;
 
 /// Appends a synchronous startup breadcrumb to
-/// Library/Caches/DualAI-GeckoStartup.log so launch failures can be localized
+/// Library/Caches/ChatWeb-GeckoStartup.log so launch failures can be localized
 /// even when the process dies before the UI appears.
 void GGGeckoStartupTrace(const char *stage_utf8);
 void GGGeckoStartupTraceReset(void);

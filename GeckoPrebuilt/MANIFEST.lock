@@ -1,4 +1,4 @@
-# DualAI prebuilt Gecko core
+# ChatWeb prebuilt Gecko core
 FIREFOX_TAG=FIREFOX_154_0_1_RELEASE
 FIREFOX_COMMIT=9cd094dbc3eac5df87a24e7a871e52880cb8cd42
 TARGET=aarch64-apple-ios

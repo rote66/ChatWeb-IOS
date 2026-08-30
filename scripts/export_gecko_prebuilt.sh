@@ -52,7 +52,7 @@ XUL_BYTES="$(/usr/bin/stat -f '%z' "$WORK_DIR/Runtime/XUL")"
 RUNTIME_FILES="$(/usr/bin/find "$WORK_DIR/Runtime" -type f | /usr/bin/wc -l | /usr/bin/tr -d ' ')"
 
 /bin/cat > "$WORK_DIR/MANIFEST.lock" <<EOF
-# DualAI prebuilt Gecko core
+# ChatWeb prebuilt Gecko core
 FIREFOX_TAG=$FIREFOX_TAG
 FIREFOX_COMMIT=$FIREFOX_COMMIT
 TARGET=aarch64-apple-ios

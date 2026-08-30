@@ -36,9 +36,9 @@ enum AppDataBackupError: LocalizedError {
 /// durable account state, and are regenerated automatically after restore.
 final class AppDataBackupManager {
     static let shared = AppDataBackupManager()
-    static let backupFileExtension = "dualaibackup"
-    static let pendingRestoreDirectoryName = "DualAIBackupRestore.pending"
-    static let pendingCookieRestoreFileName = "DualAICookieRestore.pending.json"
+    static let backupFileExtension = "chatwebbackup"
+    static let pendingRestoreDirectoryName = "ChatWebBackupRestore.pending"
+    static let pendingCookieRestoreFileName = "ChatWebCookieRestore.pending.json"
 
     private let fileManager = FileManager.default
     private let formatVersion = 2
@@ -46,7 +46,11 @@ final class AppDataBackupManager {
     private let kdfRounds = 80_000
     private let maximumArchiveBytes = 256 * 1024 * 1024
     private let profileNames = ["GeminiGeckoProfile"]
-    private let temporaryBackupPrefix = "DualAI-Backup-"
+    private let backupMagic = "ChatWebEncryptedBackup"
+    private let supportedBackupMagic = Set(["ChatWebEncryptedBackup", "DualAIEncryptedBackup"])
+    private let temporaryBackupPrefix = "ChatWeb-Backup-"
+    private let legacyTemporaryBackupPrefix = "DualAI-Backup-"
+    private let legacyBackupFileExtension = "dualaibackup"
 
     private init() {}
 
@@ -68,7 +72,7 @@ final class AppDataBackupManager {
         let sealed = try AES.GCM.seal(archiveData, using: key)
         let nonce = sealed.nonce.withUnsafeBytes { Data($0) }
         let wrapper: [String: Any] = [
-            "magic": "DualAIEncryptedBackup",
+            "magic": backupMagic,
             "formatVersion": formatVersion,
             "kdfRounds": kdfRounds,
             "salt": salt,
@@ -84,7 +88,7 @@ final class AppDataBackupManager {
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        let filename = "DualAI-Backup-\(formatter.string(from: Date())).\(Self.backupFileExtension)"
+        let filename = "ChatWeb-Backup-\(formatter.string(from: Date())).\(Self.backupFileExtension)"
         let url = fileManager.temporaryDirectory.appendingPathComponent(filename)
         try output.write(to: url, options: .atomic)
         return url
@@ -122,7 +126,8 @@ final class AppDataBackupManager {
             format: nil
         )
         guard let wrapper = wrapperObject as? [String: Any],
-              wrapper["magic"] as? String == "DualAIEncryptedBackup",
+              let magic = wrapper["magic"] as? String,
+              supportedBackupMagic.contains(magic),
               let version = wrapper["formatVersion"] as? Int,
               let salt = wrapper["salt"] as? Data,
               let nonceData = wrapper["nonce"] as? Data,
@@ -205,7 +210,7 @@ final class AppDataBackupManager {
                 options: .atomic
             )
         }
-        try Data("DualAIBackupRestore-v1".utf8).write(
+        try Data("ChatWebBackupRestore-v1".utf8).write(
             to: pending.appendingPathComponent("READY"),
             options: .atomic
         )
@@ -295,10 +300,12 @@ final class AppDataBackupManager {
         let temporaryDirectory = fileManager.temporaryDirectory
             .standardizedFileURL
             .resolvingSymlinksInPath()
-        return url.isFileURL &&
-            parent == temporaryDirectory &&
-            url.pathExtension == Self.backupFileExtension &&
+        let isCurrentBackup = url.pathExtension == Self.backupFileExtension &&
             url.lastPathComponent.hasPrefix(temporaryBackupPrefix)
+        let isLegacyBackup = url.pathExtension == legacyBackupFileExtension &&
+            url.lastPathComponent.hasPrefix(legacyTemporaryBackupPrefix)
+        return url.isFileURL && parent == temporaryDirectory &&
+            (isCurrentBackup || isLegacyBackup)
     }
 
     private func shouldSkip(relativePath: String) -> Bool {

@@ -1,7 +1,7 @@
 # Prebuilt Gecko core
 
 `GeckoCore-ios-arm64.zip` is the app-facing prebuilt Gecko artifact. It exists
-so normal DualAI development does not need to relink Firefox/XUL.
+so normal ChatWeb development does not need to relink Firefox/XUL.
 
 Tracked files:
 

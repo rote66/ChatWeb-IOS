@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SOURCE_DIR="${1:-$PROJECT_ROOT/build/firefox-src}"
-PATCH_FILE="$SCRIPT_DIR/DualAI-Gecko.patch"
+PATCH_FILE="$SCRIPT_DIR/ChatWeb-Gecko.patch"
 
 fail() {
     echo "error: $*" >&2

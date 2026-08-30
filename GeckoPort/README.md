@@ -1,12 +1,12 @@
-# DualAI Gecko port
+# ChatWeb Gecko port
 
 This directory owns the reproducible Firefox-source inputs for the embedded
 Gecko engine. The browser shell is not vendored. The port is represented by one
 canonical source patch, similar to the workflow used by Reynard:
 
 - `PATCHSET.lock` pins the exact Firefox tag/commit and the canonical patch hash.
-- `DualAI-Gecko.patch` is the complete source delta from the locked Firefox
-  commit to the DualAI iOS/Gecko source currently used to build XUL.
+- `ChatWeb-Gecko.patch` is the complete source delta from the locked Firefox
+  commit to the ChatWeb iOS/Gecko source currently used to build XUL.
 - `mozconfig.ios13-arm64` defines the Release arm64 iOS 13+ build configuration.
 - `apply_patches.sh` verifies commit + SHA-256 and applies the single patch.
 - `build_gecko.sh` builds the patched source into
@@ -15,7 +15,7 @@ canonical source patch, similar to the workflow used by Reynard:
   Firefox checkout. Generated `build/` and `obj-*` content is excluded.
 
 The historical split Reference/Project patch queue has been retired as a build
-input. Its useful source delta is fully represented in `DualAI-Gecko.patch`, so
+input. Its useful source delta is fully represented in `ChatWeb-Gecko.patch`, so
 future changes have one source of truth rather than an ordered collection of
 overlays.
 
@@ -80,6 +80,6 @@ embedding, and SpiderMonkey JIT memory work was partly adapted from or informed
 by the MPL-2.0 Gecko patches in
 [`minh-ton/reynard-browser`](https://github.com/minh-ton/reynard-browser). The
 exact reference repository and commit remain recorded in `PATCHSET.lock` for
-audit and attribution. The canonical patch is DualAI's complete current delta,
-not a byte-for-byte copy of the reference patch queue. DualAI does not embed or
+audit and attribution. The canonical patch is ChatWeb's complete current delta,
+not a byte-for-byte copy of the reference patch queue. ChatWeb does not embed or
 link the GPL-3.0 Reynard browser application or its UI.

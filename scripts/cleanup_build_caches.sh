@@ -7,7 +7,7 @@ df -h /
 echo
 echo "Removing ChatWeb/CyberKit/Reynard temporary build directories from /private/tmp ..."
 find /private/tmp -maxdepth 1 \
-  \( -name 'cyberkit-*' -o -name 'CyberKit*' -o -name 'chatweb-*' -o -name 'dualai-*' -o -name 'Reynard*' -o -name 'reynard-*' \) \
+  \( -name 'cyberkit-*' -o -name 'CyberKit*' -o -name 'chatweb-*' -o -name 'Reynard*' -o -name 'reynard-*' \) \
   -print -exec rm -rf {} +
 
 echo

@@ -1,7 +1,7 @@
-# ChatWeb / DualAI
+# ChatWeb
 
 ChatWeb 是一个面向 iOS 13+ 的 UIKit 网页客户端，工程目标和 IPA 包名为
-`DualAI`。当前版本的 **ChatGPT 与 Gemini 都统一使用项目自带的 Gecko
+`ChatWeb`。当前版本的 **ChatGPT 与 Gemini 都统一使用项目自带的 Gecko
 内核**，不再把其中一个服务留在系统 `WKWebView`。
 
 当前 Gecko 基线：
@@ -15,12 +15,12 @@ Content model:  UIKit single-process Gecko
 ```
 
 Gecko 端的完整源码修改集中在一份
-[`GeckoPort/DualAI-Gecko.patch`](GeckoPort/DualAI-Gecko.patch) 中。App 日常构建
+[`GeckoPort/ChatWeb-Gecko.patch`](GeckoPort/ChatWeb-Gecko.patch) 中。App 日常构建
 默认使用仓库内的压缩预编译内核
 `GeckoPrebuilt/GeckoCore-ios-arm64.zip`，因此修改 Swift/UIKit 层时不需要重新
 编译 Firefox/XUL。
 
-当前测试版本为 `1.0.15 (108)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
+当前测试版本为 `1.1 (109)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
 `OpenerPolicy`：UIKit 单进程网络路径绕过 `DocumentChannel` 后，仍把仅适用于专用
 COOP/COEP remote type 和 browsing-context group 的 `require-corp` 组合策略写入
 当前 context，第二次刷新发生策略切换时被 Gecko 的 `CanSet` 校验拒绝。Build 97
@@ -77,7 +77,7 @@ WebGL/WebGPU 和媒体解码能力。最新一次增量 Release 构建耗时 6 �
 未 strip XUL 为 `119336024` B，临时 strip 并签名后为 `60818560` B；按 Graphite
 IPA 的其余文件不变估算，完整安装常规文件为 `67910653` B，离十进制 65 MB 仍差
 `2910653` B。该数字只是中间实验结果：当前正式
-`GeckoPrebuilt/GeckoCore-ios-arm64.zip` 和 `dist/DualAI.ipa` 仍是上一段的 Graphite
+`GeckoPrebuilt/GeckoCore-ios-arm64.zip` 和 `dist/ChatWeb.ipa` 仍是上一段的 Graphite
 基线，尚未用此工作树重新导出，不能把旧 IPA 当作这一轮裁剪的验证产物。
 
 下一轮 UIKit 尺寸实验关闭 AVIF 图片和通用媒体模块的软件 AV1 解码，并从 XUL
@@ -343,14 +343,24 @@ SHA-256 为
 `b5241bfdb03bc6d679456e3b237bc589623ace1deadd798de59fcc0e3f906ae3`，解包完整
 安装常规文件为 `62754531` B。
 
+Build 109 将产品、Xcode project/target/scheme、Swift module、源码/测试目录、
+bundle id、可执行文件、IPA 和 canonical patch 文件统一改名为 ChatWeb，版本进入
+`1.1 (109)`。Gecko patch 内容和 XUL 不变；prebuilt 仅刷新内外 manifest 的产品名，
+ZIP 为 `42861545` B，SHA-256 为
+`f2aa6813a5a00a4023f952b928883d2dc0ef0c87db546a6134f8609d88ef2d38`。首次改名构建
+生成的 `dist/ChatWeb.ipa` 为 `32180650` B，SHA-256 为
+`e4d2f8ccde4d5fbad4dda1b7f4ef583f7c4c95d5435a7f9bdf9e2e01cf9009b0`，解包完整
+安装常规文件为 `62754585` B。新备份使用 `.chatwebbackup` 和 ChatWeb magic，导入
+仍兼容旧版本的 `.dualaibackup` magic。
+
 ## 当前结构
 
 ```text
-DualAI/                         UIKit App、导航和生命周期
+ChatWeb/                         UIKit App、导航和生命周期
 GeckoPrototype/                 App <-> Gecko bridge / engine adapter
 GeckoPort/
   PATCHSET.lock                 Firefox revision + patch SHA-256
-  DualAI-Gecko.patch            唯一 canonical Gecko source patch
+  ChatWeb-Gecko.patch           唯一 canonical Gecko source patch
   mozconfig.ios13-arm64         Gecko Release/arm64/iOS 13 配置
   apply_patches.sh              在锁定 Firefox commit 上应用 patch
   build_gecko.sh                编译 Gecko
@@ -434,13 +444,13 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 输出固定为：
 
 ```text
-dist/DualAI.ipa
+dist/ChatWeb.ipa
 ```
 
 脚本会：
 
 1. 准备预编译 Gecko（已有展开目录时几乎立即完成）；
-2. Release/arm64 构建 `DualAI.app`；
+2. Release/arm64 构建 `ChatWeb.app`；
 3. 将 Gecko XUL、dylib 和 runtime resources 放进 App；
 4. 只对 IPA staging 副本 strip，不修改原始 Gecko 编译产物；
 5. 对内嵌 Mach-O 和 App 做 ad-hoc 签名；
@@ -473,7 +483,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 
 ## 构建方式二：从 Firefox 源码编 Gecko，再出 IPA
 
-只有修改 `DualAI-Gecko.patch`、Gecko C++/ObjC++、SpiderMonkey、网络栈、
+只有修改 `ChatWeb-Gecko.patch`、Gecko C++/ObjC++、SpiderMonkey、网络栈、
 UIKit widget 或 runtime 裁剪时才需要走这条路径。
 
 **不会自动清理现有 objdir。** Gecko 编译耗时很长，所以后续 App 构建应先
@@ -484,14 +494,14 @@ UIKit widget 或 runtime 裁剪时才需要走这条路径。
 在仓库根目录执行。前两条 `test` 是删除保护，路径不正确时会立即停止：
 
 ```bash
-DUALAI_PROJECT_ROOT="$(pwd -P)"
-test -f "$DUALAI_PROJECT_ROOT/GeckoPort/PATCHSET.lock"
-test -d "$DUALAI_PROJECT_ROOT/DualAI.xcodeproj"
+CHATWEB_PROJECT_ROOT="$(pwd -P)"
+test -f "$CHATWEB_PROJECT_ROOT/GeckoPort/PATCHSET.lock"
+test -d "$CHATWEB_PROJECT_ROOT/ChatWeb.xcodeproj"
 /bin/rm -rf \
-  "$DUALAI_PROJECT_ROOT/build" \
-  "$DUALAI_PROJECT_ROOT/GeckoPrebuilt/Runtime" \
-  "$DUALAI_PROJECT_ROOT/GeckoPrebuilt/include" \
-  "$DUALAI_PROJECT_ROOT/dist"
+  "$CHATWEB_PROJECT_ROOT/build" \
+  "$CHATWEB_PROJECT_ROOT/GeckoPrebuilt/Runtime" \
+  "$CHATWEB_PROJECT_ROOT/GeckoPrebuilt/include" \
+  "$CHATWEB_PROJECT_ROOT/dist"
 ```
 
 这会删除本项目的 Firefox checkout、Gecko objdir/staging、Xcode DerivedData、
@@ -581,7 +591,7 @@ cross-language ThinLTO，最终链接 XUL 会报 `Unknown attribute kind`，不�
 
 ### 3. 应用 canonical patch
 
-应用 DualAI 唯一 Gecko patch：
+应用 ChatWeb 唯一 Gecko patch：
 
 ```bash
 bash GeckoPort/apply_patches.sh build/firefox-src
@@ -596,7 +606,7 @@ canonical patch 的增量开发树，不要重复执行 `apply_patches.sh`；先
 
 - Firefox `HEAD` 是否等于锁定 commit；
 - Firefox 工作区是否干净；
-- `DualAI-Gecko.patch` SHA-256 是否匹配 `PATCHSET.lock`；
+- `ChatWeb-Gecko.patch` SHA-256 是否匹配 `PATCHSET.lock`；
 - patch 是否能完整应用。
 
 ### 4. 编译 Gecko
@@ -737,7 +747,7 @@ bash GeckoPort/apply_patches.sh build/firefox-src
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 GECKO_BUILD_JOBS=4 \
   bash GeckoPort/build_gecko.sh build/firefox-src
-cmp GeckoPort/DualAI-Gecko.patch \
+cmp GeckoPort/ChatWeb-Gecko.patch \
   <(git -C build/firefox-src diff HEAD --binary --full-index)
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   bash scripts/export_gecko_prebuilt.sh
@@ -747,14 +757,14 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 ```
 
 源码、canonical patch 和 prebuilt 必须作为同一组更新：Firefox `git diff HEAD`
-应与 `DualAI-Gecko.patch` 完全一致，patch SHA-256 应匹配 `PATCHSET.lock`，objdir
+应与 `ChatWeb-Gecko.patch` 完全一致，patch SHA-256 应匹配 `PATCHSET.lock`，objdir
 XUL 的 SHA-256 应匹配 `GeckoPrebuilt/MANIFEST.lock` 和 zip 内的 XUL。
 
 ---
 
 ## 修改 Gecko patch
 
-`GeckoPort/DualAI-Gecko.patch` 是唯一源码真相，不再维护 Reference/Project
+`GeckoPort/ChatWeb-Gecko.patch` 是唯一源码真相，不再维护 Reference/Project
 多级 patch 队列。
 
 在 `build/firefox-src` 中修改并验证后：
@@ -778,7 +788,7 @@ CANONICAL_PATCH_SHA256=...
 之后建议在锁定 commit 的新 worktree/checkout 中执行：
 
 ```bash
-git apply --check GeckoPort/DualAI-Gecko.patch
+git apply --check GeckoPort/ChatWeb-Gecko.patch
 ```
 
 再重新编译并执行 `scripts/export_gecko_prebuilt.sh`。
@@ -806,8 +816,8 @@ XUL SHA256:    4f92d01d843c7a7d52371b0428d44a9acf3fd45a9df0a59863a09dd619fec538
 Runtime files: 12
 ```
 
-对应 prebuilt zip 为 `42861544` B，SHA-256 为
-`e9510857bfe51bfe1183ef82ba2d4fb03867518f5324c70a6e5bcaa981800d06`。从 prebuilt
+对应 prebuilt zip 为 `42861545` B，SHA-256 为
+`f2aa6813a5a00a4023f952b928883d2dc0ef0c87db546a6134f8609d88ef2d38`。从 prebuilt
 构建与上面的完整源码构建均使用同一份 XUL manifest；源码构建还会从
 `GeckoPort/mozconfig.ios13-arm64`
 读取 cross-language ThinLTO、safe ICF 和 MergeFunctions 参数。
@@ -830,11 +840,12 @@ SpiderMonkey JIT 保留。目标真机使用 TrollStore 的 JIT 启动路径；A
 - HTTPS 页面、登录、流式内容、Storage/Cookie：已进入真实 Gecko 路径。
 - 版本信息：设置页直接显示 App marketing/build 版本，以及从随包
   `GeckoRuntime/platform.ini` 动态读取的 Gecko milestone。
-- 数据备份：可导出密码加密的单个 `.dualaibackup` 文件，包含逻辑 Cookie、
+- 数据备份：可导出密码加密的单个 `.chatwebbackup` 文件，包含逻辑 Cookie、
   持久站点数据和 App 设置，并排除 `cache2`、`startupCache` 等可重建缓存；
   导入后在下一次 Gecko 启动前恢复。服务端已撤销或过期的登录令牌不能靠本地
   备份重新激活。分享完成或取消后会删除 `tmp` 中的导出文件；App 下次启动或
-  再次导出时也会补删异常退出遗留的 DualAI 临时备份。
+  再次导出时也会补删异常退出遗留的 ChatWeb 临时备份；仍可导入旧版本生成的
+  `.dualaibackup` 文件。
 - 缓存：Smart Size 默认关闭，普通 HTTP 磁盘缓存默认硬上限为 32768 KiB。
   “清理缓存”会全局清除普通与 pinned `cache2` 条目，等待 Gecko 确认磁盘回收
   完成，并另行清理当前服务的 IndexedDB/Cache API 等离线数据；成功后当前页面
@@ -873,10 +884,10 @@ SpiderMonkey JIT 保留。目标真机使用 TrollStore 的 JIT 启动路径；A
 
 ## 真机日志
 
-开发阶段建议只抓 DualAI：
+开发阶段建议只抓 ChatWeb：
 
 ```bash
-idevicesyslog -p DualAI --no-colors > log.log
+idevicesyslog -p ChatWeb --no-colors > log.log
 ```
 
 `log.log` 已被 Git 忽略。
@@ -894,6 +905,6 @@ embedding 和 SpiderMonkey JIT 内存适配，部分改编或参考了
 MPL-2.0 Gecko patches；审计基线固定在
 [`a0794ff252c5c52040bb4f7419dba110233d4102`](https://github.com/minh-ton/reynard-browser/commit/a0794ff252c5c52040bb4f7419dba110233d4102)，
 并记录于 [`GeckoPort/PATCHSET.lock`](GeckoPort/PATCHSET.lock)。当前
-`DualAI-Gecko.patch` 是在该基础上继续修改后、相对锁定 Firefox commit 生成的
-完整 canonical delta，并不等同于 Reynard 原 patch 集。DualAI 未复制或链接
+`ChatWeb-Gecko.patch` 是在该基础上继续修改后、相对锁定 Firefox commit 生成的
+完整 canonical delta，并不等同于 Reynard 原 patch 集。ChatWeb 未复制或链接
 GPL-3.0 的 Reynard 浏览器 UI/shell，也不依赖它运行。

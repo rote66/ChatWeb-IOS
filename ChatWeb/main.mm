@@ -132,7 +132,7 @@ static void GGFatalSignalHandler(int signalNumber, siginfo_t *info, void *contex
 }
 
 static void GGInstallFatalSignalDiagnostics(void) {
-    openlog("DualAI", LOG_PID | LOG_NDELAY, LOG_USER);
+    openlog("ChatWeb", LOG_PID | LOG_NDELAY, LOG_USER);
     syslog(LOG_NOTICE, "[GeminiGecko][Crash] moz-crash-reason-symbol=linked");
 
     struct sigaction action = {};
@@ -149,7 +149,7 @@ static void GGInstallFatalSignalDiagnostics(void) {
 static void GGApplyPendingBackupRestore(NSURL *applicationSupportURL) {
     NSFileManager *fileManager = NSFileManager.defaultManager;
     NSURL *pending = [applicationSupportURL
-        URLByAppendingPathComponent:@"DualAIBackupRestore.pending"
+        URLByAppendingPathComponent:@"ChatWebBackupRestore.pending"
                          isDirectory:YES];
     NSURL *ready = [pending URLByAppendingPathComponent:@"READY" isDirectory:NO];
     if (![fileManager fileExistsAtPath:ready.path]) {
@@ -217,7 +217,7 @@ static void GGApplyPendingBackupRestore(NSURL *applicationSupportURL) {
         NSURL *cookieSnapshot = [pending URLByAppendingPathComponent:@"CookieSnapshot.json"];
         if ([fileManager fileExistsAtPath:cookieSnapshot.path]) {
             NSURL *cookieRestore = [applicationSupportURL
-                URLByAppendingPathComponent:@"DualAICookieRestore.pending.json"];
+                URLByAppendingPathComponent:@"ChatWebCookieRestore.pending.json"];
             [fileManager removeItemAtURL:cookieRestore error:nil];
             NSError *cookieError = nil;
             if ([fileManager moveItemAtURL:cookieSnapshot

@@ -39,7 +39,7 @@
 			containerPortal = 111111111111111111111111 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = DD0000000000000000000001;
-			remoteInfo = DualAI;
+			remoteInfo = ChatWeb;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -58,8 +58,8 @@
 		AA0000000000000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0000000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0000000000000000000014 /* NavigationPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationPolicyTests.swift; sourceTree = "<group>"; };
-		AA0000000000000000000015 /* DualAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DualAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA0000000000000000000016 /* DualAITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DualAITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000015 /* ChatWeb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChatWeb.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000016 /* ChatWebTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChatWebTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000017 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		AA0000000000000000000018 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		AA0000000000000000000019 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -96,14 +96,14 @@
 		A00000000000000000000000 = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000000 /* DualAI */,
-				A20000000000000000000000 /* DualAITests */,
+				A10000000000000000000000 /* ChatWeb */,
+				A20000000000000000000000 /* ChatWebTests */,
 				A40000000000000000000000 /* Frameworks */,
 				A30000000000000000000000 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		A10000000000000000000000 /* DualAI */ = {
+		A10000000000000000000000 /* ChatWeb */ = {
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000001 /* AppDelegate.swift */,
@@ -124,20 +124,20 @@
 				AA0000000000000000000019 /* SceneDelegate.swift */,
 				AA0000000000000000000020 /* main.mm */,
 			);
-			path = DualAI;
+			path = ChatWeb;
 			sourceTree = "<group>";
 		};
-		A20000000000000000000000 /* DualAITests */ = {
+		A20000000000000000000000 /* ChatWebTests */ = {
 			isa = PBXGroup;
 			children = (AA0000000000000000000014 /* NavigationPolicyTests.swift */,);
-			path = DualAITests;
+			path = ChatWebTests;
 			sourceTree = "<group>";
 		};
 		A30000000000000000000000 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000015 /* DualAI.app */,
-				AA0000000000000000000016 /* DualAITests.xctest */,
+				AA0000000000000000000015 /* ChatWeb.app */,
+				AA0000000000000000000016 /* ChatWebTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -160,9 +160,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		DD0000000000000000000001 /* DualAI */ = {
+		DD0000000000000000000001 /* ChatWeb */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = EE0000000000000000000002 /* Build configuration list for PBXNativeTarget "DualAI" */;
+			buildConfigurationList = EE0000000000000000000002 /* Build configuration list for PBXNativeTarget "ChatWeb" */;
 			buildPhases = (
 				CC0000000000000000000006 /* Copy Gecko Runtime */,
 				CC0000000000000000000001 /* Sources */,
@@ -171,23 +171,23 @@
 			);
 			buildRules = ();
 			dependencies = ();
-			name = DualAI;
-			productName = DualAI;
-			productReference = AA0000000000000000000015 /* DualAI.app */;
+			name = ChatWeb;
+			productName = ChatWeb;
+			productReference = AA0000000000000000000015 /* ChatWeb.app */;
 			productType = "com.apple.product-type.application";
 		};
-		DD0000000000000000000002 /* DualAITests */ = {
+		DD0000000000000000000002 /* ChatWebTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = EE0000000000000000000003 /* Build configuration list for PBXNativeTarget "DualAITests" */;
+			buildConfigurationList = EE0000000000000000000003 /* Build configuration list for PBXNativeTarget "ChatWebTests" */;
 			buildPhases = (
 				CC0000000000000000000004 /* Sources */,
 				CC0000000000000000000005 /* Frameworks */,
 			);
 			buildRules = ();
 			dependencies = (AD0000000000000000000001 /* PBXTargetDependency */,);
-			name = DualAITests;
-			productName = DualAITests;
-			productReference = AA0000000000000000000016 /* DualAITests.xctest */;
+			name = ChatWebTests;
+			productName = ChatWebTests;
+			productReference = AA0000000000000000000016 /* ChatWebTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -204,7 +204,7 @@
 					DD0000000000000000000002 = {CreatedOnToolsVersion = 26.6; TestTargetID = DD0000000000000000000001; };
 				};
 			};
-			buildConfigurationList = EE0000000000000000000001 /* Build configuration list for PBXProject "DualAI" */;
+			buildConfigurationList = EE0000000000000000000001 /* Build configuration list for PBXProject "ChatWeb" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = zh_CN;
 			hasScannedForEncodings = 0;
@@ -214,8 +214,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				DD0000000000000000000001 /* DualAI */,
-				DD0000000000000000000002 /* DualAITests */,
+				DD0000000000000000000001 /* ChatWeb */,
+				DD0000000000000000000002 /* ChatWebTests */,
 			);
 		};
 /* End PBXProject section */
@@ -284,7 +284,7 @@
 /* Begin PBXTargetDependency section */
 		AD0000000000000000000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = DD0000000000000000000001 /* DualAI */;
+			target = DD0000000000000000000001 /* ChatWeb */;
 			targetProxy = AC0000000000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -339,7 +339,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 108;
+				CURRENT_PROJECT_VERSION = 109;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
@@ -348,15 +348,15 @@
 					"$(PROJECT_DIR)/GeckoPrebuilt/include",
 					"$(PROJECT_DIR)/GeckoPrototype/Bridge",
 				);
-				INFOPLIST_FILE = DualAI/Info.plist;
+				INFOPLIST_FILE = ChatWeb/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/GeckoPrebuilt/Runtime";
-				MARKETING_VERSION = 1.0.15;
-				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.DualAI;
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.ChatWeb;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SWIFT_OBJC_BRIDGING_HEADER = "DualAI/DualAI-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "ChatWeb/ChatWeb-Bridging-Header.h";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -369,7 +369,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 108;
+				CURRENT_PROJECT_VERSION = 109;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
@@ -378,15 +378,15 @@
 					"$(PROJECT_DIR)/GeckoPrebuilt/include",
 					"$(PROJECT_DIR)/GeckoPrototype/Bridge",
 				);
-				INFOPLIST_FILE = DualAI/Info.plist;
+				INFOPLIST_FILE = ChatWeb/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/GeckoPrebuilt/Runtime";
-				MARKETING_VERSION = 1.0.15;
-				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.DualAI;
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.ChatWeb;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SWIFT_OBJC_BRIDGING_HEADER = "DualAI/DualAI-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "ChatWeb/ChatWeb-Bridging-Header.h";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -398,11 +398,11 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.DualAITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.ChatWebTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DualAI.app/DualAI";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ChatWeb.app/ChatWeb";
 			};
 			name = Debug;
 		};
@@ -412,30 +412,30 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.DualAITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chatweb.ChatWebTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DualAI.app/DualAI";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ChatWeb.app/ChatWeb";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		EE0000000000000000000001 /* Build configuration list for PBXProject "DualAI" */ = {
+		EE0000000000000000000001 /* Build configuration list for PBXProject "ChatWeb" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (FF0000000000000000000001 /* Debug */, FF0000000000000000000002 /* Release */,);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		EE0000000000000000000002 /* Build configuration list for PBXNativeTarget "DualAI" */ = {
+		EE0000000000000000000002 /* Build configuration list for PBXNativeTarget "ChatWeb" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (FF0000000000000000000003 /* Debug */, FF0000000000000000000004 /* Release */,);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		EE0000000000000000000003 /* Build configuration list for PBXNativeTarget "DualAITests" */ = {
+		EE0000000000000000000003 /* Build configuration list for PBXNativeTarget "ChatWebTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (FF0000000000000000000005 /* Debug */, FF0000000000000000000006 /* Release */,);
 			defaultConfigurationIsVisible = 0;
