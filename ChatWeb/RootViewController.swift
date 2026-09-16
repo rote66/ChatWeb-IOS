@@ -28,6 +28,24 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
         super.init(nibName: nil, bundle: nil)
     }
 
+    private func showExternalLinkOpenModeMenu() {
+        let current = preferences.externalLinkOpenMode
+        let menu = UIAlertController(
+            title: "链接 / 文件打开方式",
+            message: "ChatGPT/Gemini 自身页面仍留在当前标签。引用网页、target=_blank 链接和下载文件可在 App 内临时打开，或交给系统默认浏览器。",
+            preferredStyle: .alert
+        )
+        for mode in [ExternalLinkOpenMode.inApp, .externalBrowser] {
+            let prefix = mode == current ? "✓ " : ""
+            menu.addAction(UIAlertAction(title: prefix + mode.displayName, style: .default) {
+                [weak self] _ in
+                self?.preferences.externalLinkOpenMode = mode
+            })
+        }
+        menu.addAction(UIAlertAction(title: "取消", style: .cancel))
+        present(menu, animated: true)
+    }
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -265,6 +283,12 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
             style: .default
         ) { [weak self] _ in
             self?.showUserAgentMenu()
+        })
+        menu.addAction(UIAlertAction(
+            title: "链接 / 文件：\(preferences.externalLinkOpenMode.displayName)",
+            style: .default
+        ) { [weak self] _ in
+            self?.showExternalLinkOpenModeMenu()
         })
         menu.addAction(UIAlertAction(
             title: "网页文字大小：\(preferences.webTextSize.displayName)",

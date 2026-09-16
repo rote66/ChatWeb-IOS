@@ -16,6 +16,37 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
         }
     }
 
+    var onExternalURLRequest: ((URL, Bool, Bool) -> Bool)? {
+        didSet {
+            bridge.externalURLHandler = { [weak self] url, isNewWindow, userInitiated in
+                self?.onExternalURLRequest?(url, isNewWindow, userInitiated) ?? false
+            }
+        }
+    }
+
+    var onDownloadRequest: ((URL, URL, String?, String?, Int64) -> Bool)? {
+        didSet {
+            bridge.downloadRequestHandler = {
+                [weak self] remoteURL, localFileURL, suggestedFilename, mimeType, contentLength in
+                self?.onDownloadRequest?(
+                    remoteURL,
+                    localFileURL,
+                    suggestedFilename,
+                    mimeType,
+                    contentLength
+                ) ?? true
+            }
+        }
+    }
+
+    var onDownloadCompleted: ((URL, String?, Bool) -> Void)? {
+        didSet {
+            bridge.downloadCompletionHandler = { [weak self] localFileURL, suggestedFilename, success in
+                self?.onDownloadCompleted?(localFileURL, suggestedFilename, success)
+            }
+        }
+    }
+
     var nativeView: UIView {
         bridge.nativeView ?? placeholderView
     }

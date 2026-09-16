@@ -1,3 +1,5 @@
+import QuickLook
+import SafariServices
 import UIKit
 
 protocol GeminiWebViewControllerDelegate: AnyObject {
@@ -5,6 +7,17 @@ protocol GeminiWebViewControllerDelegate: AnyObject {
                                  didUpdate state: WebNavigationState)
     func geminiWebViewController(_ controller: GeminiWebViewController,
                                  didChangeConnectivity isOnline: Bool)
+}
+
+extension GeminiWebViewController: QLPreviewControllerDataSource {
+    func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+        downloadedPreviewURL == nil ? 0 : 1
+    }
+
+    func previewController(_ controller: QLPreviewController,
+                           previewItemAt index: Int) -> QLPreviewItem {
+        downloadedPreviewURL! as NSURL
+    }
 }
 
 class GeminiWebViewController: UIViewController, WebContentController {
@@ -49,6 +62,7 @@ class GeminiWebViewController: UIViewController, WebContentController {
     private var isBackgrounded = false
     private var safeLogoutInProgress = false
     private var isolatedGPTIdentitySanitizeInFlight = false
+    private var downloadedPreviewURL: URL?
 
     init(service: WebService = .gemini, preferences: AppPreferences = .shared) {
         self.service = service
@@ -201,6 +215,199 @@ class GeminiWebViewController: UIViewController, WebContentController {
         embedding.onSafeLogoutRequested = { [weak self] in
             self?.performSafeChatGPTLogout()
         }
+        embedding.onExternalURLRequest = { [weak self] url, isNewWindow, userInitiated in
+            self?.handleExternalURLRequest(url,
+                                           isNewWindow: isNewWindow,
+                                           userInitiated: userInitiated) ?? false
+        }
+        embedding.onDownloadRequest = {
+            [weak self] remoteURL, _, suggestedFilename, mimeType, contentLength in
+            self?.handleDownloadRequest(
+                remoteURL,
+                suggestedFilename: suggestedFilename,
+                mimeType: mimeType,
+                contentLength: contentLength
+            ) ?? true
+        }
+        embedding.onDownloadCompleted = { [weak self] localFileURL, suggestedFilename, success in
+            self?.handleCompletedDownload(localFileURL,
+                                          suggestedFilename: suggestedFilename,
+                                          success: success)
+        }
+    }
+
+    private func handleExternalURLRequest(_ url: URL,
+                                          isNewWindow: Bool,
+                                          userInitiated: Bool) -> Bool {
+        let decision = policy.decision(for: url)
+        let shouldHandOff: Bool
+        if isNewWindow {
+            // GeckoView cannot create a second embedded session for target=_blank.
+            // Hand it to the temporary browser instead of silently returning NO.
+            shouldHandOff = true
+        } else {
+            shouldHandOff = policy.shouldOpenExternally(decision, userInitiated: userInitiated)
+        }
+        guard shouldHandOff else { return false }
+
+        NSLog("[GeminiGecko][Nav] handoff service=%ld new=%d user=%d mode=%ld host=%@",
+              service.rawValue,
+              isNewWindow ? 1 : 0,
+              userInitiated ? 1 : 0,
+              preferences.externalLinkOpenMode.rawValue,
+              url.host ?? "(none)")
+        DispatchQueue.main.async { [weak self] in
+            self?.openHandedOffURL(url, decision: decision)
+        }
+        return true
+    }
+
+    private func handleDownloadRequest(_ remoteURL: URL,
+                                       suggestedFilename: String?,
+                                       mimeType: String?,
+                                       contentLength: Int64) -> Bool {
+        let name = suggestedFilename?.isEmpty == false ? suggestedFilename! : "(none)"
+        NSLog("[GeminiGecko][Download] route mode=%ld file=%@ mime=%@ bytes=%lld host=%@",
+              preferences.externalLinkOpenMode.rawValue,
+              name,
+              mimeType ?? "(none)",
+              contentLength,
+              remoteURL.host ?? "(none)")
+        guard preferences.externalLinkOpenMode == .externalBrowser else {
+            return true
+        }
+        guard let scheme = remoteURL.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else {
+            return true
+        }
+        DispatchQueue.main.async {
+            UIApplication.shared.open(remoteURL, options: [:], completionHandler: nil)
+        }
+        return false
+    }
+
+    private func openHandedOffURL(_ url: URL, decision: NavigationDecision) {
+        if decision == .openInSystem {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            return
+        }
+
+        guard url.scheme?.lowercased() == "https" || url.scheme?.lowercased() == "http" else {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+            return
+        }
+
+        switch preferences.externalLinkOpenMode {
+        case .inApp:
+            let browser = SFSafariViewController(url: url)
+            browser.dismissButtonStyle = .done
+            browser.modalPresentationStyle = .fullScreen
+            topmostPresenter.present(browser, animated: true)
+        case .externalBrowser:
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
+    }
+
+    private var topmostPresenter: UIViewController {
+        var presenter: UIViewController = self
+        while let parent = presenter.parent {
+            presenter = parent
+        }
+        while let presented = presenter.presentedViewController,
+              !presented.isBeingDismissed {
+            presenter = presented
+        }
+        return presenter
+    }
+
+    private func handleCompletedDownload(_ temporaryURL: URL,
+                                         suggestedFilename: String?,
+                                         success: Bool) {
+        guard success else {
+            showDownloadFailure()
+            return
+        }
+        do {
+            let destination = try persistCompletedDownload(temporaryURL,
+                                                           suggestedFilename: suggestedFilename)
+            presentCompletedDownload(destination)
+        } catch {
+            NSLog("[GeminiGecko][Download] persist failed error=%@", String(describing: error))
+            showDownloadFailure()
+        }
+    }
+
+    private func persistCompletedDownload(_ temporaryURL: URL,
+                                          suggestedFilename: String?) throws -> URL {
+        let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Downloads", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let requestedName = suggestedFilename?.isEmpty == false
+            ? suggestedFilename!
+            : (temporaryURL.lastPathComponent.isEmpty ? "download" : temporaryURL.lastPathComponent)
+        let lastComponent = (requestedName as NSString).lastPathComponent
+        let forbidden = CharacterSet(charactersIn: "/\\:\0").union(.newlines).union(.controlCharacters)
+        let cleaned = lastComponent.components(separatedBy: forbidden).joined(separator: "-")
+        let safeName = cleaned.isEmpty ? "download" : String(cleaned.prefix(160))
+        var destination = directory.appendingPathComponent(safeName)
+        if FileManager.default.fileExists(atPath: destination.path) {
+            let ext = destination.pathExtension
+            let base = destination.deletingPathExtension().lastPathComponent
+            for index in 2...999 {
+                let candidateName = ext.isEmpty
+                    ? "\(base)-\(index)"
+                    : "\(base)-\(index).\(ext)"
+                let candidate = directory.appendingPathComponent(candidateName)
+                if !FileManager.default.fileExists(atPath: candidate.path) {
+                    destination = candidate
+                    break
+                }
+            }
+        }
+        try FileManager.default.moveItem(at: temporaryURL, to: destination)
+        NSLog("[GeminiGecko][Download] stored file=%@", destination.lastPathComponent)
+        return destination
+    }
+
+    private func presentCompletedDownload(_ url: URL) {
+        let presenter = topmostPresenter
+        let alert = UIAlertController(title: "下载完成",
+                                      message: url.lastPathComponent,
+                                      preferredStyle: .actionSheet)
+        alert.addAction(UIAlertAction(title: "在 App 内预览", style: .default) { [weak self] _ in
+            guard let self else { return }
+            self.downloadedPreviewURL = url
+            let preview = QLPreviewController()
+            preview.dataSource = self
+            self.present(preview, animated: true)
+        })
+        alert.addAction(UIAlertAction(title: "分享或存储到文件", style: .default) { [weak self] _ in
+            guard let self else { return }
+            let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            activity.popoverPresentationController?.sourceView = self.view
+            activity.popoverPresentationController?.sourceRect = CGRect(x: self.view.bounds.midX,
+                                                                          y: self.view.bounds.maxY - 24,
+                                                                          width: 1,
+                                                                          height: 1)
+            self.present(activity, animated: true)
+        })
+        alert.addAction(UIAlertAction(title: "完成", style: .cancel))
+        alert.popoverPresentationController?.sourceView = presenter.view
+        alert.popoverPresentationController?.sourceRect = CGRect(x: presenter.view.bounds.midX,
+                                                                  y: presenter.view.bounds.maxY - 24,
+                                                                  width: 1,
+                                                                  height: 1)
+        presenter.present(alert, animated: true)
+    }
+
+    private func showDownloadFailure() {
+        let presenter = topmostPresenter
+        let alert = UIAlertController(title: "下载失败",
+                                      message: "文件没有完成下载，请重试。",
+                                      preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "好", style: .default))
+        presenter.present(alert, animated: true)
     }
 
     private func beginLoadingUI() {

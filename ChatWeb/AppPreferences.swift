@@ -5,6 +5,18 @@ enum WebService: Int {
     case gemini = 1
 }
 
+enum ExternalLinkOpenMode: Int {
+    case inApp = 0
+    case externalBrowser = 1
+
+    var displayName: String {
+        switch self {
+        case .inApp: return "App 内临时页面"
+        case .externalBrowser: return "外部浏览器"
+        }
+    }
+}
+
 struct WebUserAgentConfiguration: Equatable {
     let userAgent: String
     let platform: String
@@ -145,6 +157,7 @@ final class AppPreferences {
         static let geckoDiskCacheSmartSizeEnabled = "geckoDiskCacheSmartSizeEnabled"
         static let geckoDiskCacheCapacityKB = "geckoDiskCacheCapacityKB"
         static let userAgentProfile = "userAgentProfile"
+        static let externalLinkOpenMode = "externalLinkOpenMode"
         static let webTextSize = "webTextSize"
         static let webAutoplayPolicy = "webAutoplayPolicy"
         static let suspendMediaWhenInactive = "suspendMediaWhenInactive"
@@ -229,6 +242,19 @@ final class AppPreferences {
         }
         set {
             defaults.set(newValue.rawValue, forKey: Key.userAgentProfile)
+        }
+    }
+
+    var externalLinkOpenMode: ExternalLinkOpenMode {
+        get {
+            guard defaults.object(forKey: Key.externalLinkOpenMode) != nil else {
+                return .inApp
+            }
+            return ExternalLinkOpenMode(rawValue: defaults.integer(forKey: Key.externalLinkOpenMode))
+                ?? .inApp
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: Key.externalLinkOpenMode)
         }
     }
 
