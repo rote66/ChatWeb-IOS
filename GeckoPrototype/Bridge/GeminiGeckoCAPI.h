@@ -79,6 +79,24 @@ typedef struct GGGeckoSessionCallbacks {
                                  GGGeckoJITState state,
                                  int32_t reason);
     void (*did_request_safe_logout)(void *context);
+    bool (*should_open_external_url)(void *context,
+                                     const char *url_utf8,
+                                     bool is_new_window,
+                                     bool user_initiated);
+    bool (*should_download_in_app)(void *context,
+                                   const char *url_utf8,
+                                   const char *local_file_path_utf8,
+                                   const char *filename_utf8,
+                                   const char *mime_type_utf8,
+                                   int64_t content_length);
+    void (*did_begin_download)(void *context,
+                               const char *local_file_path_utf8,
+                               const char *filename_utf8,
+                               const char *mime_type_utf8,
+                               int64_t content_length);
+    void (*did_complete_download)(void *context,
+                                  const char *local_file_path_utf8,
+                                  bool success);
 } GGGeckoSessionCallbacks;
 
 /// Appends a synchronous startup breadcrumb to

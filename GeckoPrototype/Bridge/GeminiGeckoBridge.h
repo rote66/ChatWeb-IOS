@@ -26,6 +26,17 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
 @property(nonatomic, readonly) NSInteger jitReason;
 @property(nonatomic, copy, nullable) void (^progressHandler)(double progress);
 @property(nonatomic, copy, nullable) void (^safeLogoutHandler)(void);
+@property(nonatomic, copy, nullable) BOOL (^externalURLHandler)(NSURL *url,
+                                                                BOOL isNewWindow,
+                                                                BOOL userInitiated);
+@property(nonatomic, copy, nullable) BOOL (^downloadRequestHandler)(NSURL *remoteURL,
+                                                                    NSURL *localFileURL,
+                                                                    NSString * _Nullable suggestedFilename,
+                                                                    NSString * _Nullable mimeType,
+                                                                    int64_t contentLength);
+@property(nonatomic, copy, nullable) void (^downloadCompletionHandler)(NSURL *localFileURL,
+                                                                       NSString * _Nullable suggestedFilename,
+                                                                       BOOL success);
 
 - (BOOL)startWithProfileDirectory:(NSURL *)profileDirectory
                         jitPolicy:(GeminiGeckoJITPolicy)jitPolicy

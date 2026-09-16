@@ -9,6 +9,7 @@ static NSString * const GeminiGeckoBridgeErrorDomain = @"GeminiGeckoBridge";
     __weak UIView *_nativeView;
     NSURL *_currentURL;
     NSString *_sessionContextId;
+    NSMutableDictionary<NSString *, NSString *> *_downloadNamesByPath;
 }
 @property(nonatomic, readwrite, getter=isStarted) BOOL started;
 @property(nonatomic, readwrite) GeminiGeckoJITState jitState;
@@ -17,7 +18,76 @@ static NSString * const GeminiGeckoBridgeErrorDomain = @"GeminiGeckoBridge";
 - (void)handleProgress:(double)progress;
 - (void)handleContentProcessTermination;
 - (void)handleJITState:(GeminiGeckoJITState)state reason:(NSInteger)reason;
+- (BOOL)handleExternalURLString:(NSString *)value
+                    newWindow:(BOOL)isNewWindow
+                userInitiated:(BOOL)userInitiated;
+- (BOOL)shouldDownloadInAppFromURLString:(NSString *)urlString
+                                    path:(NSString *)path
+                                filename:(nullable NSString *)filename
+                                mimeType:(nullable NSString *)mimeType
+                           contentLength:(int64_t)contentLength;
+- (void)handleDownloadBeganAtPath:(NSString *)path
+                         filename:(nullable NSString *)filename;
+- (void)handleDownloadCompletedAtPath:(NSString *)path success:(BOOL)success;
 @end
+
+static bool GGShouldOpenExternalURL(void *context,
+                                    const char *urlUTF8,
+                                    bool isNewWindow,
+                                    bool userInitiated) {
+    if (!context || !urlUTF8) { return false; }
+    GeminiGeckoBridge *bridge = (__bridge GeminiGeckoBridge *)context;
+    NSString *value = [NSString stringWithUTF8String:urlUTF8];
+    if (!value.length) { return false; }
+    return [bridge handleExternalURLString:value
+                                 newWindow:isNewWindow
+                             userInitiated:userInitiated];
+}
+
+static bool GGShouldDownloadInApp(void *context,
+                                  const char *urlUTF8,
+                                  const char *localFilePathUTF8,
+                                  const char *filenameUTF8,
+                                  const char *mimeTypeUTF8,
+                                  int64_t contentLength) {
+    if (!context || !urlUTF8 || !localFilePathUTF8) { return true; }
+    GeminiGeckoBridge *bridge = (__bridge GeminiGeckoBridge *)context;
+    NSString *urlString = [NSString stringWithUTF8String:urlUTF8];
+    NSString *path = [NSString stringWithUTF8String:localFilePathUTF8];
+    NSString *filename = filenameUTF8 ? [NSString stringWithUTF8String:filenameUTF8] : nil;
+    NSString *mimeType = mimeTypeUTF8 ? [NSString stringWithUTF8String:mimeTypeUTF8] : nil;
+    if (!urlString.length || !path.length) { return true; }
+    return [bridge shouldDownloadInAppFromURLString:urlString
+                                               path:path
+                                           filename:filename
+                                           mimeType:mimeType
+                                      contentLength:contentLength];
+}
+
+static void GGDidBeginDownload(void *context,
+                               const char *localFilePathUTF8,
+                               const char *filenameUTF8,
+                               const char *mimeTypeUTF8,
+                               int64_t contentLength) {
+    (void)mimeTypeUTF8;
+    (void)contentLength;
+    if (!context || !localFilePathUTF8) { return; }
+    GeminiGeckoBridge *bridge = (__bridge GeminiGeckoBridge *)context;
+    NSString *path = [NSString stringWithUTF8String:localFilePathUTF8];
+    NSString *filename = filenameUTF8 ? [NSString stringWithUTF8String:filenameUTF8] : nil;
+    if (!path.length) { return; }
+    [bridge handleDownloadBeganAtPath:path filename:filename];
+}
+
+static void GGDidCompleteDownload(void *context,
+                                  const char *localFilePathUTF8,
+                                  bool success) {
+    if (!context || !localFilePathUTF8) { return; }
+    GeminiGeckoBridge *bridge = (__bridge GeminiGeckoBridge *)context;
+    NSString *path = [NSString stringWithUTF8String:localFilePathUTF8];
+    if (!path.length) { return; }
+    [bridge handleDownloadCompletedAtPath:path success:success];
+}
 
 @interface GGJSONCompletionBox : NSObject
 @property(nonatomic, copy) void (^completion)(NSData * _Nullable jsonData);
@@ -115,6 +185,49 @@ static void GGClearDataDidFinish(void *context, bool success) {
 
 @implementation GeminiGeckoBridge
 
+- (BOOL)handleExternalURLString:(NSString *)value
+                     newWindow:(BOOL)isNewWindow
+                 userInitiated:(BOOL)userInitiated {
+    NSURL *url = [NSURL URLWithString:value];
+    if (!url || !self.externalURLHandler) { return NO; }
+    return self.externalURLHandler(url, isNewWindow, userInitiated);
+}
+
+- (BOOL)shouldDownloadInAppFromURLString:(NSString *)urlString
+                                    path:(NSString *)path
+                                filename:(NSString *)filename
+                                mimeType:(NSString *)mimeType
+                           contentLength:(int64_t)contentLength {
+    NSURL *remoteURL = [NSURL URLWithString:urlString];
+    NSURL *localFileURL = path.length ? [NSURL fileURLWithPath:path] : nil;
+    if (!remoteURL || !localFileURL || !self.downloadRequestHandler) {
+        return YES;
+    }
+    return self.downloadRequestHandler(remoteURL,
+                                       localFileURL,
+                                       filename,
+                                       mimeType,
+                                       contentLength);
+}
+
+- (void)handleDownloadBeganAtPath:(NSString *)path
+                         filename:(NSString *)filename {
+    if (!path.length) { return; }
+    if (filename.length) {
+        _downloadNamesByPath[path] = filename;
+    }
+}
+
+- (void)handleDownloadCompletedAtPath:(NSString *)path success:(BOOL)success {
+    NSString *filename = _downloadNamesByPath[path];
+    [_downloadNamesByPath removeObjectForKey:path];
+    if (!self.downloadCompletionHandler) { return; }
+    NSURL *fileURL = [NSURL fileURLWithPath:path];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        self.downloadCompletionHandler(fileURL, filename, success);
+    });
+}
+
 - (void)handleCommittedURLString:(NSString *)value {
     _currentURL = [NSURL URLWithString:value];
 }
@@ -181,6 +294,7 @@ static void GGClearDataDidFinish(void *context, bool success) {
         _started = NO;
         _jitState = GeminiGeckoJITStateUnresolved;
         _jitReason = 0;
+        _downloadNamesByPath = [[NSMutableDictionary alloc] init];
     }
     return self;
 }
@@ -240,6 +354,10 @@ static void GGClearDataDidFinish(void *context, bool success) {
     callbacks.did_terminate_content_process = GGDidTerminateContentProcess;
     callbacks.did_change_jit_state = GGDidChangeJITState;
     callbacks.did_request_safe_logout = GGDidRequestSafeLogout;
+    callbacks.should_open_external_url = GGShouldOpenExternalURL;
+    callbacks.should_download_in_app = GGShouldDownloadInApp;
+    callbacks.did_begin_download = GGDidBeginDownload;
+    callbacks.did_complete_download = GGDidCompleteDownload;
 
     GGGeckoUserAgentSettings userAgentSettings = {};
     userAgentSettings.user_agent_utf8 = userAgent.UTF8String;

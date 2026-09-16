@@ -10,11 +10,36 @@ index 1e6777f274b0be3329662c029ea0933358c3b1ce..7ae62b2cc4daee0d41d60e4abb2dc080
   "dirs",
   "dwrote",
   "euclid",
+diff --git a/build/moz.configure/lto-pgo.configure b/build/moz.configure/lto-pgo.configure
+index df2b0bf0081edfdc2c7bccaefc780d2b0c6555ff..c72af5ed5f88fc80c810ef626e57a8b991dee514 100644
+--- a/build/moz.configure/lto-pgo.configure
++++ b/build/moz.configure/lto-pgo.configure
+@@ -256,7 +256,7 @@ option(
+     help="Indicate that ld64 is free of symbol aliasing bugs",
+ )
+ 
+-imply_option("MOZ_LD64_KNOWN_GOOD", moz_automation)
++imply_option("MOZ_LD64_KNOWN_GOOD", True, when=moz_automation)
+ 
+ use_fat_lto = cxx_compiler.try_link(
+     ldflags=depends(stlport_libs)(
 diff --git a/build/moz.configure/toolchain.configure b/build/moz.configure/toolchain.configure
-index da055a84271f4cb338638cd4bd9972b13bf7a158..eb83d056969a5e4e28cc8b944d2ab67c8ba2b85e 100644
+index da055a84271f4cb338638cd4bd9972b13bf7a158..71adf1e393404ede6413e8e0338687f570f48672 100644
 --- a/build/moz.configure/toolchain.configure
 +++ b/build/moz.configure/toolchain.configure
-@@ -2877,13 +2877,21 @@ set_config("MOZ_CETCOMPAT_LDFLAGS", cet_ldflags)
+@@ -1794,7 +1794,10 @@ def select_linker_tmpl(host_or_target):
+             # ensure consistent output.
+             env["LC_ALL"] = "C"
+             retcode, stdout, stderr = get_cmd_output(*cmd, env=env)
+-            if retcode == 1 and "Logging ld64 options" in stderr:
++            if retcode == 1 and (
++                "Logging ld64 options" in stderr
++                or "ld: unknown options: --version" in stderr
++            ):
+                 kind = "ld64"
+ 
+             elif retcode != 0:
+@@ -2877,13 +2880,21 @@ set_config("MOZ_CETCOMPAT_LDFLAGS", cet_ldflags)
  
  # Frame pointers
  # ==============================================================
@@ -122979,10 +123004,10 @@ index 0000000000000000000000000000000000000000..b005b279ef7b626f2833617574cd7bbb
 +}
 diff --git a/widget/uikit/GeckoEditableSupport.h b/widget/uikit/GeckoEditableSupport.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..49b28ff9b19e6af1cdd93fabdeac39f237239fa8
+index 0000000000000000000000000000000000000000..07540065160e556d75f0c0752493603fb66f8902
 --- /dev/null
 +++ b/widget/uikit/GeckoEditableSupport.h
-@@ -0,0 +1,226 @@
+@@ -0,0 +1,229 @@
 +/* This Source Code Form is subject to the terms of the Mozilla Public
 + * License, v. 2.0. If a copy of the MPL was not distributed with this
 + * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -123047,12 +123072,15 @@ index 0000000000000000000000000000000000000000..49b28ff9b19e6af1cdd93fabdeac39f2
 +  NSDictionary* mMarkedTextStyle;
 +  UITextInteraction* mEditableTextInteraction;
 +  UITextInteraction* mNonEditableTextInteraction;
++  UITapGestureRecognizer* mCaretTapRecognizer;
 +  id mSelectionDisplayInteraction;
 +  UIPanGestureRecognizer* mSelectionHandlePanRecognizer;
 +  BOOL mTextInteractionInProgress;
 +  BOOL mSelectionHandlesVisibleForTouchInput;
 +  id mSelectionHandleSuppressionAssertion;
 +  BOOL mPendingSelectionGeometryRefresh;
++  BOOL mLegacySelectionWasNonEmpty;
++  BOOL mLegacySelectionResetPending;
 +  BOOL mCaretMenuActive;
 +  BOOL mPendingCaretMenu;
 +  NSUInteger mPreTapCaretOffset;
@@ -123211,10 +123239,10 @@ index 0000000000000000000000000000000000000000..49b28ff9b19e6af1cdd93fabdeac39f2
 +#endif  // mozilla_widget_GeckoEditableSupport_h
 diff --git a/widget/uikit/GeckoEditableSupport.mm b/widget/uikit/GeckoEditableSupport.mm
 new file mode 100644
-index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157a6320acd
+index 0000000000000000000000000000000000000000..1132b91f698d0a04471ec0d433efb1fbee9136b4
 --- /dev/null
 +++ b/widget/uikit/GeckoEditableSupport.mm
-@@ -0,0 +1,4250 @@
+@@ -0,0 +1,4587 @@
 +/* This Source Code Form is subject to the terms of the Mozilla Public
 + * License, v. 2.0. If a copy of the MPL was not distributed with this
 + * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -123736,6 +123764,9 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +
 +@interface ChildView (Legacy)
 +
++- (BOOL)legacySelectionContainsPoint:(CGPoint)aPoint range:(NSRange)aRange;
++- (void)updateLegacySelectionLifecycle;
++- (void)applyLegacySelectionReset;
 +- (void)updateLegacyTextInteractions;
 +- (void)setLegacyGrabbersHidden:(BOOL)aHidden;
 +- (void)updateLegacyGrabbers;
@@ -123814,12 +123845,17 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +  mEditable.mMarkedTextStyle = nil;
 +  mEditable.mEditableTextInteraction = nil;
 +  mEditable.mNonEditableTextInteraction = nil;
++  mEditable.mCaretTapRecognizer = nil;
 +  mEditable.mSelectionDisplayInteraction = nil;
 +  mEditable.mSelectionHandlePanRecognizer = nil;
 +  mEditable.mTextInteractionInProgress = NO;
++  mEditable.mLegacySelectionWasNonEmpty = NO;
++  mEditable.mLegacySelectionResetPending = NO;
 +  mEditable.mSelectionHandlesVisibleForTouchInput = NO;
 +  mEditable.mSelectionHandleSuppressionAssertion = nil;
 +  mEditable.mPendingSelectionGeometryRefresh = NO;
++  mEditable.mLegacySelectionWasNonEmpty = NO;
++  mEditable.mLegacySelectionResetPending = NO;
 +  // The other Vietnamese fields are meaningful only while this buffer exists.
 +  mEditable.mVietnameseBufferText = nil;
 +  mEditable.mKoreanComposedText = nil;
@@ -123851,6 +123887,7 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +  mEditable.mEditableTextInteraction = nil;
 +  [mEditable.mNonEditableTextInteraction release];
 +  mEditable.mNonEditableTextInteraction = nil;
++  mEditable.mCaretTapRecognizer = nil;
 +  mEditable.mTextInteractionInProgress = NO;
 +  [mEditable.mSelectionHandleSuppressionAssertion release];
 +  mEditable.mSelectionHandleSuppressionAssertion = nil;
@@ -123871,11 +123908,48 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +    return;
 +  }
 +
++  NSRange preSel = [self selectedRange];
++  const BOOL legacyNonEditableInteractionActive =
++      mEditable.mSelectionDisplayInteraction == nil &&
++      mEditable.mNonEditableTextInteraction != nil &&
++      mEditable.mNonEditableTextInteraction.view == self;
++  if (legacyNonEditableInteractionActive && preSel.location != NSNotFound &&
++      preSel.length > 0) {
++    CGPoint point = [aSender locationInView:self];
++    // gestureRecognizerShouldBegin only lets this recognizer through when the
++    // touch is clearly outside the current selection. Re-check here so a
++    // geometry update between recognition and action can never collapse a
++    // selection whose handle/body is being touched.
++    if ([self legacySelectionContainsPoint:point range:preSel]) {
++      return;
++    }
++
++    NSLog(@"[GeminiGecko][GeckoSelection] legacy-outside-tap point={%.1f,%.1f} selection={%lu,%lu}",
++          point.x, point.y, (unsigned long)preSel.location,
++          (unsigned long)preSel.length);
++    mEditable.mCaretMenuActive = NO;
++    mEditable.mPendingCaretMenu = NO;
++    [NSObject
++        cancelPreviousPerformRequestsWithTarget:self
++                                       selector:@selector(
++                                                    resolveCaretMenuIfPending)
++                                         object:nil];
++    [[UIMenuController sharedMenuController] hideMenuFromView:self];
++
++    mEditable.mLegacySelectionWasNonEmpty = YES;
++    ChildViewTextPosition* position =
++        [ChildViewTextPosition positionWithOffset:preSel.location];
++    UITextRange* collapsedRange =
++        [self textRangeFromPosition:position toPosition:position];
++    [self setSelectedTextRange:collapsedRange];
++    [self updateLegacySelectionLifecycle];
++    return;
++  }
++
 +  BOOL wasFirstResponder = [self isFirstResponder];
 +
 +  // Save the caret offset before sending events to Gecko so we can detect
 +  // whether the caret actually moved once Gecko responds.
-+  NSRange preSel = [self selectedRange];
 +  NSUInteger preOffset =
 +      (wasFirstResponder && preSel.location != NSNotFound && preSel.length == 0)
 +          ? preSel.location
@@ -124538,6 +124612,7 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +
 +// Updates Gecko selection to match UIKit's selected text range.
 +- (void)setSelectedTextRange:(UITextRange*)aSelectedTextRange {
++  NSRange previousRange = [self selectedRange];
 +  NSRange range = [self rangeForTextRange:aSelectedTextRange];
 +  if (range.location == NSNotFound) {
 +    return;
@@ -124581,8 +124656,16 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +  }
 +
 +  [mEditable.mTextInputDelegate selectionWillChange:self];
-+  handler->SetSelectedRange(range);
++  bool selectionUpdated = handler->SetSelectedRange(range);
 +  [mEditable.mTextInputDelegate selectionDidChange:self];
++  if (mEditable.mSelectionDisplayInteraction == nil &&
++      previousRange.location != NSNotFound && previousRange.length > 0 &&
++      range.length == 0) {
++    NSLog(@"[GeminiGecko][GeckoSelection] legacy-collapse old={%lu,%lu} new={%lu,%lu} updated=%d",
++          (unsigned long)previousRange.location,
++          (unsigned long)previousRange.length, (unsigned long)range.location,
++          (unsigned long)range.length, selectionUpdated ? 1 : 0);
++  }
 +  if (mEditable.mSelectionDisplayInteraction == nil &&
 +      mEditable.mActiveSelectionHandle != GeckoSelectionHandleNone) {
 +    [NSObject
@@ -124596,6 +124679,19 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +  }
 +  if (mEditable.mSelectionDisplayInteraction != nil) {
 +    [self updateEditMenu];
++  } else if (selectionUpdated) {
++    // Legacy UIKit can finish applying a native selection a runloop turn after
++    // setSelectedTextRange:. Keep menu ownership in Gecko and coalesce the
++    // refresh against the current selection so a later collapse hides the
++    // menu instead of allowing a stale delayed presentation to resurrect it.
++    [NSObject
++        cancelPreviousPerformRequestsWithTarget:self
++                                       selector:@selector(updateEditMenu)
++                                         object:nil];
++    [self performSelector:@selector(updateEditMenu)
++               withObject:nil
++               afterDelay:0.03
++                  inModes:@[ NSRunLoopCommonModes ]];
 +  }
 +}
 +
@@ -125225,6 +125321,23 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +
 +  if (mEditable.mSelectionDisplayInteraction != nil) {
 +    [self refreshSelectionUI];
++  } else {
++    [self updateLegacySelectionLifecycle];
++    // On iOS 15 the legacy non-editable UITextInteraction can update Gecko's
++    // selection without installing a UITextInputDelegate. In that case the
++    // delegate-gated path below never reaches applySelectionGeometryChange,
++    // so UIMenuController would never be refreshed after a native selection.
++    // Coalesce a menu refresh directly from the geometry notification and let
++    // updateEditMenu query the *current* selection when it fires. This same
++    // path also hides a stale menu after the selection collapses.
++    [NSObject
++        cancelPreviousPerformRequestsWithTarget:self
++                                       selector:@selector(updateEditMenu)
++                                         object:nil];
++    [self performSelector:@selector(updateEditMenu)
++               withObject:nil
++               afterDelay:0.05
++                  inModes:@[ NSRunLoopCommonModes ]];
 +  }
 +  if (!mEditable.mTextInputDelegate) {
 +    return;
@@ -125360,7 +125473,18 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +    CGRect targetRect = [self firstRectForRange:range];
 +    if (CGRectIsEmpty(targetRect)) {
 +      [menuController hideMenuFromView:self];
++      if (mEditable.mSelectionDisplayInteraction == nil) {
++        NSLog(@"[GeminiGecko][GeckoSelection] legacy-menu hide-empty-rect selection={%lu,%lu}",
++              (unsigned long)selectedRange.location,
++              (unsigned long)selectedRange.length);
++      }
 +      return;
++    }
++    if (mEditable.mSelectionDisplayInteraction == nil) {
++      NSLog(@"[GeminiGecko][GeckoSelection] legacy-menu show selection={%lu,%lu} rect=%@",
++            (unsigned long)selectedRange.location,
++            (unsigned long)selectedRange.length,
++            NSStringFromCGRect(targetRect));
 +    }
 +    [menuController showMenuFromView:self rect:targetRect];
 +    return;
@@ -125379,6 +125503,11 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +    }
 +  }
 +
++  if (mEditable.mSelectionDisplayInteraction == nil) {
++    NSLog(@"[GeminiGecko][GeckoSelection] legacy-menu hide selection={%lu,%lu}",
++          (unsigned long)selectedRange.location,
++          (unsigned long)selectedRange.length);
++  }
 +  [menuController hideMenuFromView:self];
 +}
 +
@@ -125495,19 +125624,20 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +  handler->SelectedRange(selection);
 +  const bool hasSelection =
 +      selection.location != NSNotFound && selection.length > 0;
++  const bool isEditable = mGeckoChild->GetInputContext().mIMEState.IsEditable();
 +  const uint32_t length = [self documentLength];
 +
 +  if (aAction == @selector(copy:)) {
 +    return hasSelection;
 +  }
 +  if (aAction == @selector(cut:)) {
-+    return hasSelection;
++    return isEditable && hasSelection;
 +  }
 +  if (aAction == @selector(paste:)) {
-+    return [UIPasteboard generalPasteboard].hasStrings;
++    return isEditable && [UIPasteboard generalPasteboard].hasStrings;
 +  }
 +  if (aAction == @selector(delete:)) {
-+    return hasSelection;
++    return isEditable && hasSelection;
 +  }
 +  if (aAction == @selector(selectAll:)) {
 +    return length > 0 &&
@@ -126290,6 +126420,12 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +// Cleans up state after a UIKit text interaction finishes.
 +- (void)interactionDidEnd:(UITextInteraction*)aInteraction {
 +  mEditable.mTextInteractionInProgress = NO;
++  if (mEditable.mSelectionDisplayInteraction == nil) {
++    NSRange range = [self selectedRange];
++    NSLog(@"[GeminiGecko][GeckoSelection] legacy-interaction-end selection={%lu,%lu}",
++          (unsigned long)range.location, (unsigned long)range.length);
++    [self updateLegacySelectionLifecycle];
++  }
 +  if (mEditable.mSelectionDisplayInteraction != nil) {
 +    [self updateHandleVisibility];
 +    [self refreshSelectionUI];
@@ -126474,6 +126610,54 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +}
 +
 +- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer*)aGestureRecognizer {
++  if (aGestureRecognizer == mEditable.mCaretTapRecognizer) {
++    NSRange range = [self selectedRange];
++    const BOOL editableInteractionActive =
++        mEditable.mEditableTextInteraction != nil &&
++        mEditable.mEditableTextInteraction.view == self;
++    const BOOL nonEditableInteractionActive =
++        mEditable.mNonEditableTextInteraction != nil &&
++        mEditable.mNonEditableTextInteraction.view == self;
++    const BOOL hasValidSelection = range.location != NSNotFound;
++    BOOL touchesLegacySelection = NO;
++    if (nonEditableInteractionActive && hasValidSelection && range.length > 0) {
++      touchesLegacySelection = [self
++          legacySelectionContainsPoint:[aGestureRecognizer locationInView:self]
++                                range:range];
++      if (touchesLegacySelection) {
++        [NSObject
++            cancelPreviousPerformRequestsWithTarget:self
++                                           selector:@selector(updateEditMenu)
++                                             object:nil];
++        [self performSelector:@selector(updateEditMenu)
++                   withObject:nil
++                   afterDelay:0
++                      inModes:@[ NSRunLoopCommonModes ]];
++        NSLog(@"[GeminiGecko][GeckoSelection] legacy-menu schedule selection={%lu,%lu}",
++              (unsigned long)range.location, (unsigned long)range.length);
++      }
++    }
++    // For read-only content, UIKit owns taps on the selection body and around
++    // its native handles. Gecko's generic tap is admitted only for a clear
++    // outside tap, where its sole job is to collapse the stale Gecko selection.
++    // This keeps native selection/dragging intact while restoring normal
++    // tap-away dismissal of the blue selection highlight.
++    const BOOL shouldBegin =
++        !mEditable.mTextInteractionInProgress && [self isFirstResponder] &&
++        hasValidSelection &&
++        ((editableInteractionActive && range.length == 0) ||
++         (nonEditableInteractionActive && range.length > 0 &&
++          !touchesLegacySelection));
++    NSLog(@"[GeminiGecko][GeckoSelection] caret-tap shouldBegin=%d touchesSelection=%d editable=%d nonEditable=%d interaction=%d responder=%d selection={%lu,%lu}",
++          shouldBegin ? 1 : 0, touchesLegacySelection ? 1 : 0,
++          editableInteractionActive ? 1 : 0,
++          nonEditableInteractionActive ? 1 : 0,
++          mEditable.mTextInteractionInProgress ? 1 : 0,
++          [self isFirstResponder] ? 1 : 0, (unsigned long)range.location,
++          (unsigned long)range.length);
++    return shouldBegin;
++  }
++
 +  if (aGestureRecognizer != mEditable.mSelectionHandlePanRecognizer) {
 +    return YES;
 +  }
@@ -126577,6 +126761,187 @@ index 0000000000000000000000000000000000000000..24eeaa8bd3a62fd418478953d29bc157
 +// MARK: - ChildView (Legacy)
 +
 +@implementation ChildView (Legacy)
++
++- (BOOL)legacySelectionContainsPoint:(CGPoint)aPoint range:(NSRange)aRange {
++  if (aRange.location == NSNotFound || aRange.length == 0) {
++    return NO;
++  }
++
++  widget::TextInputHandler* handler = [self textHandler];
++  if (!handler) {
++    // Fail closed if Gecko cannot provide geometry. Protecting a live native
++    // selection is safer than stealing its gesture just to dismiss it.
++    return YES;
++  }
++
++  // Keep a generous halo around the actual endpoint handles first.
++  const CGFloat handleTouchHalo = 24.0;
++  EndpointRects endpoints =
++      [self visibleHandleRectsForRange:aRange handler:handler];
++  if (endpoints.hasStart) {
++    CGRect rect = CGRectInset(endpoints.startRect, -handleTouchHalo,
++                              -handleTouchHalo);
++    if (CGRectContainsPoint(CGRectStandardize(rect), aPoint)) {
++      return YES;
++    }
++  }
++  if (endpoints.hasEnd) {
++    CGRect rect =
++        CGRectInset(endpoints.endRect, -handleTouchHalo, -handleTouchHalo);
++    if (CGRectContainsPoint(CGRectStandardize(rect), aPoint)) {
++      return YES;
++    }
++  }
++
++  uint32_t documentLength = 0;
++  const BOOL isSelectAll =
++      handler->TextLength(documentLength) && aRange.location == 0 &&
++      aRange.length >= documentLength;
++
++  // For ordinary selections, protect UIKit's whole native selection geometry
++  // (plus a touch halo). This is intentionally broader than glyph hit-testing:
++  // touching near selected text or a grabber must never be mistaken for a
++  // tap-away dismissal while the user is trying to adjust the range.
++  //
++  // Select All is the exception. Legacy multi-line geometry contains
++  // full-width filler rectangles for the blue highlight, so using those rects
++  // would classify nearly every visible blank area as part of the selection
++  // and make Select All impossible to dismiss. Select All therefore falls
++  // through to the precise character hit-test below.
++  if (!isSelectAll) {
++    ChildViewTextRange* textRange = [self textRangeForRange:aRange];
++    if (!textRange) {
++      return YES;
++    }
++    const CGFloat selectionTouchHalo = 24.0;
++    for (UITextSelectionRect* selectionRect in
++         [self selectionRectsForRange:textRange]) {
++      CGRect rect = selectionRect.rect;
++      if (CGRectIsEmpty(rect) || CGRectIsNull(rect)) {
++        continue;
++      }
++      rect = CGRectInset(rect, -selectionTouchHalo, -selectionTouchHalo);
++      if (CGRectContainsPoint(CGRectStandardize(rect), aPoint)) {
++        return YES;
++      }
++    }
++    return NO;
++  }
++
++  // For Select All, hit-test only the real character nearest the tap.
++  // closestPositionToPoint: gives us the neighboring document offset; querying
++  // a one-character Gecko text rect keeps whitespace outside the glyph run from
++  // counting as selected while still leaving normal taps on selected text under
++  // UIKit's ownership. Check the previous character as well because a tap can
++  // resolve to either side of the nearest insertion point.
++  ChildViewTextPosition* nearest =
++      [self textPosForPosition:[self closestPositionToPoint:aPoint]];
++  if (!nearest) {
++    return NO;
++  }
++
++  const NSUInteger selectionStart = aRange.location;
++  const NSUInteger selectionEnd = NSMaxRange(aRange);
++  const NSUInteger nearestOffset = [self clampOffset:nearest.offset];
++  NSUInteger candidates[2] = {NSNotFound, NSNotFound};
++  NSUInteger candidateCount = 0;
++  if (nearestOffset >= selectionStart && nearestOffset < selectionEnd) {
++    candidates[candidateCount++] = nearestOffset;
++  }
++  if (nearestOffset > selectionStart && nearestOffset - 1 < selectionEnd) {
++    candidates[candidateCount++] = nearestOffset - 1;
++  }
++
++  const CGFloat bodyTouchHalo = 8.0;
++  for (NSUInteger i = 0; i < candidateCount; i++) {
++    NSRange visibleRange = NSMakeRange(candidates[i], 1);
++    NSRange geckoRange = [self geckoRangeForVisibleRange:visibleRange];
++    if (geckoRange.location == NSNotFound || geckoRange.length == 0) {
++      continue;
++    }
++
++    LayoutDeviceIntRect deviceRect;
++    if (!handler->TextRectForRange(geckoRange, deviceRect)) {
++      continue;
++    }
++    CGRect rect =
++        DevPixelsToUIKitPoints(deviceRect, [self contentScaleFactor]);
++    if (![self clipToSelectionBounds:&rect]) {
++      continue;
++    }
++    rect = CGRectInset(rect, -bodyTouchHalo, -bodyTouchHalo);
++    if (CGRectContainsPoint(CGRectStandardize(rect), aPoint)) {
++      return YES;
++    }
++  }
++
++  return NO;
++}
++
++- (void)updateLegacySelectionLifecycle {
++  if (mEditable.mSelectionDisplayInteraction != nil ||
++      !mEditable.mNonEditableTextInteraction ||
++      mEditable.mNonEditableTextInteraction.view != self) {
++    mEditable.mLegacySelectionWasNonEmpty = NO;
++    return;
++  }
++
++  NSRange range = [self selectedRange];
++  const BOOL hasSelection =
++      range.location != NSNotFound && range.length > 0;
++  if (hasSelection) {
++    mEditable.mLegacySelectionWasNonEmpty = YES;
++    return;
++  }
++
++  if (!mEditable.mLegacySelectionWasNonEmpty ||
++      mEditable.mLegacySelectionResetPending) {
++    return;
++  }
++
++  mEditable.mLegacySelectionWasNonEmpty = NO;
++  mEditable.mLegacySelectionResetPending = YES;
++  [self performSelector:@selector(applyLegacySelectionReset)
++             withObject:nil
++             afterDelay:0
++                inModes:@[ NSRunLoopCommonModes ]];
++}
++
++- (void)applyLegacySelectionReset {
++  mEditable.mLegacySelectionResetPending = NO;
++
++  if (mEditable.mSelectionDisplayInteraction != nil ||
++      !mEditable.mNonEditableTextInteraction ||
++      mEditable.mNonEditableTextInteraction.view != self) {
++    return;
++  }
++
++  NSRange range = [self selectedRange];
++  if (range.location != NSNotFound && range.length > 0) {
++    mEditable.mLegacySelectionWasNonEmpty = YES;
++    return;
++  }
++
++  UITextInteraction* oldInteraction = mEditable.mNonEditableTextInteraction;
++  [[UIMenuController sharedMenuController] hideMenuFromView:self];
++  [self setLegacyGrabbersHidden:YES];
++  [self removeInteraction:oldInteraction];
++  oldInteraction.textInput = nil;
++  oldInteraction.delegate = nil;
++  [oldInteraction release];
++
++  mEditable.mNonEditableTextInteraction = [[UITextInteraction
++      textInteractionForMode:UITextInteractionModeNonEditable] retain];
++  mEditable.mNonEditableTextInteraction.textInput = self;
++  mEditable.mNonEditableTextInteraction.delegate = self;
++  [self addInteraction:mEditable.mNonEditableTextInteraction];
++  [self configureLegacyNonEditableTextInteractionGestures];
++
++  [self setNeedsLayout];
++  [self setNeedsDisplay];
++  NSLog(@"[GeminiGecko][GeckoSelection] legacy-selection-reset selection={%lu,%lu}",
++        (unsigned long)range.location, (unsigned long)range.length);
++}
 +
 +- (void)configureLegacyNonEditableTextInteractionGestures {
 +  if (!mEditable.mNonEditableTextInteraction) {
@@ -133277,7 +133642,7 @@ index 027dbf683744719c948f44cbf5de70c36a79c76e..85efe425746a28fcace5018b3950baec
    void OnSizeChanged(const mozilla::gfx::IntSize& aSize);
  
 diff --git a/widget/uikit/nsWindow.mm b/widget/uikit/nsWindow.mm
-index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254fb15992c 100644
+index ba3fc1051a01546f91741c71c68070c9a72bea65..7ecd45a94e2aa6673f216245486228e7f5532ca6 100644
 --- a/widget/uikit/nsWindow.mm
 +++ b/widget/uikit/nsWindow.mm
 @@ -11,7 +11,6 @@
@@ -133464,7 +133829,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
    self.opaque = YES;
    self.alpha = 1.0;
  
-@@ -177,10 +196,22 @@ - (id)initWithFrame:(CGRect)inFrame geckoChild:(nsWindow*)inChild {
+@@ -177,10 +196,25 @@ - (id)initWithFrame:(CGRect)inFrame geckoChild:(nsWindow*)inChild {
        [[UITapGestureRecognizer alloc] initWithTarget:self
                                                action:@selector(handleTap:)];
    tapRecognizer.numberOfTapsRequired = 1;
@@ -133483,13 +133848,16 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
 +                                               geckoChild:inChild
 +                                           pointerSupport:mPointerSupport];
 +  [self setupTextInput];
++  mEditable.mCaretTapRecognizer = tapRecognizer;
++  tapRecognizer.delegate = (id<UIGestureRecognizerDelegate>)self;
++
 +  [mPointerSupport requireTextInteractionsToFail:@[
 +    mEditable.mEditableTextInteraction, mEditable.mNonEditableTextInteraction
 +  ]];
  
    // This is managed with weak references by the notification center so that we
    // do not need to call removeObserver.
-@@ -200,18 +231,28 @@ - (id)initWithFrame:(CGRect)inFrame geckoChild:(nsWindow*)inChild {
+@@ -200,18 +234,28 @@ - (id)initWithFrame:(CGRect)inFrame geckoChild:(nsWindow*)inChild {
  }
  
  - (void)widgetDestroyed {
@@ -133521,7 +133889,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
    if (!mGeckoChild) {
      return;
    }
-@@ -222,119 +263,67 @@ - (void)activateWindow:(NSNotification*)notification {
+@@ -222,119 +266,67 @@ - (void)activateWindow:(NSNotification*)notification {
  }
  
  - (void)deactivateWindow:(NSNotification*)notification {
@@ -133631,11 +133999,11 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
 +    }
    }
 -}
--
+ 
 -- (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
 -  ALOG("[ChildView[%p] touchesEnded", self);
 -  if (!mGeckoChild) return;
- 
+-
 -  [self sendTouchEvent:eTouchEnd touches:touches widget:mGeckoChild];
 -  for (UITouch* touch : touches) {
 -    [mTouches removeObjectForKey:touch];
@@ -133678,7 +134046,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
    if (!mGeckoChild ||
        mGeckoChild->GetWindowType() != nsIWidget::WindowType::TopLevel) {
      return;
-@@ -345,19 +334,94 @@ - (void)layoutSubviews {
+@@ -345,19 +337,94 @@ - (void)layoutSubviews {
                          self.frame.origin.y * scaleFactor,
                          self.frame.size.width * scaleFactor,
                          self.frame.size.height * scaleFactor, false);
@@ -133726,13 +134094,13 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
 +  safeAreaInsets.bottom = 0;
 +
 +  mGeckoChild->UpdateSafeAreaInsets(safeAreaInsets);
-+}
-+
+ }
+ 
 +- (void)safeAreaInsetsDidChange {
 +  [super safeAreaInsetsDidChange];
 +  [self updateSafeAreaInsets];
- }
- 
++}
++
 +// MARK: - First responder
 +
  - (BOOL)canBecomeFirstResponder {
@@ -133776,7 +134144,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  - (void)setNeedsDisplayInRect:(CGRect)aRect {
    if ([self isUsingMainThreadOpenGL]) {
      // Draw without calling drawRect. This prevent us from
-@@ -405,7 +469,6 @@ - (BOOL)isUsingMainThreadOpenGL {
+@@ -405,7 +472,6 @@ - (BOOL)isUsingMainThreadOpenGL {
  }
  
  - (void)drawUsingOpenGL {
@@ -133784,7 +134152,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
    AUTO_PROFILER_LABEL("ChildView::drawUsingOpenGL", OTHER);
  
    if (!mGeckoChild->IsVisible()) return;
-@@ -549,85 +612,7 @@ - (void)updateLayer {
+@@ -549,85 +615,7 @@ - (void)updateLayer {
    [(ChildView*)[self superview] updateRootCALayer];
  }
  
@@ -133871,7 +134239,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  
  #ifdef ACCESSIBILITY
  // MUIRootAccessible
-@@ -738,47 +723,58 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -738,47 +726,58 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
  
  NS_IMPL_ISUPPORTS_INHERITED(nsWindow, nsIWidget, nsWindow);
  
@@ -133949,7 +134317,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
    // Set defaults which can be overriden from aInitData in BaseCreate
    mWindowType = WindowType::TopLevel;
    mBorderStyle = BorderStyle::Default;
-@@ -826,6 +822,8 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -826,6 +825,8 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
    }
    mTextInputHandler = nullptr;
  
@@ -133958,7 +134326,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
    [mNativeView widgetDestroyed];
  
    nsCOMPtr<nsIWidget> kungFuDeathGrip(this);
-@@ -834,14 +832,85 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -834,14 +835,85 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
  
    // ReportDestroyEvent();
  
@@ -134044,7 +134412,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
      if (aState) {
        if (mParent) {
          [mParent->mNativeView bringSubviewToFront:mNativeView];
-@@ -852,6 +921,27 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -852,6 +924,27 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
    }
  }
  
@@ -134072,7 +134440,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  void nsWindow::Move(const DesktopPoint& aPoint) {
    if (!mNativeView || (mBounds.x == aPoint.x && mBounds.y == aPoint.y)) {
      return;
-@@ -940,22 +1030,28 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -940,22 +1033,28 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
    ReportSizeModeEvent(aMode);
  }
  
@@ -134114,7 +134482,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
    }
  }
  
-@@ -982,6 +1078,10 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -982,6 +1081,10 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
  void nsWindow::ReportSizeEvent() {
    LayoutDeviceIntRect innerBounds = GetClientBounds();
  
@@ -134125,7 +134493,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
    if (mWidgetListener) {
      mWidgetListener->WindowResized(this, innerBounds.Size());
    }
-@@ -992,45 +1092,163 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -992,45 +1095,163 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
  }
  
  LayoutDeviceIntRect nsWindow::GetScreenBounds() {
@@ -134301,7 +134669,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
      // TODO(m_kato):
      // It is unnecessary to call reloadInputViews with changingEnabledState if
      // virtual keyboard is disappeared.
-@@ -1050,16 +1268,65 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -1050,16 +1271,65 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
    return mInputContext;
  }
  
@@ -134367,7 +134735,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  void nsWindow::SetBackgroundColor(const nscolor& aColor) {
    mNativeView.backgroundColor = [UIColor colorWithRed:NS_GET_R(aColor)
                                                  green:NS_GET_G(aColor)
-@@ -1067,6 +1334,13 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -1067,6 +1337,13 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
                                                  alpha:NS_GET_A(aColor)];
  }
  
@@ -134381,7 +134749,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  void* nsWindow::GetNativeData(uint32_t aDataType) {
    void* retVal = nullptr;
  
-@@ -1110,6 +1384,44 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -1110,6 +1387,44 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
    return [UIScreen mainScreen].scale;
  }
  
@@ -134426,7 +134794,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  int32_t nsWindow::RoundsWidgetCoordinatesTo() {
    if (BackingScaleFactor() == 2.0) {
      return 2;
-@@ -1117,10 +1429,156 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -1117,10 +1432,156 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
    return 1;
  }
  
@@ -134583,7 +134951,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  void nsWindow::HandleMainThreadCATransaction() {
    // Trigger a synchronous OMTC composite. This will call NextSurface and
    // NotifySurfaceReady on the compositor thread to update mNativeLayerRoot's
-@@ -1198,6 +1656,8 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -1198,6 +1659,8 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
    }
  }
  
@@ -134592,7 +134960,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  EventDispatcher* nsWindow::GetEventDispatcher() const {
    if (mIOSView) {
      return mIOSView->mEventDispatcher;
-@@ -1205,28 +1665,131 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
+@@ -1205,28 +1668,131 @@ - (UIAccessibilityContainerType)accessibilityContainerType {
    return nullptr;
  }
  
@@ -134738,7 +135106,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  NS_IMPL_ISUPPORTS(IOSView, nsIGeckoViewEventDispatcher, nsIGeckoViewView)
  
  nsresult IOSView::GetInitData(JSContext* aCx,
-@@ -1247,6 +1810,52 @@ - (UIView*)view {
+@@ -1247,6 +1813,52 @@ - (UIView*)view {
    return mWindow ? (UIView*)mWindow->GetNativeData(NS_NATIVE_WIDGET) : nil;
  }
  
@@ -134791,7 +135159,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  - (void)close {
    if (mWindow) {
      if (IOSView* iosView = mWindow->GetIOSView()) {
-@@ -1260,6 +1869,10 @@ - (void)close {
+@@ -1260,6 +1872,10 @@ - (void)close {
      mOuterWindow = nullptr;
    }
  }
@@ -134802,7 +135170,7 @@ index ba3fc1051a01546f91741c71c68070c9a72bea65..e37779278e2ee2d92181cebe15db4254
  @end
  
  id<GeckoViewWindow> GeckoViewOpenWindow(NSString* aId,
-@@ -1284,24 +1897,51 @@ - (void)close {
+@@ -1284,24 +1900,51 @@ - (void)close {
    iosView->mEventDispatcher->Attach(aDispatcher);
    iosView->mInitData.AssignUnderGetRule((CFDictionaryRef)aInitData);
  

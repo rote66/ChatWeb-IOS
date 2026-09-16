@@ -33,6 +33,215 @@ struct GGGeckoSession;
             callback:(id<EventCallback> _Nullable)callback;
 @end
 
+static const void *GGSelectionActionContextKey = &GGSelectionActionContextKey;
+
+@interface GGSelectionActionContext : NSObject
+@property(nonatomic, strong) GGHostEventDispatcher *dispatcher;
+@property(nonatomic, weak) UIView *view;
+- (void)executeAction:(NSString *)action;
+@end
+
+@implementation GGSelectionActionContext
+
+- (void)executeAction:(NSString *)action {
+    if (!action.length || !self.dispatcher) { return; }
+    NSLog(@"[GeminiGecko][Selection] execute action=%@", action);
+    [self.dispatcher sendToGecko:@"GeckoView:ExecuteSelectionAction"
+                         message:@{
+        @"id": action,
+    }];
+    UIView *view = self.view;
+    if (view) {
+        UIMenuController *menu = [UIMenuController sharedMenuController];
+        [menu hideMenuFromView:view];
+        menu.menuItems = nil;
+        objc_setAssociatedObject(view, GGSelectionActionContextKey, nil,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+}
+
+@end
+
+
+@interface UIView (GGSelectionActionMenu)
+- (nullable GGSelectionActionContext *)gg_geckoSelectionContext;
+- (void)gg_geckoSelectionCut:(id)sender;
+- (void)gg_geckoSelectionCopy:(id)sender;
+- (void)gg_geckoSelectionPaste:(id)sender;
+- (void)gg_geckoSelectionPastePlainText:(id)sender;
+- (void)gg_geckoSelectionDelete:(id)sender;
+- (void)gg_geckoSelectionSelectAll:(id)sender;
+@end
+
+@implementation UIView (GGSelectionActionMenu)
+
+- (GGSelectionActionContext *)gg_geckoSelectionContext {
+    UIView *candidate = self;
+    while (candidate) {
+        GGSelectionActionContext *context =
+            objc_getAssociatedObject(candidate, GGSelectionActionContextKey);
+        if (context) { return context; }
+        candidate = candidate.superview;
+    }
+    return nil;
+}
+
+- (void)gg_geckoSelectionCut:(id)sender {
+    (void)sender;
+    [[self gg_geckoSelectionContext] executeAction:@"org.mozilla.geckoview.CUT"];
+}
+
+- (void)gg_geckoSelectionCopy:(id)sender {
+    (void)sender;
+    [[self gg_geckoSelectionContext] executeAction:@"org.mozilla.geckoview.COPY"];
+}
+
+- (void)gg_geckoSelectionPaste:(id)sender {
+    (void)sender;
+    [[self gg_geckoSelectionContext] executeAction:@"org.mozilla.geckoview.PASTE"];
+}
+
+- (void)gg_geckoSelectionPastePlainText:(id)sender {
+    (void)sender;
+    [[self gg_geckoSelectionContext]
+        executeAction:@"org.mozilla.geckoview.PASTE_AS_PLAIN_TEXT"];
+}
+
+- (void)gg_geckoSelectionDelete:(id)sender {
+    (void)sender;
+    [[self gg_geckoSelectionContext] executeAction:@"org.mozilla.geckoview.DELETE"];
+}
+
+- (void)gg_geckoSelectionSelectAll:(id)sender {
+    (void)sender;
+    [[self gg_geckoSelectionContext] executeAction:@"org.mozilla.geckoview.SELECT_ALL"];
+}
+
+@end
+
+
+static UIMenuItem *GGSelectionMenuItemForAction(NSString *action) {
+    if ([action isEqualToString:@"org.mozilla.geckoview.CUT"]) {
+        return [[UIMenuItem alloc] initWithTitle:@"剪切"
+                                          action:@selector(gg_geckoSelectionCut:)];
+    }
+    if ([action isEqualToString:@"org.mozilla.geckoview.COPY"]) {
+        return [[UIMenuItem alloc] initWithTitle:@"复制"
+                                          action:@selector(gg_geckoSelectionCopy:)];
+    }
+    if ([action isEqualToString:@"org.mozilla.geckoview.PASTE"]) {
+        return [[UIMenuItem alloc] initWithTitle:@"粘贴"
+                                          action:@selector(gg_geckoSelectionPaste:)];
+    }
+    if ([action isEqualToString:@"org.mozilla.geckoview.PASTE_AS_PLAIN_TEXT"]) {
+        return [[UIMenuItem alloc] initWithTitle:@"粘贴为纯文本"
+                                          action:@selector(gg_geckoSelectionPastePlainText:)];
+    }
+    if ([action isEqualToString:@"org.mozilla.geckoview.DELETE"]) {
+        return [[UIMenuItem alloc] initWithTitle:@"删除"
+                                          action:@selector(gg_geckoSelectionDelete:)];
+    }
+    if ([action isEqualToString:@"org.mozilla.geckoview.SELECT_ALL"]) {
+        return [[UIMenuItem alloc] initWithTitle:@"全选"
+                                          action:@selector(gg_geckoSelectionSelectAll:)];
+    }
+    return nil;
+}
+
+static CGRect GGSelectionMenuAnchorRect(UIView *view, NSDictionary *message) {
+    NSDictionary *screenRect = [message[@"screenRect"] isKindOfClass:NSDictionary.class]
+        ? message[@"screenRect"] : nil;
+    if (screenRect) {
+        CGFloat left = [screenRect[@"left"] doubleValue];
+        CGFloat top = [screenRect[@"top"] doubleValue];
+        CGFloat right = [screenRect[@"right"] doubleValue];
+        CGFloat bottom = [screenRect[@"bottom"] doubleValue];
+        CGRect rect = CGRectMake(left, top, MAX(1.0, right - left),
+                                 MAX(1.0, bottom - top));
+        UIWindow *window = view.window;
+        if (window) {
+            CGRect windowRect = [window convertRect:rect
+                                 fromCoordinateSpace:window.screen.coordinateSpace];
+            rect = [view convertRect:windowRect fromView:window];
+        }
+        if (!CGRectIsNull(rect) && !CGRectIsInfinite(rect) && !CGRectIsEmpty(rect)) {
+            CGRect clipped = CGRectIntersection(rect, view.bounds);
+            if (!CGRectIsNull(clipped) && !CGRectIsInfinite(clipped) &&
+                !CGRectIsEmpty(clipped)) {
+                return clipped;
+            }
+        }
+    }
+    return CGRectMake(CGRectGetMidX(view.bounds), CGRectGetMidY(view.bounds), 1.0, 1.0);
+}
+
+static void GGShowSelectionActionMenu(GGHostEventDispatcher *dispatcher,
+                                      UIView *view,
+                                      NSDictionary *message) {
+    if (!dispatcher || !view || !message) { return; }
+    void (^show)(void) = ^{
+        NSArray *actions = [message[@"actions"] isKindOfClass:NSArray.class]
+            ? message[@"actions"] : @[];
+        if (!actions.count) {
+            [[UIMenuController sharedMenuController] hideMenuFromView:view];
+            return;
+        }
+
+        NSMutableArray<UIMenuItem *> *items = [NSMutableArray array];
+        for (id value in actions) {
+            if (![value isKindOfClass:NSString.class]) { continue; }
+            UIMenuItem *item = GGSelectionMenuItemForAction((NSString *)value);
+            if (item) { [items addObject:item]; }
+        }
+        if (!items.count) {
+            [[UIMenuController sharedMenuController] hideMenuFromView:view];
+            return;
+        }
+
+        GGSelectionActionContext *context = [[GGSelectionActionContext alloc] init];
+        context.dispatcher = dispatcher;
+        context.view = view;
+        objc_setAssociatedObject(view, GGSelectionActionContextKey, context,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+
+        BOOL wasFirstResponder = view.isFirstResponder;
+        BOOL responderReady = wasFirstResponder || [view becomeFirstResponder];
+        CGRect anchorRect = GGSelectionMenuAnchorRect(view, message);
+        UIMenuController *menu = [UIMenuController sharedMenuController];
+        menu.menuItems = items;
+        NSLog(@"[GeminiGecko][Selection] show actions=%@ responder=%d rect=%@",
+              actions, responderReady ? 1 : 0,
+              NSStringFromCGRect(anchorRect));
+        if (responderReady && view.window) {
+            [menu showMenuFromView:view rect:anchorRect];
+        }
+    };
+    if (NSThread.isMainThread) {
+        show();
+    } else {
+        dispatch_async(dispatch_get_main_queue(), show);
+    }
+}
+
+static void GGHideSelectionActionMenu(UIView *view, NSDictionary *message) {
+    if (!view) { return; }
+    void (^hide)(void) = ^{
+        NSString *reason = [message[@"reason"] isKindOfClass:NSString.class]
+            ? message[@"reason"] : @"(none)";
+        NSLog(@"[GeminiGecko][Selection] hide reason=%@", reason);
+        UIMenuController *menu = [UIMenuController sharedMenuController];
+        [menu hideMenuFromView:view];
+        menu.menuItems = nil;
+        objc_setAssociatedObject(view, GGSelectionActionContextKey, nil,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    };
+    if (NSThread.isMainThread) {
+        hide();
+    } else {
+        dispatch_async(dispatch_get_main_queue(), hide);
+    }
+}
+
 @interface GGBlockEventCallback : NSObject <EventCallback>
 @property(nonatomic, copy, nullable) void (^completion)(BOOL success);
 @end
@@ -249,7 +458,11 @@ static NSSet<NSString *> *GGSupportedSessionEvents(void) {
             @"GeckoView:DOMMetaViewportFit",
             @"GeckoView:PageTitleChanged",
             @"GeckoView:DOMWindowClose",
+            @"GeckoView:ShowSelectionAction",
+            @"GeckoView:HideSelectionAction",
             @"GeckoView:ExternalResponse",
+            @"GeckoView:ExternalResponseProgress",
+            @"GeckoView:ExternalResponseComplete",
             @"GeckoView:FocusRequest",
             @"GeckoView:FullScreenEnter",
             @"GeckoView:FullScreenExit",
@@ -1303,10 +1516,122 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
             return @YES;
         }
         if ([type isEqualToString:@"GeckoView:OnLoadRequest"]) {
-            return @YES;
+            NSString *uri = [message[@"uri"] isKindOfClass:NSString.class]
+                ? message[@"uri"] : @"";
+            BOOL userInitiated = [message[@"hasUserGesture"] boolValue] ||
+                [message[@"isUserInitiatedNavigation"] boolValue];
+            BOOL openExternally = NO;
+            if (uri.length && rawSession->callbacks.should_open_external_url) {
+                openExternally = rawSession->callbacks.should_open_external_url(
+                    rawSession->callbacks.context,
+                    uri.UTF8String,
+                    false,
+                    userInitiated);
+            }
+            NSLog(@"[GeminiGecko][Nav] load-request uri=%@ user=%d external=%d",
+                  uri ?: @"(none)", userInitiated ? 1 : 0,
+                  openExternally ? 1 : 0);
+            if (openExternally) {
+                // LoadURIDelegate's result means "the embedder handled it".
+                // YES aborts Gecko's own navigation after we hand the URL to
+                // the temporary browser/system browser; NO lets Gecko load it.
+                return @YES;
+            }
+            return @NO;
         }
         if ([type isEqualToString:@"GeckoView:OnNewSession"]) {
+            NSString *uri = [message[@"uri"] isKindOfClass:NSString.class]
+                ? message[@"uri"] : @"";
+            BOOL userInitiated = [message[@"hasUserGesture"] boolValue] ||
+                [message[@"isUserInitiatedNavigation"] boolValue];
+            BOOL handedOff = NO;
+            if (uri.length && rawSession->callbacks.should_open_external_url) {
+                handedOff = rawSession->callbacks.should_open_external_url(
+                    rawSession->callbacks.context,
+                    uri.UTF8String,
+                    true,
+                    userInitiated);
+            }
+            NSLog(@"[GeminiGecko][Nav] new-session uri=%@ user=%d handedOff=%d",
+                  uri ?: @"(none)", userInitiated ? 1 : 0,
+                  handedOff ? 1 : 0);
             return @NO;
+        }
+        if ([type isEqualToString:@"GeckoView:ShowSelectionAction"]) {
+            NSLog(@"[GeminiGecko][Selection] event actions=%@ collapsed=%@ editable=%@ rect=%@",
+                  message[@"actions"] ?: @[], message[@"collapsed"] ?: @"(none)",
+                  message[@"editable"] ?: @"(none)", message[@"screenRect"] ?: @"(none)");
+            UIView *view = rawSession->window ? [rawSession->window view] : nil;
+            GGShowSelectionActionMenu(rawSession->dispatcher, view, message ?: @{});
+            return nil;
+        }
+        if ([type isEqualToString:@"GeckoView:HideSelectionAction"]) {
+            UIView *view = rawSession->window ? [rawSession->window view] : nil;
+            GGHideSelectionActionMenu(view, message ?: @{});
+            return nil;
+        }
+        if ([type isEqualToString:@"GeckoView:ExternalResponse"]) {
+            NSString *url = [message[@"url"] isKindOfClass:NSString.class]
+                ? message[@"url"] : @"";
+            NSString *path = [message[@"localFilePath"] isKindOfClass:NSString.class]
+                ? message[@"localFilePath"] : @"";
+            NSString *filename = [message[@"filename"] isKindOfClass:NSString.class]
+                ? message[@"filename"] : @"";
+            NSString *mimeType = [message[@"mimeType"] isKindOfClass:NSString.class]
+                ? message[@"mimeType"] : @"";
+            int64_t contentLength = [message[@"contentLength"] respondsToSelector:@selector(longLongValue)]
+                ? [message[@"contentLength"] longLongValue] : -1;
+            BOOL downloadInApp = YES;
+            if (url.length && path.length && rawSession->callbacks.should_download_in_app) {
+                downloadInApp = rawSession->callbacks.should_download_in_app(
+                    rawSession->callbacks.context,
+                    url.UTF8String,
+                    path.UTF8String,
+                    filename.length ? filename.UTF8String : nullptr,
+                    mimeType.length ? mimeType.UTF8String : nullptr,
+                    contentLength);
+            }
+            NSLog(@"[GeminiGecko][Download] begin url=%@ file=%@ mime=%@ bytes=%lld path=%@ inApp=%d",
+                  url.length ? url : @"(none)",
+                  filename.length ? filename : @"(none)",
+                  mimeType.length ? mimeType : @"(none)",
+                  contentLength,
+                  path.length ? path : @"(none)",
+                  downloadInApp ? 1 : 0);
+            if (!downloadInApp) {
+                // ExternalResponseService interprets false as cancel. The
+                // Swift layer has already handed the original URL to the
+                // system browser, so discard the temporary capture here.
+                return @NO;
+            }
+            if (path.length && rawSession->callbacks.did_begin_download) {
+                rawSession->callbacks.did_begin_download(
+                    rawSession->callbacks.context,
+                    path.UTF8String,
+                    filename.length ? filename.UTF8String : nullptr,
+                    mimeType.length ? mimeType.UTF8String : nullptr,
+                    contentLength);
+            }
+            // ExternalResponseService suspends the channel until this boolean
+            // decision arrives. Returning nil cancels every attachment.
+            return @YES;
+        }
+        if ([type isEqualToString:@"GeckoView:ExternalResponseProgress"]) {
+            return @YES;
+        }
+        if ([type isEqualToString:@"GeckoView:ExternalResponseComplete"]) {
+            NSString *path = [message[@"localFilePath"] isKindOfClass:NSString.class]
+                ? message[@"localFilePath"] : @"";
+            BOOL success = [message[@"succeeded"] boolValue];
+            NSLog(@"[GeminiGecko][Download] complete success=%d path=%@",
+                  success ? 1 : 0, path.length ? path : @"(none)");
+            if (path.length && rawSession->callbacks.did_complete_download) {
+                rawSession->callbacks.did_complete_download(
+                    rawSession->callbacks.context,
+                    path.UTF8String,
+                    success);
+            }
+            return nil;
         }
         if ([type isEqualToString:@"GeckoView:ContentPermission"]) {
             // Match the reference iOS GeckoView handler when no app-level
@@ -1393,6 +1718,10 @@ GGGeckoResult GGGeckoSessionCreate(GGGeckoRuntime *runtime,
         GGGeckoStartupTrace("session-create.GeckoViewOpenWindow-failed");
         return GGGeckoResultSessionFailure;
     }
+    // Selection UI is owned by Gecko's UITextInteraction implementation now.
+    // Do not install the old bridge-level long-press fallback here: it adds a
+    // second UILongPressGestureRecognizer and posts delayed UIMenuController
+    // presentations, which can race a native selection ending/collapsing.
     GGGeckoStartupTrace("session-create.GeckoViewOpenWindow-ok");
     NSLog(@"[GeminiGecko] GeckoView window ready");
 
