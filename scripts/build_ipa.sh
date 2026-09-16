@@ -11,6 +11,7 @@ IPA_PATH="$DIST_DIR/ChatWeb.ipa"
 DEVELOPER_PATH="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 XCODEBUILD="$DEVELOPER_PATH/usr/bin/xcodebuild"
 STRIP_TOOL="$DEVELOPER_PATH/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip"
+DEPLOYMENT_TARGET_OVERRIDE="${IPHONEOS_DEPLOYMENT_TARGET_OVERRIDE:-}"
 
 fail() {
     echo "error: $*" >&2
@@ -40,6 +41,16 @@ mkdir -p "$DIST_DIR"
 # ignored by Git; prepare_gecko_prebuilt.sh extracts them on first use.
 bash "$PROJECT_ROOT/scripts/prepare_gecko_prebuilt.sh"
 
+XCODEBUILD_SETTINGS=(
+    CODE_SIGNING_ALLOWED=NO
+    CODE_SIGNING_REQUIRED=NO
+    ARCHS=arm64
+    ONLY_ACTIVE_ARCH=YES
+)
+if [ -n "$DEPLOYMENT_TARGET_OVERRIDE" ]; then
+    XCODEBUILD_SETTINGS+=("IPHONEOS_DEPLOYMENT_TARGET=$DEPLOYMENT_TARGET_OVERRIDE")
+fi
+
 DEVELOPER_DIR="$DEVELOPER_PATH" "$XCODEBUILD" \
     -quiet \
     -project "$PROJECT_PATH" \
@@ -48,10 +59,7 @@ DEVELOPER_DIR="$DEVELOPER_PATH" "$XCODEBUILD" \
     -sdk iphoneos \
     -destination "generic/platform=iOS" \
     -derivedDataPath "$DERIVED_DATA" \
-    CODE_SIGNING_ALLOWED=NO \
-    CODE_SIGNING_REQUIRED=NO \
-    ARCHS=arm64 \
-    ONLY_ACTIVE_ARCH=YES \
+    "${XCODEBUILD_SETTINGS[@]}" \
     build
 
 [ -d "$PRODUCT_APP" ] || fail "missing build product: $PRODUCT_APP"

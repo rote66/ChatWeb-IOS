@@ -3,6 +3,14 @@ mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-gemini-gecko-ios-arm64
 ac_add_options --enable-application=mobile/ios
 ac_add_options --target=aarch64-apple-ios
 ac_add_options --enable-ios-target=13.0
+# Xcode 27 SDK .tbd files contain newer arm64e.x1 target spellings that the
+# Firefox 154 bundled ld64.lld 21.1.8 cannot parse. Use Apple's ld64 for the
+# iOS final link; it understands the SDK shipped with the active Xcode.
+ac_add_options --enable-linker=ld64
+# Firefox 154 keeps a conservative guard for historical Apple ld64
+# cross-language LTO failures. The Xcode 27 linker used for this iOS build is
+# new enough for the Rust/C++ ThinLTO pipeline, so allow configure to proceed.
+export MOZ_LD64_KNOWN_GOOD=1
 ac_add_options --disable-webrtc
 ac_add_options --disable-crashreporter
 ac_add_options --disable-printing
@@ -24,6 +32,10 @@ ac_add_options --disable-jxl
 ac_add_options --enable-optimize=-Oz
 ac_add_options --enable-release
 ac_add_options --enable-rust-simd
+# Firefox 154's constexpr construction of the static atom table can exceed
+# clang 21's default evaluation step budget during a clean iOS build. Raise
+# only the C++ compile-time budget; this does not alter generated runtime code.
+export CXXFLAGS="-fconstexpr-steps=4194304"
 # Keep standards-track WebAssembly, but omit experimental proposals that the
 # ChatGPT/Gemini embedding does not rely on.
 ac_add_options --wasm-no-experimental
@@ -39,12 +51,11 @@ ac_add_options --disable-tests
 # Keep the full feature set but optimize Rust code for binary size as well.
 export RUSTC_OPT_LEVEL="z"
 
-# Let the Mach-O linker discard unreferenced sections and merge functions with
-# identical machine-code behavior after LTO. This is especially useful for the
-# dedicated UIKit runtime because Firefox product surfaces are intentionally
-# omitted while the core Gecko libraries remain large archives. Keep safe ICF;
-# address-significant functions must remain distinct.
-export LDFLAGS="-Wl,-dead_strip -Wl,-no_function_starts -Wl,--icf=safe -Wl,-mllvm,-enable-merge-functions"
+# Let Apple's Mach-O linker discard unreferenced sections after LTO and omit
+# function-start metadata. Firefox product surfaces are intentionally omitted
+# from this dedicated UIKit runtime, so dead stripping recovers a meaningful
+# amount of space without relying on lld-only ICF/merge-function flags.
+export LDFLAGS="-Wl,-dead_strip -Wl,-no_function_starts"
 
 # SpiderMonkey JIT is intentionally not disabled. UIKit keeps its Baseline
 # Interpreter/JIT and executable-memory path; the source patch makes the
