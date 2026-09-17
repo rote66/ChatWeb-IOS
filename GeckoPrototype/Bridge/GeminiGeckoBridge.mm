@@ -254,6 +254,22 @@ static void GGClearDataDidFinish(void *context, bool success) {
     }
 }
 
+- (void)exportConversationMarkdownWithCompletion:(void (^)(NSData * _Nullable))completion {
+    if (!_session || !completion) {
+        if (completion) { completion(nil); }
+        return;
+    }
+    GGJSONCompletionBox *box = [[GGJSONCompletionBox alloc] init];
+    box.completion = completion;
+    void *context = (__bridge_retained void *)box;
+    GGGeckoResult result = GGGeckoSessionExportConversationMarkdown(
+        _session, context, GGJSONDidFinish);
+    if (result != GGGeckoResultOK) {
+        CFBridgingRelease(context);
+        completion(nil);
+    }
+}
+
 - (void)importCookiesFromJSONData:(NSData *)jsonData
                        completion:(void (^)(BOOL))completion {
     if (!_runtime || !jsonData.length) {

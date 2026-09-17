@@ -91,6 +91,7 @@ typedef NS_ENUM(NSInteger, GeminiGeckoJITState) {
                     contextIds:(NSArray<NSString *> *)contextIds
                     completion:(void (^)(BOOL success))completion;
 - (void)exportCookiesWithCompletion:(void (^)(NSData * _Nullable jsonData))completion;
+- (void)exportConversationMarkdownWithCompletion:(void (^)(NSData * _Nullable jsonData))completion;
 - (void)importCookiesFromJSONData:(NSData *)jsonData
                        completion:(void (^)(BOOL success))completion;
 - (void)setDiskCacheSmartSizeEnabled:(BOOL)enabled

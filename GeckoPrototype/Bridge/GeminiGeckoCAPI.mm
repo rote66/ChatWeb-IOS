@@ -1816,6 +1816,25 @@ void GGGeckoSessionSetFocused(GGGeckoSession *session, bool focused) {
                              message:@{ @"focused": @(focused) }];
 }
 
+GGGeckoResult GGGeckoSessionExportConversationMarkdown(
+    GGGeckoSession *session,
+    void *context,
+    GGGeckoJSONCallback callback) {
+    if (!session || !callback || !NSThread.isMainThread) {
+        return GGGeckoResultInvalidArgument;
+    }
+
+    GGJSONEventCallback *eventCallback = [[GGJSONEventCallback alloc] init];
+    eventCallback.completion = ^(BOOL success, NSString *json) {
+        callback(context, success, json.length ? json.UTF8String : nullptr);
+    };
+    NSLog(@"[GeminiGecko][Export] conversation-markdown dispatch");
+    [session->dispatcher sendToGecko:@"ChatWeb:ExportConversationMarkdown"
+                             message:@{}
+                            callback:eventCallback];
+    return GGGeckoResultOK;
+}
+
 GGGeckoResult GGGeckoSessionSetUserAgentSettings(
     GGGeckoSession *session,
     const GGGeckoUserAgentSettings *settings) {

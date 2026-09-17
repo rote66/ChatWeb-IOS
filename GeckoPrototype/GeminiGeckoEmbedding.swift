@@ -173,6 +173,9 @@ final class GeminiGeckoEmbedding: GeckoEmbedding {
     func exportCookies(completion: @escaping (Data?) -> Void) {
         bridge.exportCookies(completion: completion)
     }
+    func exportConversationMarkdown(completion: @escaping (Data?) -> Void) {
+        bridge.exportConversationMarkdown(completion: completion)
+    }
     func importCookies(_ jsonData: Data, completion: @escaping (Bool) -> Void) {
         bridge.importCookies(fromJSONData: jsonData, completion: completion)
     }

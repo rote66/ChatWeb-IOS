@@ -5,7 +5,7 @@ FIREFOX_COMMIT=9cd094dbc3eac5df87a24e7a871e52880cb8cd42
 REFERENCE_PATCHSET_REPOSITORY=https://github.com/minh-ton/reynard-browser
 REFERENCE_PATCHSET_COMMIT=a0794ff252c5c52040bb4f7419dba110233d4102
 CANONICAL_PATCH=ChatWeb-Gecko.patch
-CANONICAL_PATCH_SHA256=8103d5b89eeebefcc08eed8c144e93cabc4445b3be4af8f40d5dd853fa9de7a3
+CANONICAL_PATCH_SHA256=6801c2337ad148918a9c854b17098f226ab2b01eb3376ca80c4c8b602c798e9c
 
 # The reference repository is an audit/input source only. The shipping project
 # does not embed its browser shell. ChatWeb-Gecko.patch is the single canonical

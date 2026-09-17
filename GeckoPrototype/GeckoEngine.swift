@@ -34,6 +34,7 @@ protocol GeckoEmbedding: AnyObject {
     func clearPermissions(baseDomain: String, completion: @escaping (Bool) -> Void)
     func migrateCookies(toShared: Bool, contextIds: [String], completion: @escaping (Bool) -> Void)
     func exportCookies(completion: @escaping (Data?) -> Void)
+    func exportConversationMarkdown(completion: @escaping (Data?) -> Void)
     func importCookies(_ jsonData: Data, completion: @escaping (Bool) -> Void)
     func setDiskCacheSmartSizeEnabled(_ enabled: Bool, completion: @escaping (Bool) -> Void)
     func setDiskCacheCapacityKB(_ capacityKB: Int, completion: @escaping (Bool) -> Void)
@@ -148,6 +149,9 @@ final class GeckoEngine: WebEngine {
     }
     func exportCookies(completion: @escaping (Data?) -> Void) {
         embedding.exportCookies(completion: completion)
+    }
+    func exportConversationMarkdown(completion: @escaping (Data?) -> Void) {
+        embedding.exportConversationMarkdown(completion: completion)
     }
     func importCookies(_ jsonData: Data, completion: @escaping (Bool) -> Void) {
         embedding.importCookies(jsonData, completion: completion)

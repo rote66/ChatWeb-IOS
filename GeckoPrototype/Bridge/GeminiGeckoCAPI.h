@@ -144,6 +144,10 @@ bool GGGeckoSessionCanGoBack(GGGeckoSession *session);
 bool GGGeckoSessionCanGoForward(GGGeckoSession *session);
 void GGGeckoSessionSetActive(GGGeckoSession *session, bool active);
 void GGGeckoSessionSetFocused(GGGeckoSession *session, bool focused);
+GGGeckoResult GGGeckoSessionExportConversationMarkdown(
+    GGGeckoSession *session,
+    void *context,
+    GGGeckoJSONCallback callback);
 GGGeckoResult GGGeckoSessionSetUserAgentSettings(
     GGGeckoSession *session,
     const GGGeckoUserAgentSettings *settings);
