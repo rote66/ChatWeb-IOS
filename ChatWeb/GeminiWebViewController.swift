@@ -21,6 +21,18 @@ extension GeminiWebViewController: QLPreviewControllerDataSource {
 }
 
 class GeminiWebViewController: UIViewController, WebContentController {
+    private struct ConversationMarkdownPayload: Decodable {
+        let success: Bool
+        let error: String?
+        let service: String?
+        let title: String?
+        let messageCount: Int?
+        let scanPasses: Int?
+        let reachedTop: Bool?
+        let reachedBottom: Bool?
+        let markdown: String?
+    }
+
     private static let chatGPTSessionContextId = "gvctxc001"
     private static let geminiSessionContextId = "gvctxc002"
     private static var didAttemptPendingCookieRestoreThisProcess = false
@@ -721,6 +733,114 @@ class GeminiWebViewController: UIViewController, WebContentController {
 
     func exportCookieSnapshot(completion: @escaping (Data?) -> Void) {
         engine.exportCookies(completion: completion)
+    }
+
+    func exportCurrentConversationMarkdown() {
+        engine.exportConversationMarkdown { [weak self] data in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard let data else {
+                    NSLog("[GeminiGecko][Export] no response service=%@",
+                          self.service == .chatGPT ? "ChatGPT" : "Gemini")
+                    self.showConversationExportFailure(error: nil)
+                    return
+                }
+                guard let payload = try? JSONDecoder().decode(ConversationMarkdownPayload.self,
+                                                               from: data) else {
+                    NSLog("[GeminiGecko][Export] invalid response bytes=%ld", data.count)
+                    self.showConversationExportFailure(error: nil)
+                    return
+                }
+                guard payload.success,
+                      let markdown = payload.markdown,
+                      !markdown.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    NSLog("[GeminiGecko][Export] unavailable service=%@ error=%@ messages=%ld scanPasses=%ld reachedTop=%d reachedBottom=%d",
+                          payload.service ?? (self.service == .chatGPT ? "ChatGPT" : "Gemini"),
+                          payload.error ?? "unknown",
+                          payload.messageCount ?? 0,
+                          payload.scanPasses ?? 0,
+                          payload.reachedTop == true ? 1 : 0,
+                          payload.reachedBottom == true ? 1 : 0)
+                    self.showConversationExportFailure(error: payload.error)
+                    return
+                }
+
+                do {
+                    let fileURL = try self.writeConversationMarkdown(
+                        markdown,
+                        title: payload.title,
+                        serviceName: payload.service
+                    )
+                    NSLog("[GeminiGecko][Export] markdown ready service=%@ messages=%ld scanPasses=%ld reachedTop=%d reachedBottom=%d file=%@",
+                          payload.service ?? (self.service == .chatGPT ? "ChatGPT" : "Gemini"),
+                          payload.messageCount ?? 0,
+                          payload.scanPasses ?? 0,
+                          payload.reachedTop == true ? 1 : 0,
+                          payload.reachedBottom == true ? 1 : 0,
+                          fileURL.lastPathComponent)
+                    self.presentConversationMarkdownShareSheet(fileURL)
+                } catch {
+                    NSLog("[GeminiGecko][Export] markdown write failed error=%@",
+                          String(describing: error))
+                    self.showConversationExportFailure(error: nil)
+                }
+            }
+        }
+    }
+
+    private func writeConversationMarkdown(_ markdown: String,
+                                           title: String?,
+                                           serviceName: String?) throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ChatWeb-Conversation-Exports", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory,
+                                                withIntermediateDirectories: true)
+
+        let fallbackTitle = serviceName ?? (service == .chatGPT ? "ChatGPT" : "Gemini")
+        let rawTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? title!
+            : fallbackTitle
+        let forbidden = CharacterSet(charactersIn: "/\\:\0")
+            .union(.newlines)
+            .union(.controlCharacters)
+        var safeTitle = rawTitle.components(separatedBy: forbidden).joined(separator: "-")
+        safeTitle = safeTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if safeTitle.isEmpty { safeTitle = fallbackTitle }
+        safeTitle = String(safeTitle.prefix(120))
+
+        var destination = directory.appendingPathComponent("\(safeTitle).md")
+        if FileManager.default.fileExists(atPath: destination.path) {
+            let stamp = Int(Date().timeIntervalSince1970)
+            destination = directory.appendingPathComponent("\(safeTitle)-\(stamp).md")
+        }
+        try Data(markdown.utf8).write(to: destination, options: .atomic)
+        return destination
+    }
+
+    private func presentConversationMarkdownShareSheet(_ fileURL: URL) {
+        let activity = UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
+        activity.popoverPresentationController?.sourceView = view
+        activity.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX,
+                                                                      y: view.bounds.maxY - 24,
+                                                                      width: 1,
+                                                                      height: 1)
+        topmostPresenter.present(activity, animated: true)
+    }
+
+    private func showConversationExportFailure(error: String?) {
+        let message: String
+        if error == "conversation-incomplete" {
+            message = "当前会话的历史消息没有完整加载完成，因此没有生成可能缺失内容的 Markdown。请保持网络连接后重试。"
+        } else {
+            message = "当前页面没有识别到可导出的 ChatGPT/Gemini 会话内容。请先打开一个会话后再试。"
+        }
+        let alert = UIAlertController(
+            title: "无法导出会话",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "好", style: .default))
+        topmostPresenter.present(alert, animated: true)
     }
 
     func applyUserAgentProfile(_ profile: WebUserAgentProfile) -> Bool {

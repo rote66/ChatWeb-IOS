@@ -233,6 +233,10 @@ final class RootViewController: UIViewController, UIDocumentPickerDelegate {
         sheet.addAction(UIAlertAction(title: "返回\(serviceName)首页", style: .default) { [weak controller] _ in
             controller?.loadHome()
         })
+        sheet.addAction(UIAlertAction(title: "导出当前会话为 Markdown", style: .default) {
+            [weak controller] _ in
+            controller?.exportCurrentConversationMarkdown()
+        })
         sheet.addAction(UIAlertAction(title: "设置&数据", style: .default) { [weak self, weak controller] _ in
             guard let self, let controller else { return }
             self.showSettingsMenu(for: controller)

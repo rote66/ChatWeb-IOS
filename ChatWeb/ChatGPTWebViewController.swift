@@ -27,6 +27,7 @@ protocol WebContentController: AnyObject {
     func clearWebsitePermissions(completion: @escaping (Bool) -> Void)
     func migrateLoginCookies(toShared: Bool, completion: @escaping (Bool) -> Void)
     func exportCookieSnapshot(completion: @escaping (Data?) -> Void)
+    func exportCurrentConversationMarkdown()
     func applyUserAgentProfile(_ profile: WebUserAgentProfile) -> Bool
     func reloadAfterUserAgentChange()
     func applyContentConfiguration(_ configuration: WebContentConfiguration,
