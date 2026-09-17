@@ -25,10 +25,10 @@ Starting from a clean checkout at the locked commit:
 
 ```bash
 git clone --depth 1 --single-branch --no-tags \
-  --branch FIREFOX_154_0_1_RELEASE --filter=blob:none \
+  --branch FIREFOX_156_0_RELEASE --filter=blob:none \
   https://github.com/mozilla-firefox/firefox.git build/firefox-src
 test "$(git -C build/firefox-src rev-parse HEAD)" = \
-  9cd094dbc3eac5df87a24e7a871e52880cb8cd42
+  3bf8f468258c2181f455e23d4ffcd6acb8f4cdb1
 test "$(git -C build/firefox-src rev-parse --is-shallow-repository)" = true
 (
   cd build/firefox-src

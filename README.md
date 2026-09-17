@@ -7,8 +7,8 @@ ChatWeb 是一个面向 iOS 13+ 的 UIKit 网页客户端，工程目标和 IPA 
 当前 Gecko 基线：
 
 ```text
-Firefox tag:    FIREFOX_154_0_1_RELEASE
-Firefox commit: 9cd094dbc3eac5df87a24e7a871e52880cb8cd42
+Firefox tag:    FIREFOX_156_0_RELEASE
+Firefox commit: 3bf8f468258c2181f455e23d4ffcd6acb8f4cdb1
 Target:         arm64 / iOS 13+
 Configuration:  Release + cross-language ThinLTO
 Content model:  UIKit single-process Gecko
@@ -20,7 +20,7 @@ Gecko 端的完整源码修改集中在一份
 `GeckoPrebuilt/GeckoCore-ios-arm64.zip`，因此修改 Swift/UIKit 层时不需要重新
 编译 Firefox/XUL。
 
-当前测试版本为 `1.1 (109)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
+当前测试版本为 `1.1 (127)`。Build 96 的 Gecko crash reason 已确认崩溃字段为
 `OpenerPolicy`：UIKit 单进程网络路径绕过 `DocumentChannel` 后，仍把仅适用于专用
 COOP/COEP remote type 和 browsing-context group 的 `require-corp` 组合策略写入
 当前 context，第二次刷新发生策略切换时被 Gecko 的 `CanSet` 校验拒绝。Build 97
@@ -526,7 +526,7 @@ git clone \
   --depth 1 \
   --single-branch \
   --no-tags \
-  --branch FIREFOX_154_0_1_RELEASE \
+  --branch FIREFOX_156_0_RELEASE \
   --filter=blob:none \
   https://github.com/mozilla-firefox/firefox.git \
   build/firefox-src
@@ -537,7 +537,7 @@ git clone \
 
 ```bash
 test "$(git -C build/firefox-src rev-parse HEAD)" = \
-  9cd094dbc3eac5df87a24e7a871e52880cb8cd42
+  3bf8f468258c2181f455e23d4ffcd6acb8f4cdb1
 git -C build/firefox-src rev-parse --is-shallow-repository
 ```
 
@@ -563,7 +563,7 @@ clang/lld、Node、sccache 等构建工具。只准备用户级工具链、不�
 `Failed to find an adequate linker`。工具链会保存在 `~/.mozbuild`，清理该目录
 后需要重新 bootstrap。
 
-Firefox 154 的 Taskcluster 配置锁定 Rust 1.94.1；它使用 LLVM 21.1.8，与上述
+Firefox 156 的 Taskcluster 配置锁定 Rust 1.94.1；它使用 LLVM 21.1.8，与上述
 bootstrap 下载的 Mozilla clang/lld 一致。不要让构建直接跟随会自动升级的
 `stable`。安装固定工具链及 iOS target：
 
@@ -729,12 +729,12 @@ git clone \
   --depth 1 \
   --single-branch \
   --no-tags \
-  --branch FIREFOX_154_0_1_RELEASE \
+  --branch FIREFOX_156_0_RELEASE \
   --filter=blob:none \
   https://github.com/mozilla-firefox/firefox.git \
   build/firefox-src
 test "$(git -C build/firefox-src rev-parse HEAD)" = \
-  9cd094dbc3eac5df87a24e7a871e52880cb8cd42
+  3bf8f468258c2181f455e23d4ffcd6acb8f4cdb1
 test "$(git -C build/firefox-src rev-parse --is-shallow-repository)" = true
 (
   cd build/firefox-src
@@ -811,14 +811,14 @@ git apply --check GeckoPort/ChatWeb-Gecko.patch
 `GeckoPrebuilt/MANIFEST.lock` 为准：
 
 ```text
-XUL bytes:     113568944
-XUL SHA256:    4f92d01d843c7a7d52371b0428d44a9acf3fd45a9df0a59863a09dd619fec538
+XUL bytes:     151239752
+XUL SHA256:    44df372b4e61cfac2adbf29dabaaf7c9747d0b127887af6c595f65f064e4e502
 Runtime files: 12
 ```
 
-对应 prebuilt zip 为 `42861545` B，SHA-256 为
-`f2aa6813a5a00a4023f952b928883d2dc0ef0c87db546a6134f8609d88ef2d38`。从 prebuilt
-构建与上面的完整源码构建均使用同一份 XUL manifest；源码构建还会从
+对应 prebuilt zip 为 `47985723` B。zip 内嵌同一份 `MANIFEST.lock`，展开时会校验
+XUL SHA-256、大小和 runtime 文件数。从 prebuilt 构建与上面的完整源码构建均使用
+同一份 XUL manifest；源码构建还会从
 `GeckoPort/mozconfig.ios13-arm64`
 读取 cross-language ThinLTO、safe ICF 和 MergeFunctions 参数。
 
@@ -895,7 +895,7 @@ idevicesyslog -p ChatWeb --no-colors > log.log
 ## License / upstream
 
 内嵌引擎基于 Mozilla 的
-[`FIREFOX_154_0_1_RELEASE`](https://github.com/mozilla-firefox/firefox/tree/FIREFOX_154_0_1_RELEASE)，
+[`FIREFOX_156_0_RELEASE`](https://github.com/mozilla-firefox/firefox/tree/FIREFOX_156_0_RELEASE)，
 Gecko/Firefox 源文件及其修改继续遵循文件内声明和
 [`MPL-2.0`](https://www.mozilla.org/MPL/2.0/) 要求。
 
