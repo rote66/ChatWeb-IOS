@@ -1,11 +1,11 @@
 # GeminiGecko source lock
 
-FIREFOX_TAG=FIREFOX_154_0_1_RELEASE
-FIREFOX_COMMIT=9cd094dbc3eac5df87a24e7a871e52880cb8cd42
+FIREFOX_TAG=FIREFOX_156_0_RELEASE
+FIREFOX_COMMIT=3bf8f468258c2181f455e23d4ffcd6acb8f4cdb1
 REFERENCE_PATCHSET_REPOSITORY=https://github.com/minh-ton/reynard-browser
 REFERENCE_PATCHSET_COMMIT=a0794ff252c5c52040bb4f7419dba110233d4102
 CANONICAL_PATCH=ChatWeb-Gecko.patch
-CANONICAL_PATCH_SHA256=6801c2337ad148918a9c854b17098f226ab2b01eb3376ca80c4c8b602c798e9c
+CANONICAL_PATCH_SHA256=1fe98f0b909e6843a330d914b7c18183305cf7473be0ac84f524183bc33b74fa
 
 # The reference repository is an audit/input source only. The shipping project
 # does not embed its browser shell. ChatWeb-Gecko.patch is the single canonical
