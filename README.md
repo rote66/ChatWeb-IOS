@@ -441,6 +441,24 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   bash scripts/build_ipa.sh
 ```
 
+Xcode 27 已不再把 iOS 13 列在 SDK 的官方 deployment target 范围内。当前使用
+一个**未公开、非官方的 Xcode build setting 绕过方法**，让这项检查继续只作为
+warning，而不是阻断构建：
+
+```text
+__DIAGNOSE_INVALID_DEPLOYMENT_TARGET_AS_ERROR = NO
+```
+
+同时仍然保持真实的最低系统版本：
+
+```text
+IPHONEOS_DEPLOYMENT_TARGET = 13.0
+```
+
+不要再通过命令行把 deployment target 覆盖到 15.0。实际产物应同时满足
+`MinimumOSVersion = 13.0`，且 App / XUL 的 `LC_BUILD_VERSION minos`
+均为 13.0。
+
 输出固定为：
 
 ```text

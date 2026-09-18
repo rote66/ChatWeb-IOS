@@ -18,6 +18,8 @@ for key in NSCameraUsageDescription NSMicrophoneUsageDescription NSSpeechRecogni
 done
 
 /usr/bin/grep -q 'IPHONEOS_DEPLOYMENT_TARGET = 13.0;' "$PROJECT_FILE" || fail "deployment target is not 13.0"
+/usr/bin/grep -q '__DIAGNOSE_INVALID_DEPLOYMENT_TARGET_AS_ERROR = NO;' "$PROJECT_FILE" \
+    || fail "Xcode deployment-target diagnostic bypass is not disabled"
 
 SOURCE_MATCHES="$(/usr/bin/grep -R -n -E 'WKHTTPCookieStore|HTTPCookieStorage|customUserAgent|User-Agent|allowsAnyHTTPSCertificate|SecTrustEvaluate|setAllowsAnyHTTPSCertificate|dlopen\(|dlsym\(|ptrace\(|task_for_pid\(|platform-application|com\.apple\.private' "$PROJECT_ROOT/ChatWeb" "$PROJECT_ROOT/GeckoPrototype" --include='*.swift' --include='*.m' --include='*.mm' --include='*.h' --include='*.plist' || true)"
 [ -z "$SOURCE_MATCHES" ] || fail "forbidden API or entitlement marker found:\n$SOURCE_MATCHES"
@@ -35,4 +37,4 @@ if [ "${1:-}" != "" ]; then
     fi
 fi
 
-echo "Static checks passed: permissions, iOS 13 target, cookie/security/private API markers, entitlements"
+echo "Static checks passed: permissions, iOS 13 target, Xcode deployment-target diagnostic bypass, cookie/security/private API markers, entitlements"
