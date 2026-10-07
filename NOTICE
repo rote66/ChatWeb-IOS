@@ -1,0 +1,56 @@
+ChatWeb
+License and upstream notices
+
+Project license
+
+Unless a file contains a different license notice, ChatWeb's original
+source code and project-owned additions are available under the Mozilla
+Public License, version 2.0 (SPDX identifier: MPL-2.0). The complete license
+text is in LICENCE at the root of this repository.
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this file,
+You can obtain one at https://mozilla.org/MPL/2.0/.
+
+Copyright in each contribution remains with its respective copyright
+holder. Existing third-party copyright and license notices continue to
+apply to the corresponding files and components.
+
+Mozilla Firefox and Gecko
+
+The embedded Gecko runtime and exported headers are built from Mozilla
+Firefox with the canonical source patch in GeckoPort/ChatWeb-Gecko.patch.
+The source revision and patch hash are recorded in GeckoPort/PATCHSET.lock;
+the prebuilt runtime's revision and hash are in GeckoPrebuilt/MANIFEST.lock.
+
+Firefox tag: FIREFOX_156_0_RELEASE
+Firefox commit: 3bf8f468258c2181f455e23d4ffcd6acb8f4cdb1
+Source: https://github.com/mozilla-firefox/firefox
+License: https://www.mozilla.org/MPL/2.0/
+
+Gecko/Firefox source files and modifications retain their applicable
+file-level licenses. Third-party libraries and resources included in
+Firefox retain their own licenses; this project's MPL-2.0 grant does not
+replace those licenses. Consult the pinned upstream source's license
+notices and toolkit/content/license.html for Mozilla's third-party notices.
+
+Reynard Gecko patches
+
+Parts of the initial iOS target/toolchain, UIKit widget, process/bootstrap,
+GeckoView embedding and SpiderMonkey JIT memory adaptations were adapted
+from or informed by the MPL-2.0 Gecko patches in minh-ton/reynard-browser.
+
+Reference: https://github.com/minh-ton/reynard-browser
+Reference commit: a0794ff252c5c52040bb4f7419dba110233d4102
+
+GeckoPort/PATCHSET.lock preserves this attribution and reference revision.
+ChatWeb's canonical patch includes subsequent project modifications. The
+GPL-3.0 Reynard browser application and its UI are not included or linked.
+
+Source for the prebuilt runtime
+
+The corresponding source inputs are the exact Firefox revision above,
+GeckoPort/ChatWeb-Gecko.patch, the build configuration under GeckoPort/,
+and the runtime staging, trimming, packaging and path-sanitizing scripts
+under scripts/. README.md and GeckoPort/README.md describe how to obtain
+the pinned source and rebuild GeckoPrebuilt/GeckoCore-ios-arm64.zip.
