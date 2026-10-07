@@ -47,6 +47,8 @@ for header in GeckoViewSwiftSupport.h IOSBootstrap.h GeckoViewRuntimeSupport.h; 
     /bin/cp -f "$HEADER_ROOT/$header" "$WORK_DIR/include/GeckoView/$header"
 done
 
+python3 "$PROJECT_ROOT/scripts/sanitize_gecko_paths.py" "$WORK_DIR/Runtime"
+
 XUL_SHA256="$(/usr/bin/shasum -a 256 "$WORK_DIR/Runtime/XUL" | /usr/bin/awk '{print $1}')"
 XUL_BYTES="$(/usr/bin/stat -f '%z' "$WORK_DIR/Runtime/XUL")"
 RUNTIME_FILES="$(/usr/bin/find "$WORK_DIR/Runtime" -type f | /usr/bin/wc -l | /usr/bin/tr -d ' ')"
